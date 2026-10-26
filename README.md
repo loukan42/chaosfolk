@@ -8,7 +8,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![MIT license](https://img.shields.io/badge/license-MIT-dcf78b)](LICENSE)
 
-[Why](#why) · [How](#how) · [What you get](#what-you-get) · [Try the demo](#try-the-demo) · [Use it on your app](#use-it-on-your-app)
+[Why](#why) · [How](#how) · [What you get](#what-you-get) · [Install](#install) · [Try the demo](#try-the-demo) · [Use it on your app](#use-it-on-your-app)
 
 </div>
 
@@ -64,57 +64,131 @@ Both recordings come from Chaosfolk auditing its own report with four simulated
 users. The score is a [documented heuristic](docs/scoring.md) for one session,
 not a measure of total coverage.
 
+## Install
+
+Chaosfolk has two parts: the **engine**, a Python program that drives the
+browsers, and the **skill**, which teaches your coding agent how to use it.
+Install both once; they work in every project.
+
+### Before you start
+
+Open a terminal and check these three commands. Each one should print a version.
+
+```bash
+python --version
+node --version
+git --version
+```
+
+| You need | Version | If it is missing |
+| --- | --- | --- |
+| Python | 3.12 or newer | [python.org/downloads](https://www.python.org/downloads/). On Windows, tick "Add python.exe to PATH". |
+| Node.js | 22.20 or newer | [nodejs.org](https://nodejs.org/), LTS version |
+| Git | any | [git-scm.com/downloads](https://git-scm.com/downloads) |
+
+On macOS and Linux, type `python3` wherever this guide says `python`.
+
+### Step 1: install the engine
+
+Install `pipx`, a tool that installs Python programs so they work from any folder:
+
+```bash
+python -m pip install --user pipx
+python -m pipx ensurepath
+```
+
+**Close your terminal and open a new one**, then install Chaosfolk and its
+browser:
+
+```bash
+pipx install git+https://github.com/loukan42/chaosfolk.git
+chaosfolk install-browser
+chaosfolk check
+```
+
+`check` prints one line per requirement. Every line should end with `OK`,
+except the `chaosfolk-user` line, which only matters for Claude Code (step 3).
+
+### Step 2: add the skill to your coding agent
+
+Run the line for your agent. `-g` installs the skill for all your projects.
+
+| Agent | Command |
+| --- | --- |
+| Claude Code | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a claude-code` |
+| Codex | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a codex` |
+| Cursor | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a cursor` |
+| GitHub Copilot | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a github-copilot` |
+| Gemini CLI | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a gemini-cli` |
+| OpenCode | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a opencode` |
+| Windsurf | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a windsurf` |
+| Another agent | `npx skills add loukan42/chaosfolk --skill chaosfolk -g`, then pick it from the list |
+
+The installer is the [Skills CLI](https://github.com/vercel-labs/skills), which
+supports [over 70 agents](https://github.com/vercel-labs/skills/blob/main/docs/agents.md).
+Answer `y` if `npx` asks to download it. Then **restart your agent** or open a
+new session so it finds the skill.
+
+### Step 3: Claude Code only
+
+```bash
+chaosfolk install-agent
+```
+
+This adds the simulated user definition, which runs testers on a cheaper model
+and limits their tools. Restart Claude Code afterwards.
+
+### Check that it works
+
+Ask your agent: `Run chaosfolk check and tell me if anything is missing.` If it
+answers with the same `OK` lines, you are ready.
+
+Chaosfolk works best when your agent can start subagents, so testers run in
+parallel. Without subagents, the agent plays them one after another: the run
+takes longer and the testers are less independent.
+
+<details>
+<summary>Something went wrong?</summary>
+
+- **`chaosfolk: command not found`**: open a new terminal. If it still fails,
+  run `python -m pipx ensurepath` again, then open another new terminal.
+- **`pip` refuses with "externally managed environment"** (some Linux and
+  Homebrew setups): install pipx with your package manager instead, for example
+  `brew install pipx` or `sudo apt install pipx`.
+- **`npx: command not found`** or a Node.js version error: install the LTS
+  version from [nodejs.org](https://nodejs.org/), then open a new terminal.
+- **`chaosfolk check` shows a missing browser**: run `chaosfolk install-browser`
+  again. On Linux, `chaosfolk install-browser --with-deps` also installs the
+  system libraries Chromium needs.
+- **Your agent does not know Chaosfolk**: restart it, or check that you used
+  the `-a` value of the agent you actually use. `npx skills list -g` shows what
+  is installed.
+- **You prefer [uv](https://docs.astral.sh/uv/)**: `uv tool install git+https://github.com/loukan42/chaosfolk.git`
+  replaces the `pipx` steps.
+- **Manual installation**, or details for each agent: see the
+  [agent guide](docs/agents.md).
+
+</details>
+
+To update later, run `pipx upgrade chaosfolk` and `npx skills update -g`.
+
 ## Try the demo
 
 No AI agent or API key needed. The demo starts a small local app with a
 deliberate bug: a form that loses your draft when storage is full. It runs real
 browser trials on the broken and fixed versions, then writes the report.
 
-Requirements: Python 3.12+ and Git.
-
 ```bash
-git clone https://github.com/loukan42/chaosfolk.git
-cd chaosfolk
-python -m venv .venv
-```
-
-Activate the environment:
-
-```bash
-# macOS / Linux
-source .venv/bin/activate
-```
-
-```powershell
-# Windows PowerShell
-.\.venv\Scripts\Activate.ps1
-```
-
-Install the engine and run the demo:
-
-```bash
-python -m pip install .
-python -m playwright install chromium
 chaosfolk demo --lang en
 ```
 
-Open `.horde/demo/rapport.html`, keeping it next to its screenshot folders. Use
-`--lang fr` for French; the report has a language switch.
+Open `.horde/demo/rapport.html` in the folder where you ran the command, and
+keep it next to its screenshot folders. Use `--lang fr` for French; the report
+has a language switch.
 
 ## Use it on your app
 
-Install the engine as above, then add the skill to your coding agent (requires
-Node.js and npm):
-
-```bash
-npx skills add loukan42/chaosfolk --skill chaosfolk
-```
-
-The installer asks which agent you use. Otherwise follow the
-[manual installation guide](docs/agents.md). Your agent host needs shell
-access, file access and subagents, and it supplies the model.
-
-Then ask your agent:
+Start your app locally, open your coding agent in its project, and ask:
 
 ```text
 Use Chaosfolk on my local test app at http://localhost:3000.

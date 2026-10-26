@@ -5,18 +5,31 @@ exploration, delegate users and judge evidence. Install both.
 
 ## Shared engine setup
 
-Use Python 3.12+, a virtual environment and the README's `pip install .` commands.
-Run `chaosfolk check` in the same shell the agent will use. If PATH does not expose
-the command, activate the virtual environment or use its Python with
-`-m chaosfolk`. The skill installer does not install Python dependencies.
+Use Python 3.12+ and install the engine as a command-line tool, so it works from
+any folder and any agent shell:
+
+```bash
+pipx install git+https://github.com/loukan42/chaosfolk.git
+chaosfolk install-browser
+chaosfolk check
+```
+
+`uv tool install git+https://github.com/loukan42/chaosfolk.git` works too. If you
+install into a virtual environment instead, the agent's shell must activate it or
+call its Python with `-m chaosfolk`. `install-browser` always downloads Chromium
+for the Python that runs the engine. The skill installer does not install Python
+dependencies.
 
 ## Skill installer
 
 ```bash
-npx skills add loukan42/chaosfolk --skill chaosfolk
+npx skills add loukan42/chaosfolk --skill chaosfolk -g -a claude-code
 ```
 
-Node.js and npm are required for `npx`. Choose your host and installation scope in the installer. This uses the external
+Replace `claude-code` with your agent's id (`codex`, `cursor`, `github-copilot`,
+`gemini-cli`, `opencode`, `windsurf`...), or leave out `-a` to choose from a list.
+`-g` installs for all projects; without it the skill goes into the current project.
+Node.js 22.20 or newer is required for `npx`. This uses the external
 [Skills CLI](https://github.com/vercel-labs/skills). Its telemetry is separate from
 the Chaosfolk engine; consult its documentation for `DISABLE_TELEMETRY=1`.
 
@@ -42,7 +55,8 @@ chaosfolk install-agent
 
 It writes `~/.claude/agents/chaosfolk-user.md`. Existing custom definitions are
 preserved by default. `--force` explicitly replaces one and saves a backup.
-Choose the host's configured model; the definition does not pin a provider model.
+The definition runs users on Sonnet, which costs less than the coordinator's
+model and is enough to read screens and act. Edit its `model:` line to change it.
 Some hosts discover new agents only when starting a new session.
 
 Claude Code's Windows shell is commonly Git Bash. Generate its sheets with

@@ -375,3 +375,39 @@ def test_posix_sheet_command_quotes_paths(tmp_path, monkeypatch):
     monkeypatch.setattr(engine, "FICHIER_ACTIF", tmp_path / "State's directory" / "active.json")
     words = shlex.split(engine.sheet_command("posix"))
     assert words == [executable.as_posix(), "-m", "chaosfolk", "--state-dir", (tmp_path / "State's directory").as_posix()]
+
+
+def test_install_browser_uses_the_engine_interpreter(monkeypatch):
+    import subprocess
+    import sys
+    from chaosfolk import cli
+    calls = []
+    monkeypatch.setattr(subprocess, "call", lambda command: calls.append(command) or 0)
+    assert cli.main(["install-browser", "--with-deps"]) == 0
+    assert calls == [[sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"]]
+
+
+def test_sheet_command_leaves_out_the_default_state_directory(tmp_path, monkeypatch):
+    import shlex
+    from pathlib import Path
+    executable = tmp_path / "python"
+    monkeypatch.setattr(engine.sys, "executable", str(executable))
+    monkeypatch.setattr(engine, "FICHIER_ACTIF", Path.home() / ".chaosfolk" / "active.json")
+    monkeypatch.delenv("CHAOSFOLK_HOME", raising=False)
+    assert shlex.split(engine.sheet_command("posix")) == [executable.as_posix(), "-m", "chaosfolk"]
+    assert engine.sheet_command("powershell") == f"& '{executable.as_posix()}' -m chaosfolk"
+    # an inherited CHAOSFOLK_HOME could point elsewhere: keep the explicit directory then
+    monkeypatch.setenv("CHAOSFOLK_HOME", str(Path.home() / ".chaosfolk"))
+    assert "--state-dir" in engine.sheet_command("posix")
+
+
+@pytest.mark.parametrize("shell, chain", [("posix", "A && B"), ("powershell", "A; if ($?) { B }")])
+def test_sheet_explains_chaining_for_its_shell(tmp_path, shell, chain):
+    personas, _ = tirer_horde("ux", 1, ["Create a project"], 42, {"nom": "Demo"})
+    engine.ecrire_json(tmp_path / "personas.json", personas)
+    opts = argparse.Namespace(dossier=str(tmp_path), donnees="Fake names", interdits="External actions",
+                              budget=20, shell=shell)
+    assert engine.commande_fiches(opts) == 0
+    sheet = (tmp_path / "fiches/h01.md").read_text(encoding="utf-8")
+    assert f"one shell call ({chain})" in sheet
+    assert "{" + "enchainer}" not in sheet

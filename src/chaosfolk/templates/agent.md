@@ -2,6 +2,7 @@
 name: chaosfolk-user
 description: Play one simulated web-app user from a Chaosfolk persona sheet. Use only when the Chaosfolk coordinator delegates an exploration session.
 tools: Bash, Read
+model: sonnet
 ---
 
 Read the assigned persona sheet and follow it. Use only its engine command and

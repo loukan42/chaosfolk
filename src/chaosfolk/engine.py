@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Chaosfolk: simulated users, real browsers, reproducible failures.
 
+  chaosfolk install-browser               Download Chromium for this installation
   chaosfolk check                         Check Python, Playwright and Chromium
   chaosfolk demo --lang en                Run the local deterministic demo
   chaosfolk launch --url URL --folder DIR --budget 20
@@ -298,7 +299,7 @@ AIDE_HUMAIN = f"""Commandes (toujours : chaosfolk <toi> <commande> ...) :
   flag "<ce qui ne va pas>" [--severity blocking|annoying|minor]
   giveup "<pourquoi>"               tu laisses tomber ta mission
   done "<ton bilan>"                tu as fini
-À chaque commande : --thought "la réaction de ton personnage" --say "ce que tu dis à voix haute" --mood <mot>
+À chaque commande : --thought "la réaction de ton personnage" ; --say "ce que tu dis" et --mood <mot> quand ils changent
 """
 
 MESSAGE_RESERVEE = ("commande réservée au chef d'orchestre : préfixer par CHAOSFOLK_LEADER_TOKEN=<jeton> (affiché par launch).")
@@ -2265,7 +2266,7 @@ def noter_erreur_commande(hid, argv, message):
 
 def commande_humain(argv):
     """`horde.py <humain> <commande> ...` : envoie le geste au serveur et affiche l'écran.
-    Le code de sortie est toujours 0, même pour un geste raté : le texte dit ce qui s'est passé.
+    Code de sortie 1 pour un geste raté (une suite de commandes enchaînées s'arrête là), 0 sinon.
     Une commande mal écrite (code 2) est notée au journal (événement erreur_commande)."""
     hid, verbe, reste = argv[0], (argv[1] if len(argv) > 1 else "look"), argv[2:]
     if verbe not in ACTIONS:
@@ -3009,7 +3010,7 @@ def commande_verifier(opts):
         point("Navigateur", True, f"{canal} {v}")
     else:
         point("Navigateur", False, "ni Chromium, ni Edge, ni Chrome utilisable")
-        installer.append("python -m playwright install chromium")
+        installer.append("chaosfolk install-browser")
     point("Modèle du rapport", MODELE_RAPPORT.exists(), "" if MODELE_RAPPORT.exists()
           else f"{MODELE_RAPPORT.as_posix()} absent : réinstaller la Skill")
     point("Lecture d'écran", ECRAN_JS.exists(), "ecran.js" if ECRAN_JS.exists()
@@ -3122,14 +3123,17 @@ APPAREILS_FICHE = {"desktop": "desktop computer", "laptop": "laptop", "tablet": 
 
 def sheet_command(shell):
     """Quote the exact interpreter and state path for the selected agent shell."""
-    executable, state = Path(sys.executable).as_posix(), FICHIER_ACTIF.parent.as_posix()
+    executable, state = Path(sys.executable).as_posix(), FICHIER_ACTIF.parent
+    # The default state directory needs no option: the user writes this prefix on every action.
+    implicit = "CHAOSFOLK_HOME" not in os.environ and state == Path.home() / ".chaosfolk"
     if shell == "powershell":
         quote = lambda value: "'" + value.replace("'", "''") + "'"
-        return f"& {quote(executable)} -m chaosfolk --state-dir {quote(state)}"
-    if shell == "posix":
+    elif shell == "posix":
         from shlex import quote
-        return f"{quote(executable)} -m chaosfolk --state-dir {quote(state)}"
-    raise ValueError("Shell must be powershell or posix")
+    else:
+        raise ValueError("Shell must be powershell or posix")
+    command = f"{quote(executable)} -m chaosfolk" + ("" if implicit else f" --state-dir {quote(state.as_posix())}")
+    return "& " + command if shell == "powershell" else command
 
 
 def commande_fiches(opts):
@@ -3145,8 +3149,10 @@ def commande_fiches(opts):
         raise SystemExit('modèle introuvable : section "## Agent sheet" de references/humain.md')
     modele = trouve.group(1)
     application = personas.get("application") if isinstance(personas.get("application"), dict) else {}
-    commun = {"application": application.get("nom") or "the application",
-              "horde": sheet_command(getattr(opts, "shell", "powershell" if os.name == "nt" else "posix")),
+    shell = getattr(opts, "shell", "powershell" if os.name == "nt" else "posix")
+    # Windows PowerShell 5.1 n'a pas && : if ($?) arrête aussi la suite après un code de sortie non nul
+    commun = {"application": application.get("nom") or "the application", "horde": sheet_command(shell),
+              "enchainer": "A; if ($?) { B }" if shell == "powershell" else "A && B",
               "donnees": opts.donnees, "interdits": opts.interdits}
     (dossier / "fiches").mkdir(exist_ok=True)
 

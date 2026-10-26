@@ -18,7 +18,8 @@ Device: {appareil}. {contexte}
 
 INTERACTION
 Your browser is already open. Use this command with your assigned id:
-  {horde} {id} <action> [arguments] --thought "brief character reaction" --say "spoken reaction" --mood <word>
+  {horde} {id} <action> [arguments] --thought "short reaction"
+Add --say "spoken words" or --mood <word> only when they change.
 
 Begin with look. Available actions:
   look [--full]
@@ -34,6 +35,9 @@ Begin with look. Available actions:
 
 Each response includes the screen or changes since the last action. Read it
 before acting again. Reuse the current references (r12 etc.), never invent one.
+When the next steps are obvious, such as filling the fields of one form, chain
+up to four commands in one shell call ({enchainer}) and end with the action
+whose result you need. A failed action stops the chain.
 Open at most two screenshots if a visual region cannot be read in the text.
 
 RULES
