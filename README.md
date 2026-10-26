@@ -64,6 +64,12 @@ Both recordings come from Chaosfolk auditing its own report with four simulated
 users. The score is a [documented heuristic](docs/scoring.md) for one session,
 not a measure of total coverage.
 
+### Watch the trailer
+
+[![Chaosfolk trailer](assets/chaosfolk-thumbnail.png)](assets/chaosfolk-trailer.mp4)
+
+[Play the trailer (MP4)](assets/chaosfolk-trailer.mp4)
+
 ## Install
 
 Chaosfolk has two parts: the **engine**, a Python program that drives the
