@@ -12,6 +12,10 @@
 
 </div>
 
+### Watch the trailer
+
+https://github.com/user-attachments/assets/500cdc82-94da-466b-bc26-2f85cfc8072d
+
 ## Why
 
 Your tests check the paths you wrote. Your users take other paths. They
@@ -63,10 +67,6 @@ to the moments where something went wrong.
 Both recordings come from Chaosfolk auditing its own report with four simulated
 users. The score is a [documented heuristic](docs/scoring.md) for one session,
 not a measure of total coverage.
-
-### Watch the trailer
-
-https://github.com/user-attachments/assets/500cdc82-94da-466b-bc26-2f85cfc8072d
 
 ## Install
 
