@@ -9,7 +9,7 @@ a suspected failure holds under an explicit assertion and a control.
 
 The first audience is developers who already use coding agents and want evidence
 before shipping a local prototype or web-app change. The first useful action is
-to run `chaosfolk demo`, inspect the report, then try one small test app.
+to run `chaosfolk demo --lang en`, inspect the report, then try one small test app.
 
 ## Reusable copy
 
@@ -39,7 +39,7 @@ we borrowed as a quality target and where comparison is still incomplete.
 
 | Claim | Evidence required before publishing it |
 | --- | --- |
-| Local demo without a model API key | A clean install followed by a successful `chaosfolk demo` run |
+| Local demo without a model API key | A clean install followed by a successful `chaosfolk demo --lang en` run |
 | A storage fault loses the draft in the broken fixture | Three valid treatment failures and three passing controls in the generated replay files |
 | The corrected fixture handles this fault | Three valid corrected treatment passes and three passing corrected controls |
 | A particular agent host is supported | An installed skill completes a real smoke session on that host; list version and date |

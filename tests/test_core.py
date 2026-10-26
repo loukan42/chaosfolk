@@ -7,6 +7,9 @@ import pytest
 
 from chaosfolk import engine
 from chaosfolk.draw import tirer_horde
+from chaosfolk.budgets import PRESETS, plan
+from chaosfolk.themes import THEMES, resolve
+from chaosfolk.language import choose_language
 from chaosfolk.schema import normalize_scenario
 
 
@@ -40,6 +43,30 @@ def test_every_persona_can_explore_all_goals_without_one_agent_per_use_case():
     assert engine.construire_parseur().parse_args(["draw", "--objectives", ";".join(goals), "--folder", "unused"]).nombre == 4
 
 
+@pytest.mark.parametrize("level,count,budget,concurrency", [("low", 2, 12, 2), ("medium", 4, 20, 3), ("high", 12, 40, 3)])
+def test_token_levels_set_actual_draw_and_sheet_budgets_without_claiming_a_token_limit(tmp_path, level, count, budget, concurrency):
+    settings = plan(level)
+    assert settings["users"] == count and settings["actions_per_user"] == budget
+    assert settings["max_user_actions"] == count * budget and settings["max_parallel_users"] == concurrency
+    assert settings["token_limit"] is None and not settings["includes_scout"]
+    assert engine.principal(["draw", "--objectives", "Explore", "--folder", str(tmp_path), "--level", level, "--seed", "42"]) == 0
+    personas = json.loads((tmp_path / "personas.json").read_text(encoding="utf-8"))
+    assert len(personas["humains"]) == count and personas["budget"] == budget
+    assert engine.principal(["sheets", "--folder", str(tmp_path), "--data", "Fictional", "--forbidden", "Real data", "--level", level]) == 0
+    assert str(budget) in (tmp_path / "fiches/h01.md").read_text(encoding="utf-8")
+    args = ["launch", "--url", "http://localhost:3000", "--level", level]
+    opts = engine.apply_level(engine.construire_parseur().parse_args(args), args)
+    assert opts.budget == budget
+
+
+def test_explicit_count_and_budget_override_preset(tmp_path):
+    assert engine.principal(["draw", "--objectives", "Explore", "--folder", str(tmp_path), "--level", "high",
+                             "--count=3", "--budget=7"]) == 0
+    data = json.loads((tmp_path / "personas.json").read_text(encoding="utf-8"))
+    assert len(data["humains"]) == 3 and data["budget"] == 7
+    assert PRESETS["high"]["users"] == 12
+
+
 @pytest.mark.parametrize("budget", [1, 2, 5, 20, 40])
 def test_faults_are_reachable_within_the_selected_budget(budget):
     for seed in range(5):
@@ -65,6 +92,52 @@ def test_draw_cli_records_selected_budget(tmp_path):
     plan = json.loads((tmp_path / "tirage.json").read_text(encoding="utf-8"))
     assert plan["budget"] == 1
     assert all(fault["apres_actions"] == 0 for fault in plan["pannes"])
+
+
+@pytest.mark.parametrize("fault", ["http-error", "lost-response", "storage-corrupt", "cookies-cleared", "none"])
+def test_draw_can_select_new_conditions_without_changing_other_choices(fault):
+    args = ("ux", 4, ["Create a project"], 42, {"nom": "Demo"})
+    first = tirer_horde(*args, budget=20, fault_types=[fault])
+    assert first == tirer_horde(*args, budget=20, fault_types=[fault])
+    assert first[1]["fault_types"] == ["aucune" if fault == "none" else fault]
+    assert {item["type"] for item in first[1]["pannes"]} == (set() if fault == "none" else {fault})
+    assert all(0 <= item["apres_actions"] < 20 for item in first[1]["pannes"])
+
+
+def test_draw_all_conditions_and_rejects_invalid_selection(tmp_path):
+    _, plan = tirer_horde("ux", 100, ["Explore"], 42, {}, fault_types=["all"])
+    assert {"http-error", "lost-response", "storage-corrupt", "cookies-cleared"} <= set(plan["fault_types"])
+    assert {"http-error", "lost-response", "storage-corrupt", "cookies-cleared"} <= {p["type"] for p in plan["pannes"]}
+    for invalid in ([""], ["all", "offline"], ["app-stop"], ["typo"]):
+        with pytest.raises(ValueError):
+            tirer_horde("ux", 4, ["Explore"], 42, {}, fault_types=invalid)
+    assert engine.principal(["draw", "--objectives", "Explore", "--folder", str(tmp_path),
+                             "--faults", "http-error,cookies-cleared", "--seed", "42"]) == 0
+    assert json.loads((tmp_path / "tirage.json").read_text(encoding="utf-8"))["fault_types"] == ["cookies-cleared", "http-error"]
+
+
+def test_user_can_select_any_theme_without_creating_an_agent_per_theme(tmp_path):
+    assert set(resolve("all")) == set(THEMES)
+    args = ["draw", "--objectives", "Save;Find", "--folder", str(tmp_path), "--level", "low",
+            "--themes", "accessibility,resilience,performance", "--faults", "offline,storage-full", "--seed", "22"]
+    assert engine.principal(args) == 0
+    data = json.loads((tmp_path / "personas.json").read_text(encoding="utf-8"))
+    planned = json.loads((tmp_path / "tirage.json").read_text(encoding="utf-8"))
+    assert len(data["humains"]) == 2
+    assert data["themes"] == planned["themes"] == ["accessibility", "resilience", "performance"]
+    for user in data["humains"]:
+        assert user["themes"] == data["themes"]
+        assert "keyboard navigation" in user["intention"] and "fault conditions" in user["intention"]
+        assert set(user["objectifs"]) == {"Save", "Find"}
+    assert {p["type"] for p in planned["pannes"]} <= {"offline", "storage-full"}
+    assert engine.principal(["sheets", "--folder", str(tmp_path), "--data", "Fake", "--forbidden", "External", "--level", "low"]) == 0
+    assert "keyboard navigation" in (tmp_path / "fiches/h01.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("invalid", ["", "ux,", "all,ux", "unknown", "security,,ux"])
+def test_invalid_theme_selection_is_rejected(invalid):
+    with pytest.raises(ValueError):
+        resolve(invalid)
 
 
 @pytest.mark.parametrize("count", [0, -1, 101, 1.5, True])
@@ -189,6 +262,28 @@ def test_report_escapes_script_terminators(tmp_path):
     report = (tmp_path / "rapport.html").read_text(encoding="utf-8")
     assert payload not in report
     assert "\\u003c/script>" in report
+
+
+def test_report_shows_requested_themes_without_inventing_coverage(tmp_path):
+    (tmp_path / "journal.jsonl").write_text("", encoding="utf-8")
+    engine.ecrire_json(tmp_path / "tirage.json", {"themes": ["functional", "security"]})
+    engine.ecrire_json(tmp_path / "coverage.json", {"results": [
+        {"theme": "functional", "status": "partial", "summary": "Created a project"}]})
+    assert engine.rapport(tmp_path) == 0
+    result = embedded_report_data(tmp_path / "rapport.html")["coverage"]
+    assert result["requested"] == ["functional", "security"]
+    assert result["results"] == [{"theme": "functional", "status": "partial", "summary": "Created a project"}]
+
+
+def test_interactive_report_language_is_requested_without_guessing(monkeypatch):
+    import sys
+    monkeypatch.setattr(sys.stdin, "isatty", lambda: True)
+    monkeypatch.setattr("builtins.input", lambda _: "fr")
+    assert choose_language() == "fr"
+    assert choose_language("en") == "en"
+    monkeypatch.setattr("builtins.input", lambda _: "unknown")
+    with pytest.raises(ValueError, match="--lang"):
+        choose_language()
 
 
 def test_sheet_keeps_fault_and_leader_token_out(tmp_path, monkeypatch):

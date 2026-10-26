@@ -10,6 +10,16 @@ from pathlib import Path
 CATALOGUE = Path(__file__).resolve().parent / "profiles.json"
 ESCOUADES = {"ux": "UX et ergonomie : compréhension, parcours, clavier, mobile, jargon, erreurs"}
 
+# Extra fault types are opt-in because they can mutate storage, clear a session,
+# or send a backend write whose response is then dropped. Existing seeded draws
+# keep their original catalogue and weights when no selection is provided.
+EXTRA_FAULTS = [
+    {"type": "http-error", "poids": 2, "apres_actions": [3, 12], "duree": [20, 45]},
+    {"type": "lost-response", "poids": 1, "apres_actions": [3, 12], "params": {"fois": [1]}},
+    {"type": "storage-corrupt", "poids": 1, "apres_actions": [3, 12]},
+    {"type": "cookies-cleared", "poids": 1, "apres_actions": [3, 12]},
+]
+
 
 def lire_catalogue():
     return json.loads(CATALOGUE.read_text(encoding="utf-8"))
@@ -30,7 +40,7 @@ def choisir_pondere(rng, options, poids):
     return options[-1]
 
 
-def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, budget=20):
+def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, budget=20, fault_types=None, themes=None):
     """Retourne (personas, tirage) : la fiche des humains et les pannes à programmer."""
     if escouade not in ESCOUADES:
         raise ValueError(f"escouade inconnue : {escouade} (connues : {', '.join(ESCOUADES)})")
@@ -45,6 +55,22 @@ def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, 
     if metiers is not None and (not isinstance(metiers, list) or not metiers or any(not isinstance(x, str) or not x.strip() for x in metiers)):
         raise ValueError("Jobs must be a non-empty list of strings")
     cat = lire_catalogue()
+    from .themes import THEMES, resolve
+    selected_themes = resolve(themes) if themes is not None else ["ux"]
+    available_faults = cat["pannes"] + EXTRA_FAULTS
+    if fault_types is None:
+        fault_options = cat["pannes"]
+    else:
+        if not isinstance(fault_types, list) or not fault_types or any(not isinstance(x, str) or not x for x in fault_types):
+            raise ValueError("--faults requires comma-separated fault names")
+        selected = {"aucune" if name == "none" else name for name in fault_types}
+        supported = {item["type"] for item in available_faults}
+        if selected == {"all"}:
+            selected = supported
+        invalid = selected - supported
+        if invalid:
+            raise ValueError(f"Unknown draw fault(s): {', '.join(sorted(invalid))}. app-stop is a global fault; schedule it separately.")
+        fault_options = [item for item in available_faults if item["type"] in selected]
     rng = random.Random(graine)
     profils = list(cat["profils"])
     rng.shuffle(profils)
@@ -71,16 +97,18 @@ def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, 
                      + "The budget does not guarantee that every goal will be covered. " + question)
         if profil.get("regle"):
             intention += f" {profil['regle']}"
+        if themes is not None:
+            intention += " Focus: " + " ".join(THEMES[name]["focus"] for name in selected_themes)
         fiche = {
             "id": hid, "nom": nom, "age": rng.randint(22, 64), "metier": rng.choice(metiers),
             "profil": profil["nom"], "escouade": escouade,
             "profil_id": profil["id"], "skin": cat["profils"].index(profil),
             "aisance": rng.choice(profil["aisance"]), "patience": rng.choice(profil["patience"]),
-            "appareil": appareil, "intention": intention, "objectifs": ordered_goals,
+            "appareil": appareil, "intention": intention, "objectifs": ordered_goals, "themes": selected_themes,
             "habitudes": profil["habitudes"], "manies": manies,
             "histoire": "First visit; no previous experience with this app",
         }
-        panne = choisir_pondere(rng, cat["pannes"], [p["poids"] for p in cat["pannes"]])
+        panne = choisir_pondere(rng, fault_options, [p["poids"] for p in fault_options])
         fiche["condition"] = "aucune" if panne["type"] == "aucune" else panne["type"]
         if panne["type"] != "aucune":
             # Leave at least one action under the injected condition. A one-action
@@ -100,4 +128,7 @@ def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, 
         humains.append(fiche)
     personas = {"application": application, "escouade": escouade, "graine": graine, "budget": budget, "humains": humains}
     tirage = {"escouade": escouade, "graine": graine, "nombre": nombre, "budget": budget, "objectifs": objectifs, "pannes": pannes}
+    personas["themes"] = tirage["themes"] = selected_themes
+    if fault_types is not None:
+        tirage["fault_types"] = sorted(selected)
     return personas, tirage

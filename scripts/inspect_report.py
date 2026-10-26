@@ -20,22 +20,21 @@ def main():
         page.goto(args.report.resolve().as_uri())
         page.locator('.finding').first.wait_for()
         page.get_by_role('button', name='EN', exact=True).click()
-        assert page.locator('.cast-card').count() == page.evaluate('catalog.length')
         assert page.locator('.screen-card').count() == 4
+        page.locator('#room-range').evaluate("e=>{e.value=e.max;e.dispatchEvent(new Event('input',{bubbles:true}))}")
         assert page.locator('.mini-screen img').count() == 4
         assert page.locator('.finding').count() == 1
         assert page.locator('.finding .good').first.inner_text() == 'Reproduced'
         assert page.locator('.finding-toggle').first.get_attribute('aria-expanded') == 'false'
-        assert page.locator('#findings-section').bounding_box()['y'] < page.locator('#overview-title').bounding_box()['y']
+        assert page.locator('#findings-section').bounding_box()['y'] < page.locator('#room').bounding_box()['y']
         page.get_by_role('button', name='Observed', exact=True).click()
         assert page.locator('.finding').count() == 0
         page.get_by_role('button', name='Reproduced', exact=True).click()
         assert page.locator('.finding').count() == 1
         page.locator('.screen-card').first.click()
         assert page.locator('#person').input_value() == 'before'
-        page.get_by_role('button', name='Next event').click()
-        assert 'Event 2 of 3' in page.locator('#narrative').inner_text()
         page.get_by_role('button', name='Previous event').click()
+        assert 'Event 2 of 3' in page.locator('#narrative').inner_text()
         page.locator('#person').select_option('all')
         page.locator('.finding-toggle').first.click()
         page.get_by_text('Inspect trial screenshots', exact=True).click()
@@ -50,8 +49,7 @@ def main():
         assert not page.evaluate("localImage('../private.png')")
         assert not page.evaluate("localImage('%2e%2e/private.png')")
         page.get_by_role('button', name='All findings').click()
-        page.locator('#cast-section').evaluate('e=>e.open=true')
-        page.locator('#cast-section').scroll_into_view_if_needed()
+        page.locator('#detail-player').evaluate('e=>e.open=false')
         page.evaluate('window.scrollTo(0,0)')
         page.screenshot(path=str(args.output / 'report-en-desktop.png'), full_page=True)
         page.get_by_role('button', name='FR', exact=True).click()
@@ -71,7 +69,7 @@ def main():
         assert not errors, errors
         assert not external, external
         browser.close()
-    print('Report verified: FR/EN, compact findings, real screen mosaic, profiles, evidence, filters, timeline, screenshots, mobile layout, no external requests.')
+    print('Report verified: FR/EN, compact findings, real screen mosaic, evidence, filters, timeline, screenshots, mobile layout, no external requests.')
 
 
 if __name__ == '__main__':

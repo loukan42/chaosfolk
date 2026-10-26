@@ -4,11 +4,22 @@ Use a local app or an explicitly authorized test target. These commands assume
 the virtual environment is active and the application is already running on port
 3000. Exclude `.horde/` from the application's git repository before collecting data.
 
+Choose `low` (2 users × 12 actions), `medium` (4 × 20) or `high` (12 × 40).
+`chaosfolk plan --level low` shows the settings without launching a run. Pass the
+same `--level` to `launch`, `draw` and `sheets`. Explicit `--count` and `--budget`
+override the preset. The action budget does not cap tokens, model cost, scout work
+or runtime; the agent host must measure usage if it exposes it.
+
+Run `chaosfolk themes` to see the available subjects. Pass `--themes functional,ux`
+or `--themes all` to `draw`. The selected focus is added to every user's sheet;
+it is not one agent per theme. Record which checks actually ran. A small action
+budget can leave goals unfinished, especially with `all`.
+
 ## Prepare and start
 
 ```bash
 chaosfolk check
-chaosfolk launch --url http://localhost:3000 --folder .horde/run --budget 20
+chaosfolk launch --url http://localhost:3000 --folder .horde/run --level medium
 ```
 
 `launch` prints the leader token. Set it in the coordinator shell, replacing the
@@ -53,10 +64,10 @@ it, and remove it when the authorized test session is over.
 ## Draw users and faults
 
 ```bash
-chaosfolk draw --count 4 --budget 20 --seed 42 --objectives "Create a project;Find a project;Edit its name" --app-name "My app" --url http://localhost:3000 --folder .horde/run
+chaosfolk draw --level medium --seed 42 --objectives "Create a project;Find a project;Edit its name" --app-name "My app" --url http://localhost:3000 --folder .horde/run
 chaosfolk humans .horde/run/personas.json
 chaosfolk drawn-faults .horde/run/tirage.json
-chaosfolk sheets --folder .horde/run --budget 20 --data "Synthetic project names only" --forbidden "Messages, purchases, real accounts"
+chaosfolk sheets --folder .horde/run --level medium --data "Synthetic project names only" --forbidden "Messages, purchases, real accounts"
 ```
 
 The output includes each sheet path in `fiches/`. Delegate one sheet per subagent,
@@ -69,6 +80,20 @@ companion with the profile's expression and accessory. A seed reproduces the dra
 within this catalog version, including the skins, but not a model's future choices.
 The action budget is also part of that deterministic input. Pass the same budget
 to `launch`, `draw` and `sheets`; `draw` schedules faults before the budget ends.
+
+For a small concurrency check against an authorized local app, without a model:
+
+```bash
+chaosfolk probe http://127.0.0.1:3000/ --clients 4 --rounds 3 --output .horde/probe
+```
+
+Read `probe.json` for individual navigation results, page errors, elapsed times
+and simple accessibility and HTTP-header review signals. Header presence alone
+does not establish a security defect or guarantee protection. The probe limits clients and rounds,
+blocks non-GET browser requests and other origins, and uses a fresh context per
+trial. It does not infer a performance threshold or prove an accessibility defect.
+State-changing GET routes can still run; use an isolated test environment. Run a
+dedicated load tool or accessibility audit for broader coverage.
 
 Useful manual browser commands:
 
@@ -107,10 +132,27 @@ See [replay.md](replay.md) for more assertions and the report contract.
 
 ## Write and inspect the report
 
-Create `.horde/run/constats.json` using the contract in the replay guide, then:
+Create `.horde/run/constats.json` using the contract in the replay guide. Record
+the coverage actually reviewed in `.horde/run/coverage.json`:
+
+```json
+{
+  "results": [
+    {"theme": "functional", "status": "tested", "summary": "Created and found a project in Chromium."},
+    {"theme": "accessibility", "status": "partial", "summary": "Keyboard path checked; screen reader not tested."},
+    {"theme": "security", "status": "not-tested", "summary": "Dedicated security review not run."}
+  ]
+}
+```
+
+Statuses are `tested`, `partial`, `not-tested` and `not-reported`. These describe
+the specific actions recorded in the summary, never complete coverage of a theme.
+For bilingual reports, an entry may add `"translations": {"fr": {"summary": "..."}}`.
+Selections absent from this file appear as “not documented”, not as passed checks.
+Add only observations supported by the session, probe or external evidence. Then:
 
 ```bash
-chaosfolk report --folder .horde/run
+chaosfolk report --folder .horde/run --lang en
 chaosfolk stop-app --folder .horde/run
 ```
 
@@ -118,6 +160,11 @@ Open `.horde/run/rapport.html`. Check that the named findings refer to real
 screenshots and that proof counts match their replay files. The report includes
 the cast, finding filters and an action timeline. Keep its `assets/`, `captures/`
 and `reproductions/` folders with it when sharing a reviewed copy.
+
+The coordinator asks the user whether the report should open in English or
+French when no preference was given. Pass `--lang en` or `--lang fr`. An
+interactive terminal prompts if it is omitted; automated calls must specify it.
+Both language files are written, and the user can switch language in the report.
 
 Always clean up after an interrupted run: `chaosfolk stop`, then
 `chaosfolk stop-app --folder .horde/run`. Preserve evidence on failure. Never

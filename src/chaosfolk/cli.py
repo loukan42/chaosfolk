@@ -13,6 +13,15 @@ def main(argv=None):
     if args and args[0] == "demo":
         from .demo_runner import main as demo
         return demo(args[1:])
+    if args and args[0] == "plan":
+        from .budgets import main as show_plan
+        return show_plan(args[1:])
+    if args and args[0] == "probe":
+        from .probe import main as probe
+        return probe(args[1:])
+    if args and args[0] == "themes":
+        from .themes import main as list_themes
+        return list_themes(args[1:])
     # Select a state directory before importing the engine. Each separate agent
     # session must inherit the same CHAOSFOLK_HOME when running concurrently.
     if args and args[0] == "--state-dir":

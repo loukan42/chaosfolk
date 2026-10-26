@@ -15,7 +15,13 @@ class QuietHandler(SimpleHTTPRequestHandler):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog="chaosfolk demo", description=__doc__)
     parser.add_argument("--output", type=Path, default=Path(".horde/demo"))
+    parser.add_argument("--lang", choices=("en", "fr"), help="default report language; prompted when omitted in an interactive shell")
     args = parser.parse_args(argv)
+    from .language import choose_language
+    try:
+        language = choose_language(args.lang)
+    except ValueError as error:
+        parser.error(str(error))
     folder = args.output.resolve()
     if folder.exists() and any(folder.iterdir()):
         parser.error("Output is not empty. Choose a new --output directory to preserve previous evidence.")
@@ -66,17 +72,17 @@ def main(argv=None):
             "translations": {"fr": {"titre": "Un échec d'enregistrement doit préserver la saisie.",
                 "resume": "Douze essais réels dans le navigateur : la version initiale perd la saisie lorsque le stockage est plein ; la version corrigée la conserve. Cette démo déterministe n'utilise aucun testeur simulé.",
                 "constats": [{"id": "QH-001", "titre": "Une panne de stockage efface le nom du projet non enregistré",
-                    "resume": "Le formulaire vide le champ avant d'écrire dans localStorage. Une erreur de quota fait alors perdre la saisie.",
+                    "resume": "Le formulaire efface le nom avant de l'enregistrer dans le stockage du navigateur. Si celui-ci est plein, la saisie est perdue.",
                     "condition": "Stockage plein", "correctif": {"consigne": "Vider le champ seulement après un enregistrement réussi. En cas d'échec, conserver la saisie et afficher une erreur.",
                     "attendu": "Le projet est enregistré ou la saisie d'origine reste disponible."}}]}},
             "resume": "Twelve real browser trials: the original loses a draft when storage is full; the corrected version preserves it. This deterministic demo uses no simulated users.",
             "constats": [{"id": "QH-001", "titre": "A storage failure clears the unsaved project name", "gravite": "bloquant",
-                "statut": "réparé", "resume": "The original form clears its input before writing to localStorage. A quota error then loses the draft.",
+                "statut": "réparé", "resume": "The form clears the name before saving it to browser storage. If storage is full, the draft is lost.",
                 "condition": "storage-full", "preuves": {"avant": "reproductions/before.json", "temoin": "reproductions/before-temoin.json",
                 "apres": "reproductions/after.json", "after_control": "reproductions/after-temoin.json"},
                 "correctif": {"consigne": "Clear the field only after a successful save. On failure, keep the draft and display an error.",
                               "attendu": "The project is saved or the original draft remains available."}}]})
-        engine.rapport(folder)
+        engine.rapport(folder, language)
         print(f"Demo verified: 12/12 valid trials. Open {folder / 'rapport.html'}")
         return 0
     finally:

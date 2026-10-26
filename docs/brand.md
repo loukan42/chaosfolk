@@ -5,7 +5,8 @@ asymmetric ears and a lightning tuft stay consistent across skins. Expressions
 and one accessory distinguish behavioral profiles; they do not represent a real
 person or imply a diagnosis.
 
-The bundled `templates/mascot.png` is the main mark. `templates/companions.png` is
+The project-root `logo.png` is used in the README and copied into each report.
+The bundled `templates/mascot.png` is the fallback mark. `templates/companions.png` is
 a four-column, four-row transparent sprite atlas. The report reads `skin` from
 the persona, chooses that cell and uses the same avatar in the cast and timeline.
 Older personas without a skin use the newcomer face. A text name and behavior
@@ -30,15 +31,13 @@ label always accompany the image.
 | 14 | Search-first | Binoculars |
 | 15 | Recovery seeker | Tool pouch |
 
-The artwork was generated for this project with the built-in image generation
-tool. [The prompts](image-prompts.md) document its creation. The project includes
-the files under its MIT license. No external artwork or pre-existing character
-was used as a reference.
+The companion artwork was generated for this project with the built-in image
+generation tool. [The prompts](image-prompts.md) document its creation. The
+project includes the files under its MIT license.
 
 Use the dark forest background `#101612`, lime `#dcf78b` and restrained orange
 accents. Keep evidence readable: severity must have text, not just color. Do not
 use a cheerful avatar or a high score to imply that a failure has been verified.
 
-The wordmark is `chaosfolk.` in lowercase, bold white sans-serif with tight letter
-spacing and a final period. Keep the companion beside it. The report uses the
-local Arial/Helvetica stack, 30px, weight 800 and -1.65px letter spacing.
+The supplied `logo.png` combines the `chaosfolk.` wordmark and companions. The
+report falls back to a lowercase white wordmark and mascot when no logo is present.

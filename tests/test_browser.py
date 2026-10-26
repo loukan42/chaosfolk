@@ -95,6 +95,74 @@ def test_daemon_authentication_actions_and_storage_isolation(tmp_path, fixture_u
         assert result.returncode == 0, result.stdout
 
 
+def test_opt_in_faults_affect_only_the_test_browser_and_preserve_real_backend_effects(tmp_path):
+    class ApiHandler(QuietHandler):
+        writes = 0
+
+        def do_GET(self):
+            if self.path == "/api/probe":
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"ok")
+            else:
+                super().do_GET()
+
+        def do_POST(self):
+            type(self).writes += 1
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"saved")
+
+    handler = functools.partial(ApiHandler, directory=str(Path(engine.__file__).parent / "demo"))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://127.0.0.1:{server.server_port}/"
+    env = dict(os.environ, CHAOSFOLK_HOME=str(tmp_path / "state"))
+    env.pop("CHAOSFOLK_LEADER_TOKEN", None)
+    folder = tmp_path / "session"
+    try:
+        launch = cli("launch", "--url", url, "--folder", folder, "--budget", "5", env=env)
+        assert launch.returncode == 0, launch.stdout + launch.stderr
+        leader = dict(env, CHAOSFOLK_LEADER_TOKEN=json.loads((folder / "serveur.json").read_text(encoding="utf-8"))["jeton_chef"])
+        personas = folder / "personas.json"
+        personas.write_text(json.dumps({"humains": [{"id": "h01"}]}), encoding="utf-8")
+        assert cli("humans", personas, env=leader).returncode == 0
+
+        def inspect(expression):
+            result = cli("inspect", "h01", expression, env=leader)
+            assert result.returncode == 0, result.stdout + result.stderr
+            return json.loads(result.stdout)
+
+        assert inspect("fetch('/api/probe').then(r=>r.status)") == 200
+        result = cli("fault", "http-error", "--humans", "h01", "--after-actions", "0", "--pattern", "*/api/*", "--duration", "30", env=leader)
+        assert result.returncode == 0, result.stdout
+        assert inspect("fetch('/api/probe').then(r=>r.status)") == 500
+        assert cli("fault-end", "p1", env=leader).returncode == 0
+        assert inspect("fetch('/api/probe').then(r=>r.status)") == 200
+
+        result = cli("fault", "lost-response", "--humans", "h01", "--after-actions", "0", "--pattern", "*/api/*", "--method", "POST", env=leader)
+        assert result.returncode == 0, result.stdout
+        assert inspect("fetch('/api/probe',{method:'POST'}).then(()=>false).catch(()=>true)") is True
+        assert ApiHandler.writes == 1
+
+        assert inspect("localStorage.setItem('synthetic','valid'); localStorage.getItem('synthetic')") == "valid"
+        result = cli("fault", "storage-corrupt", "--humans", "h01", "--after-actions", "0", "--key", "synthetic", env=leader)
+        assert result.returncode == 0, result.stdout
+        assert inspect("localStorage.getItem('synthetic')") != "valid"
+        assert inspect("document.cookie='synthetic=1; path=/'; document.cookie.includes('synthetic=1')") is True
+        result = cli("fault", "cookies-cleared", "--humans", "h01", "--after-actions", "0", env=leader)
+        assert result.returncode == 0, result.stdout
+        assert inspect("document.cookie.includes('synthetic=1')") is False
+    finally:
+        if (folder / "serveur.json").exists():
+            info = json.loads((folder / "serveur.json").read_text(encoding="utf-8"))
+            cli("stop", env=dict(env, CHAOSFOLK_LEADER_TOKEN=info["jeton_chef"]))
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
 @pytest.mark.parametrize("expect,code", [
     ({"type": "text-visible", "text": "Project name"}, 0),
     ({"type": "text-visible", "text": "This text is absent"}, 1),
@@ -115,7 +183,7 @@ def test_replay_exit_codes_distinguish_pass_failure_and_inconclusive(tmp_path, f
 
 
 def test_demo_measures_failure_control_and_fix(tmp_path):
-    result = cli("demo", "--output", tmp_path / "demo", timeout=180)
+    result = cli("demo", "--output", tmp_path / "demo", "--lang", "fr", timeout=180)
     assert result.returncode == 0, result.stdout + result.stderr
     for name, failures in (("before", 3), ("before-temoin", 0), ("after", 0), ("after-temoin", 0)):
         evidence = json.loads((tmp_path / f"demo/reproductions/{name}.json").read_text(encoding="utf-8"))
@@ -123,8 +191,22 @@ def test_demo_measures_failure_control_and_fix(tmp_path):
         assert evidence["casses"] == failures
         assert all(Path(trial["capture"]).is_file() for trial in evidence["essais"])
     assert (tmp_path / "demo/rapport.html").is_file()
+    assert '"lang": "fr"' in (tmp_path / "demo/rapport.html").read_text(encoding="utf-8")
     # A second run must not silently overwrite evidence.
-    assert cli("demo", "--output", tmp_path / "demo").returncode != 0
+    assert cli("demo", "--output", tmp_path / "demo", "--lang", "fr").returncode != 0
+
+
+def test_noninteractive_report_and_demo_require_explicit_language(tmp_path):
+    session = tmp_path / "session"
+    session.mkdir()
+    (session / "journal.jsonl").write_text("", encoding="utf-8")
+    result = cli("report", "--folder", session)
+    assert result.returncode != 0 and "--lang" in result.stdout + result.stderr
+    assert not (session / "rapport.html").exists()
+    demo = tmp_path / "demo"
+    result = cli("demo", "--output", demo)
+    assert result.returncode != 0 and "--lang" in result.stdout + result.stderr
+    assert not demo.exists()
 
 
 def test_ci_gate_rejects_empty_assertions_without_contacting_target(tmp_path):
@@ -134,6 +216,51 @@ def test_ci_gate_rejects_empty_assertions_without_contacting_target(tmp_path):
     assert result.returncode == 2
     assert "explicit assertion" in result.stderr
     assert not (tmp_path / "results").exists()
+
+
+def test_local_concurrency_probe_has_isolated_trials_and_blocks_writes(tmp_path):
+    class ProbeHandler(QuietHandler):
+        posts = 0
+
+        def do_GET(self):
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(b"<html><body><input><img src='/x'><button></button>"
+                             b"<script>fetch('/write',{method:'POST'}).catch(()=>{});</script></body></html>")
+
+        def do_POST(self):
+            type(self).posts += 1
+            self.send_response(200)
+            self.end_headers()
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), ProbeHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/"
+        output = tmp_path / "probe"
+        result = cli("probe", url, "--clients", "2", "--rounds", "2", "--output", output)
+        assert result.returncode == 0, result.stdout + result.stderr
+        evidence = json.loads((output / "probe.json").read_text(encoding="utf-8"))
+        assert evidence["valid_count"] == 4 and evidence["inconclusive_count"] == 0
+        assert evidence["http_error_count"] == 0 and evidence["median_ms"] >= 0
+        assert evidence["attempts"][0]["review_signals"] == {"images_without_alt": 1, "inputs_without_label": 1, "buttons_without_name": 1}
+        assert evidence["attempts"][0]["header_presence"]["content-security-policy"] is False
+        assert (output / "screen.png").is_file()
+        assert ProbeHandler.posts == 0
+        assert cli("probe", url, "--output", output).returncode == 2
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+@pytest.mark.parametrize("url", ["http://example.com/", "http://127.0.0.2/", "http://user@localhost/", "file:///tmp/test"])
+def test_probe_rejects_non_loopback_or_credential_urls_without_launching_browser(tmp_path, url):
+    result = cli("probe", url, "--output", tmp_path / "probe")
+    assert result.returncode == 2
+    assert not (tmp_path / "probe").exists()
 
 
 @pytest.mark.skipif(os.name != "nt", reason="PowerShell integration runs on Windows")

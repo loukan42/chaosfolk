@@ -19,6 +19,12 @@ Review scenarios before replaying files from another person. App startup command
 run locally with your permissions. Persona IDs and upload paths are validated, but
 the entire session folder should still be treated as private evidence.
 
+The optional `probe` command accepts loopback URLs only. It blocks requests to
+other origins, non-GET/HEAD browser requests, service workers and WebSockets.
+It limits clients and rounds, but each navigation may load multiple resources.
+GET handlers can still change application state. Run it against a disposable test
+application; it is not a security sandbox or a production load test.
+
 Reports are local HTML with embedded text data. They load only relative screenshot
 paths; they do not fetch external fonts or scripts. Screenshots, URLs and user
 reactions may contain private app data. Review all artifacts before publishing.

@@ -8,7 +8,7 @@ def report_branding(folder):
     source = Path(__file__).parent
     destination = Path(folder) / "assets"
     destination.mkdir(exist_ok=True)
-    for name in ("mascot.png", "companions.png"):
+    for name in ("mascot.png", "companions.png", "logo.png", "room.js"):
         shutil.copyfile(source / "templates" / name, destination / name)
     profiles = json.loads((source / "profiles.json").read_text(encoding="utf-8"))["profils"]
     french = [
@@ -21,7 +21,7 @@ def report_branding(folder):
         ("Copier-coller", "Colle des textes aux formats variés"), ("Retour en arrière", "Revient pendant une saisie"),
         ("Recherche d'abord", "Commence par chercher et filtrer"), ("Récupération", "Essaie d'annuler et de reprendre"),
     ]
-    return {"mascot": "assets/mascot.png", "skins": "assets/companions.png", "columns": 4, "rows": 4,
+    return {"mascot": "assets/mascot.png", "banner": "assets/logo.png", "skins": "assets/companions.png", "columns": 4, "rows": 4,
             "catalog": [{"skin": i, "name": p["nom"], "habits": p.get("habitudes", []),
                          "translations": {"fr": {"name": french[i][0], "habits": [french[i][1]]}}}
                         for i, p in enumerate(profiles)]}

@@ -2,7 +2,7 @@
 """Chaosfolk: simulated users, real browsers, reproducible failures.
 
   chaosfolk check                         Check Python, Playwright and Chromium
-  chaosfolk demo                          Run the local deterministic demo
+  chaosfolk demo --lang en                Run the local deterministic demo
   chaosfolk launch --url URL --folder DIR --budget 20
   chaosfolk draw --count 4 --seed 42 --objectives "Create a task;Find a task" --folder DIR
   chaosfolk humans DIR/personas.json
@@ -11,7 +11,7 @@
   chaosfolk h01 help                      List browser actions
   chaosfolk analyze --folder DIR
   chaosfolk replay scenario.json --times 3 --with-control --fail-on-bug
-  chaosfolk report --folder DIR
+  chaosfolk report --folder DIR --lang en|fr
   chaosfolk stop                          Close browsers and the managed app
 
 Use --help after a command for options. The agent host supplies the simulated
@@ -2883,8 +2883,12 @@ def rapport(dossier, langue="en"):
     if tirage:
         config.update({"graine": tirage.get("graine"), "escouade": tirage.get("escouade")})
     personas = lire_json(dossier / "personas.json", {})
+    coverage = lire_json(dossier / "coverage.json", {})
+    if not isinstance(coverage, dict):
+        raise ValueError("coverage.json must be a JSON object")
+    coverage = {"requested": tirage.get("themes", []), "results": coverage.get("results", [])}
     application = personas.get("application") if isinstance(personas.get("application"), dict) else {}
-    donnees = {"config": config, "personas": personas,
+    donnees = {"config": config, "personas": personas, "coverage": coverage,
                "journal": allege, "constats": constats, "genere": datetime.now().isoformat(timespec="seconds"),
                # ce dont le prompt de correction a besoin, à un seul endroit
                "application": {"nom": application.get("nom") or constats.get("application") or None,
@@ -3269,8 +3273,10 @@ def commande_tirer(opts):
     if len(objectifs) == 1 and Path(objectifs[0]).is_file():
         objectifs = lire_json(objectifs[0])
     metiers = [m.strip() for m in opts.metiers.split(";") if m.strip()] if opts.metiers else None
+    selected_faults = [name.strip() for name in opts.faults.split(",")] if opts.faults is not None else None
     personas, plan = tirage.tirer_horde(opts.escouade, opts.nombre, objectifs, graine,
-                                        {"nom": opts.application or "Test app", "url": opts.url or ""}, metiers, budget=opts.budget)
+                                        {"nom": opts.application or "Test app", "url": opts.url or ""}, metiers,
+                                        budget=opts.budget, fault_types=selected_faults, themes=opts.themes)
     dossier = Path(opts.dossier)
     ecrire_json(dossier / "personas.json", personas)
     ecrire_json(dossier / "tirage.json", plan)
@@ -3278,7 +3284,7 @@ def commande_tirer(opts):
     for h in personas["humains"]:
         print(f"  {h['id']} {h['nom']:<22} {h['profil']:<20} {h['appareil']:<10} {h['condition']}")
     print(f"{len(plan['pannes'])} faults: run `chaosfolk drawn-faults {(dossier / 'tirage.json').as_posix()}` "
-          "after creating the users. The seed, goals, catalog, count and budget determine this draw.")
+          "after creating the users. The seed, goals, catalog, selected faults, count and budget determine this draw.")
     return 0
 
 
@@ -3376,6 +3382,7 @@ def construire_parseur():
     lancement.add_argument("--visible", action="store_true")
     lancement.add_argument("--idle", dest="inactivite", type=positive_int, default=3600, help="arrêt automatique après N s sans commande")
     lancement.add_argument("--budget", type=positive_int, default=20, help="gestes par humain (sa fiche peut en donner un autre)")
+    lancement.add_argument("--level", choices=("low", "medium", "high"), help="exploration preset; explicit --budget takes precedence")
     lancement.add_argument("--human-duration", dest="duree_humain", type=positive_int, default=600,
                            help="durée maximale d'un humain, en secondes")
     lancement.add_argument("--max-duration", dest="duree_max", type=positive_int, default=1800,
@@ -3391,6 +3398,7 @@ def construire_parseur():
     p.add_argument("--data", dest="donnees", required=True, help="données fictives permises (rangées dans la règle des données)")
     p.add_argument("--forbidden", dest="interdits", required=True, help="ce que les humains ne doivent jamais faire")
     p.add_argument("--budget", type=positive_int, default=20, help="gestes par humain (sa fiche peut en donner un autre)")
+    p.add_argument("--level", choices=("low", "medium", "high"), help="exploration preset; explicit --budget takes precedence")
     p.add_argument("--shell", choices=("powershell", "posix"), default="powershell" if os.name == "nt" else "posix",
                    help="shell used by persona agents (Windows default: powershell)")
 
@@ -3428,7 +3436,10 @@ def construire_parseur():
     p.add_argument("--squad", dest="escouade", default="ux", help="ux (UX et ergonomie)")
     p.add_argument("--count", dest="nombre", type=int, default=4)
     p.add_argument("--budget", type=positive_int, default=20, help="action allowance used to schedule reachable faults")
+    p.add_argument("--level", choices=("low", "medium", "high"), help="exploration preset; explicit --count or --budget take precedence")
     p.add_argument("--seed", dest="graine", type=int, help="pour refaire la même horde ; tirée au hasard sinon, et affichée")
+    p.add_argument("--faults", help="comma-separated fault types, none, or all; omit for the default catalog")
+    p.add_argument("--themes", help="comma-separated themes, or all; see chaosfolk themes")
     p.add_argument("--objectives", dest="objectifs", required=True,
                    help="ce que les gens viennent faire, séparés par des points-virgules, ou un fichier JSON (liste)")
     p.add_argument("--jobs", dest="metiers", help="métiers des humains, séparés par des points-virgules (sinon un catalogue)")
@@ -3459,10 +3470,27 @@ def construire_parseur():
     p.add_argument("--output", dest="sortie", help="dossier des résultats (par défaut : reproductions/ à côté du scénario)")
     p.add_argument("--visible", action="store_true")
     p.add_argument("--channel", dest="canal")
-    p = commande("report", lambda a: rapport(dossier_courant(a.dossier), a.lang))
+    def generate_report(a):
+        from chaosfolk.language import choose_language
+        return rapport(dossier_courant(a.dossier), choose_language(a.lang))
+    p = commande("report", generate_report)
     p.add_argument("--folder", dest="dossier")
-    p.add_argument("--lang", choices=("en", "fr"), default="en", help="language of rapport.html; both language versions are also written")
+    p.add_argument("--lang", choices=("en", "fr"), help="language of rapport.html; prompted when omitted in an interactive shell")
     return parseur
+
+
+def apply_level(opts, argv):
+    """Fill a selected preset while preserving explicitly provided count and budget."""
+    if not getattr(opts, "level", None):
+        return opts
+    from chaosfolk.budgets import PRESETS
+    preset = PRESETS[opts.level]
+    provided = lambda name: any(arg == name or arg.startswith(name + "=") for arg in argv)
+    if not provided("--budget"):
+        opts.budget = preset["actions_per_user"]
+    if opts.commande == "draw" and not provided("--count"):
+        opts.nombre = preset["users"]
+    return opts
 
 
 def principal(argv=None):
@@ -3479,6 +3507,7 @@ def principal(argv=None):
     if argv[0] in COMMANDES_LOURDES:
         charger_moteur()
     opts = construire_parseur().parse_args(argv)
+    apply_level(opts, argv)
     opts.brut = argv[1:]
     try:
         return opts.fn(opts)
