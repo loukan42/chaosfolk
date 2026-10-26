@@ -70,6 +70,16 @@ Chaosfolk has two parts: the **engine**, a Python program that drives the
 browsers, and the **skill**, which teaches your coding agent how to use it.
 Install both once; they work in every project.
 
+Quick install of the skill, with [npx](https://nodejs.org/) and the
+[Skills CLI](https://github.com/vercel-labs/skills):
+
+```bash
+npx skills add loukan42/chaosfolk --skill chaosfolk -g
+```
+
+The engine is installed separately in step 1. Step 2 below explains how to
+pick your agent.
+
 ### Before you start
 
 Open a terminal and check these three commands. Each one should print a version.
