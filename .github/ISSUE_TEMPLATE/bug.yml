@@ -1,0 +1,22 @@
+name: Bug report
+description: A reproducible engine, skill or report failure
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Chaosfolk version, OS, Python and agent host if relevant. Do not include tokens.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Small synthetic fixture, exact command, expected behavior and actual result. Review artifacts for private data before attaching them.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Relevant redacted error or replay result. Mark whether this is an observation or a repeated failure.

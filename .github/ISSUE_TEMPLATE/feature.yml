@@ -1,0 +1,17 @@
+name: Feature request
+description: A concrete test workflow Chaosfolk should support
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to test?
+      description: Describe the workflow and what blocks it today.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: How would we verify it works?
+      description: A synthetic fixture, observable behavior or command example.
+    validations:
+      required: true

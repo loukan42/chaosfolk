@@ -1,0 +1,556 @@
+{
+  "prenoms": [
+    "Claire",
+    "Marc",
+    "Inès",
+    "Thomas",
+    "Josiane",
+    "Kevin",
+    "Sophie",
+    "Julien",
+    "Patrick",
+    "Élodie",
+    "Hugo",
+    "Nathalie",
+    "Amel",
+    "Bastien",
+    "Camille",
+    "Dylan",
+    "Emma",
+    "Farid",
+    "Gaëlle",
+    "Hakim",
+    "Isabelle",
+    "Jérôme",
+    "Karine",
+    "Lucas",
+    "Maëlle",
+    "Nicolas",
+    "Océane",
+    "Pierre",
+    "Quentin",
+    "Rachida",
+    "Samuel",
+    "Théo",
+    "Valérie",
+    "Walid",
+    "Yasmine",
+    "Zoé",
+    "Antoine",
+    "Brigitte",
+    "Cédric",
+    "Delphine"
+  ],
+  "noms": [
+    "Vasseur",
+    "Delaunay",
+    "Moreau",
+    "Garnier",
+    "Lefèvre",
+    "N'Diaye",
+    "Marchand",
+    "Roche",
+    "Benali",
+    "Fontaine",
+    "Lambert",
+    "Perrin",
+    "Bouchard",
+    "Caron",
+    "Dupuis",
+    "Étienne",
+    "Fabre",
+    "Giraud",
+    "Hamon",
+    "Imbert",
+    "Joly",
+    "Klein",
+    "Lemaire",
+    "Masson",
+    "Noël",
+    "Olivier",
+    "Pasquier",
+    "Quéré",
+    "Renard",
+    "Sauvage",
+    "Tessier",
+    "Urbain",
+    "Vidal",
+    "Weber",
+    "Yildiz",
+    "Zimmer",
+    "Barbier",
+    "Chevalier",
+    "Dumont",
+    "Esnault"
+  ],
+  "metiers": [
+    "teacher",
+    "designer",
+    "project coordinator",
+    "student",
+    "support specialist",
+    "small business owner",
+    "researcher",
+    "event organizer",
+    "developer",
+    "volunteer",
+    "writer",
+    "retail manager",
+    "freelancer",
+    "librarian",
+    "operations manager",
+    "photographer"
+  ],
+  "appareils": {
+    "desktop": 5,
+    "laptop": 2,
+    "mobile": 2,
+    "tablet": 1
+  },
+  "questions_comprehension": [
+    "At the end, describe the main screen in one sentence.",
+    "Before acting, describe what you expect the visible buttons to do.",
+    "Record any interface term you do not understand without searching elsewhere.",
+    "Describe what you expect before an important click, then whether it happened.",
+    "At the end, describe your progress without looking at the screen."
+  ],
+  "manies_communes": [
+    "clicks the title or logo to go back",
+    "hovers unfamiliar icons before clicking",
+    "skips help text",
+    "reads an entire dialog before confirming",
+    "closes dialogs with Escape",
+    "types page addresses rather than using menus",
+    "reloads when something seems slow",
+    "uses browser Back in the middle of a form",
+    "opens a link in another tab and forgets the original",
+    "submits forms with Enter",
+    "leaves unclear fields empty",
+    "pastes a value with extra spaces or commas",
+    "double-clicks when nothing seems to happen",
+    "looks for functions in menus",
+    "scrolls to the bottom before starting",
+    "compares two screens by switching tabs",
+    "checks a list to confirm that an action succeeded",
+    "looks for Cancel before confirming an action",
+    "leaves a half-finished form and comes back later",
+    "uses search even for a short list"
+  ],
+  "profils": [
+    {
+      "nom": "First-time visitor",
+      "habitudes": [
+        "discovers the app",
+        "follows the most visible path"
+      ],
+      "manies": [
+        "reads before acting",
+        "hesitates over unfamiliar terms",
+        "looks for help"
+      ],
+      "aisance": [
+        "low",
+        "medium"
+      ],
+      "patience": [
+        3,
+        4
+      ],
+      "id": "first-time"
+    },
+    {
+      "nom": "In a hurry",
+      "habitudes": [
+        "wants to finish quickly",
+        "does not wait for loading"
+      ],
+      "manies": [
+        "clicks again after two seconds",
+        "skips help text",
+        "fills required fields only"
+      ],
+      "aisance": [
+        "high"
+      ],
+      "patience": [
+        1,
+        2
+      ],
+      "id": "in-a-hurry"
+    },
+    {
+      "nom": "Keyboard-focused",
+      "habitudes": [
+        "uses keyboard navigation"
+      ],
+      "manies": [
+        "moves with Tab",
+        "submits with Enter",
+        "closes with Escape",
+        "tries arrow keys in menus"
+      ],
+      "aisance": [
+        "high"
+      ],
+      "patience": [
+        3,
+        4
+      ],
+      "regle": "Use key and type actions; click only a reference already reached with the keyboard. Report controls that cannot be reached or activated. This behavior is a test heuristic, not a simulation of disability.",
+      "id": "keyboard"
+    },
+    {
+      "nom": "Mobile user",
+      "habitudes": [
+        "uses a phone with one hand"
+      ],
+      "manies": [
+        "looks for a top menu",
+        "scrolls quickly",
+        "goes back when lost"
+      ],
+      "aisance": [
+        "medium"
+      ],
+      "patience": [
+        2,
+        3
+      ],
+      "appareil": "mobile",
+      "id": "mobile"
+    },
+    {
+      "nom": "Careful reader",
+      "habitudes": [
+        "reads slowly",
+        "avoids unintended changes"
+      ],
+      "manies": [
+        "scrolls rather than searches",
+        "reloads to confirm state",
+        "hesitates before deleting"
+      ],
+      "aisance": [
+        "low"
+      ],
+      "patience": [
+        4,
+        5
+      ],
+      "id": "careful-reader"
+    },
+    {
+      "nom": "Unfamiliar with jargon",
+      "habitudes": [
+        "does not know the app vocabulary"
+      ],
+      "manies": [
+        "records unfamiliar labels",
+        "looks for plain language"
+      ],
+      "aisance": [
+        "medium"
+      ],
+      "patience": [
+        3
+      ],
+      "regle": "Flag unfamiliar labels with minor severity and the exact term.",
+      "id": "plain-language"
+    },
+    {
+      "nom": "Distracted",
+      "habitudes": [
+        "gets interrupted frequently"
+      ],
+      "manies": [
+        "leaves midway then returns",
+        "reloads to start over",
+        "forgets the previous step"
+      ],
+      "aisance": [
+        "medium"
+      ],
+      "patience": [
+        2,
+        3
+      ],
+      "id": "distracted"
+    },
+    {
+      "nom": "Detail checker",
+      "habitudes": [
+        "checks every change"
+      ],
+      "manies": [
+        "rereads lists after actions",
+        "looks for visible confirmation",
+        "reloads to verify persistence"
+      ],
+      "aisance": [
+        "high"
+      ],
+      "patience": [
+        5
+      ],
+      "id": "detail-checker"
+    },
+    {
+      "nom": "Cautious",
+      "habitudes": [
+        "wants to avoid mistakes"
+      ],
+      "manies": [
+        "looks for undo",
+        "reads confirmations in full",
+        "hesitates before submitting"
+      ],
+      "aisance": [
+        "medium"
+      ],
+      "patience": [
+        3,
+        4
+      ],
+      "id": "cautious"
+    },
+    {
+      "nom": "Explorer",
+      "habitudes": [
+        "tries less obvious routes"
+      ],
+      "manies": [
+        "opens menus and footers",
+        "tries an invented page address",
+        "visits rarely used pages"
+      ],
+      "aisance": [
+        "high"
+      ],
+      "patience": [
+        4
+      ],
+      "id": "explorer"
+    },
+    {
+      "nom": "Multitasker",
+      "habitudes": [
+        "works in multiple tabs"
+      ],
+      "manies": [
+        "opens the same page twice",
+        "edits in one tab and checks the other without reloading"
+      ],
+      "aisance": [
+        "high"
+      ],
+      "patience": [
+        3
+      ],
+      "id": "multitasker"
+    },
+    {
+      "nom": "Text-focused",
+      "habitudes": [
+        "relies on labels rather than color"
+      ],
+      "manies": [
+        "uses labels and icons",
+        "checks whether status is conveyed in text"
+      ],
+      "aisance": [
+        "high"
+      ],
+      "patience": [
+        3,
+        4
+      ],
+      "regle": "Check whether text conveys required fields, errors and state. Do not claim to simulate a visual disability or certify accessibility.",
+      "id": "text-focused"
+    },
+    {
+      "id": "copy-paster",
+      "nom": "Copy-paster",
+      "habitudes": [
+        "pastes text from another document",
+        "expects whitespace and Unicode to survive"
+      ],
+      "manies": [
+        "pastes synthetic names with leading and trailing spaces",
+        "uses accented characters and emoji in permitted text fields",
+        "tries a multiline synthetic value when a field permits it"
+      ],
+      "aisance": [
+        "medium",
+        "high"
+      ],
+      "patience": [
+        3,
+        4
+      ],
+      "regle": "Use only synthetic text in allowed fields. Observe trimming, validation and saved values; do not treat a documented restriction as a defect."
+    },
+    {
+      "id": "backtracker",
+      "nom": "Backtracker",
+      "habitudes": [
+        "reconsiders choices during a form",
+        "uses browser history to return to previous steps"
+      ],
+      "manies": [
+        "uses Back midway through a form",
+        "cancels an edit before starting it again",
+        "goes forward after returning to an earlier screen"
+      ],
+      "aisance": [
+        "medium"
+      ],
+      "patience": [
+        3,
+        4
+      ],
+      "regle": "Explore the supplied goals while using Back and Cancel. Check whether the interface explains what happens to an unfinished draft."
+    },
+    {
+      "id": "search-first",
+      "nom": "Search-first",
+      "habitudes": [
+        "looks for search before browsing menus",
+        "narrows lists with filters"
+      ],
+      "manies": [
+        "searches by part of a synthetic item name",
+        "combines available filters",
+        "clears search terms to find the full list again"
+      ],
+      "aisance": [
+        "medium",
+        "high"
+      ],
+      "patience": [
+        2,
+        3
+      ],
+      "regle": "Use search and filters when the app provides them. If unavailable, continue through the visible navigation rather than inventing a search control."
+    },
+    {
+      "id": "recovery-seeker",
+      "nom": "Recovery seeker",
+      "habitudes": [
+        "looks for ways to undo a change",
+        "expects recoverable errors to preserve progress"
+      ],
+      "manies": [
+        "corrects an invalid synthetic entry",
+        "looks for Undo or Cancel after a reversible action",
+        "returns to an unfinished goal after a visible error"
+      ],
+      "aisance": [
+        "medium"
+      ],
+      "patience": [
+        4,
+        5
+      ],
+      "regle": "Use only reversible actions inside the allowed scope. Do not delete data or trigger external effects to manufacture a recovery scenario."
+    }
+  ],
+  "pannes": [
+    {
+      "type": "slow",
+      "poids": 3,
+      "params": {
+        "delai": [
+          1500,
+          4000
+        ]
+      },
+      "apres_actions": [
+        3,
+        12
+      ],
+      "duree": [
+        40,
+        90
+      ]
+    },
+    {
+      "type": "offline",
+      "poids": 2,
+      "apres_actions": [
+        5,
+        20
+      ],
+      "duree": [
+        15,
+        40
+      ]
+    },
+    {
+      "type": "server-down",
+      "poids": 2,
+      "apres_actions": [
+        6,
+        18
+      ],
+      "duree": [
+        20,
+        40
+      ]
+    },
+    {
+      "type": "window",
+      "poids": 1,
+      "params": {
+        "taille": [
+          "390x844",
+          "820x1180",
+          "1024x600"
+        ]
+      },
+      "apres_actions": [
+        4,
+        16
+      ]
+    },
+    {
+      "type": "clock",
+      "poids": 1,
+      "params": {
+        "avance": [
+          "2h",
+          "24h",
+          "72h"
+        ]
+      },
+      "apres_actions": [
+        8,
+        24
+      ],
+      "horloge": true
+    },
+    {
+      "type": "storage-full",
+      "poids": 1,
+      "apres_actions": [
+        6,
+        18
+      ],
+      "duree": [
+        30,
+        70
+      ]
+    },
+    {
+      "type": "storage-empty",
+      "poids": 1,
+      "apres_actions": [
+        10,
+        25
+      ]
+    },
+    {
+      "type": "aucune",
+      "poids": 3
+    }
+  ]
+}

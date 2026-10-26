@@ -1,0 +1,44 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.12', '3.14']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+      - run: python -m pip install -e ".[dev]"
+      - run: python -m playwright install --with-deps chromium
+      - run: python -m ruff check .
+      - run: python -m pytest -q
+      - run: python -m build
+      - name: Install and inspect built wheel
+        shell: python
+        run: |
+          import glob, os, pathlib, subprocess, sys, tempfile, venv
+          wheel = pathlib.Path(glob.glob('dist/*.whl')[0]).resolve()
+          with tempfile.TemporaryDirectory() as directory:
+              root = pathlib.Path(directory)
+              venv.create(root / 'env', with_pip=True)
+              python = root / 'env' / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+              subprocess.run([str(python), '-m', 'pip', 'install', str(wheel)], check=True)
+              subprocess.run([str(python), '-m', 'chaosfolk', '--version'], cwd=root, check=True)
+              subprocess.run([str(python), '-m', 'chaosfolk', 'check'], cwd=root, check=True)
+              subprocess.run([str(python), '-m', 'chaosfolk', 'draw', '--count', '1', '--seed', '42', '--objectives', 'Create a project', '--folder', str(root / 'session')], cwd=root, check=True)
+              subprocess.run([str(python), '-m', 'chaosfolk', 'sheets', '--folder', str(root / 'session'), '--data', 'Synthetic names', '--forbidden', 'External actions'], cwd=root, check=True)

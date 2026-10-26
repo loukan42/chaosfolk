@@ -1,0 +1,182 @@
+import functools
+import json
+import os
+from pathlib import Path
+import re
+import shlex
+import socket
+import subprocess
+import sys
+import threading
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+
+import pytest
+
+from chaosfolk import engine
+
+pytestmark = pytest.mark.browser
+
+
+class QuietHandler(SimpleHTTPRequestHandler):
+    def log_message(self, *_):
+        pass
+
+
+@pytest.fixture
+def fixture_url():
+    handler = functools.partial(QuietHandler, directory=str(Path(engine.__file__).parent / "demo"))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def cli(*args, env=None, timeout=90):
+    return subprocess.run([sys.executable, "-m", "chaosfolk", *map(str, args)],
+                          env=env, capture_output=True, text=True, encoding="utf-8", timeout=timeout,
+                          creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
+def ref_for(screen, label):
+    for line in screen.splitlines():
+        if label in line:
+            match = re.search(r"\b(r\d+)\b", line)
+            if match:
+                return match.group(1)
+    raise AssertionError(f"No reference for {label!r} in screen:\n{screen}")
+
+
+def test_daemon_authentication_actions_and_storage_isolation(tmp_path, fixture_url):
+    env = dict(os.environ, CHAOSFOLK_HOME=str(tmp_path / "state"))
+    env.pop("CHAOSFOLK_LEADER_TOKEN", None)
+    folder = tmp_path / "session"
+    result = cli("launch", "--url", fixture_url, "--folder", folder, "--budget", "5", "--channel", "chromium", env=env)
+    assert result.returncode == 0, result.stderr
+    info = json.loads((folder / "serveur.json").read_text(encoding="utf-8"))
+    leader = dict(env, CHAOSFOLK_LEADER_TOKEN=info["jeton_chef"])
+    try:
+        # A valid ordinary user token does not grant leader commands.
+        assert cli("fault", "offline", env=env).returncode == 1
+        personas = folder / "personas.json"
+        personas.write_text(json.dumps({"humains": [{"id": "h01", "nom": "Alex"}, {"id": "h02", "nom": "Sam"}]}), encoding="utf-8")
+        assert cli("humans", personas, env=env).returncode == 1
+        result = cli("humans", personas, env=leader)
+        assert result.returncode == 0, result.stdout
+        look = cli("h01", "look", env=env)
+        assert look.returncode == 0, look.stdout
+        textbox = ref_for(look.stdout, "Project name")
+        result = cli("h01", "type", textbox, "Synthetic project", env=env)
+        assert result.returncode == 0, result.stdout
+        button = ref_for(result.stdout, "Save project") if "Save project" in result.stdout else ref_for(look.stdout, "Save project")
+        result = cli("h01", "click", button, env=env)
+        assert result.returncode == 0, result.stdout
+        first = cli("inspect", "h01", "localStorage.getItem('fieldnotes.project')", env=leader)
+        second = cli("inspect", "h02", "localStorage.getItem('fieldnotes.project')", env=leader)
+        assert first.returncode == second.returncode == 0
+        assert json.loads(first.stdout) == "Synthetic project"
+        assert json.loads(second.stdout) is None
+        assert cli("inspect", "h01", "document.title", env=env).returncode == 1
+        assert cli("h99", "look", env=env).returncode == 1
+        # Budget-one draws inject at action zero, before the user's first gesture.
+        injected = cli("fault", "storage-full", "--humans", "h02", "--after-actions", "0", env=leader)
+        assert injected.returncode == 0, injected.stdout
+        blocked = cli("inspect", "h02", "(() => {try {localStorage.setItem('probe','synthetic');return false;} catch {return true;}})()", env=leader)
+        assert blocked.returncode == 0, blocked.stdout
+        assert json.loads(blocked.stdout) is True
+        # Browser screenshots were actually written, not fabricated in a report.
+        assert list((folder / "captures").glob("*.jpg"))
+    finally:
+        result = cli("stop", env=leader)
+        assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize("expect,code", [
+    ({"type": "text-visible", "text": "Project name"}, 0),
+    ({"type": "text-visible", "text": "This text is absent"}, 1),
+    ({"type": "js", "expression": "(() => {throw new Error('cannot evaluate')})()"}, 2),
+])
+def test_replay_exit_codes_distinguish_pass_failure_and_inconclusive(tmp_path, fixture_url, expect, code):
+    path = tmp_path / "scenario.json"
+    path.write_text(json.dumps({"url": fixture_url, "session_dir": str(tmp_path), "steps": [], "expect": expect}), encoding="utf-8")
+    result = cli("replay", path, "--times", "1", "--fail-on-bug", "--output", tmp_path / "results")
+    assert result.returncode == code, result.stdout + result.stderr
+    evidence = json.loads(next((tmp_path / "results").glob("*.json")).read_text(encoding="utf-8"))
+    if code == 2:
+        assert evidence["fois"] == 0
+        assert evidence["casses"] == 0
+    else:
+        assert evidence["fois"] == 1
+        assert evidence["casses"] == code
+
+
+def test_demo_measures_failure_control_and_fix(tmp_path):
+    result = cli("demo", "--output", tmp_path / "demo", timeout=180)
+    assert result.returncode == 0, result.stdout + result.stderr
+    for name, failures in (("before", 3), ("before-temoin", 0), ("after", 0), ("after-temoin", 0)):
+        evidence = json.loads((tmp_path / f"demo/reproductions/{name}.json").read_text(encoding="utf-8"))
+        assert evidence["fois"] == 3
+        assert evidence["casses"] == failures
+        assert all(Path(trial["capture"]).is_file() for trial in evidence["essais"])
+    assert (tmp_path / "demo/rapport.html").is_file()
+    # A second run must not silently overwrite evidence.
+    assert cli("demo", "--output", tmp_path / "demo").returncode != 0
+
+
+def test_ci_gate_rejects_empty_assertions_without_contacting_target(tmp_path):
+    scenario = tmp_path / "empty.json"
+    scenario.write_text(json.dumps({"url": "http://127.0.0.1:1/", "steps": []}), encoding="utf-8")
+    result = cli("replay", scenario, "--fail-on-bug", "--output", tmp_path / "results")
+    assert result.returncode == 2
+    assert "explicit assertion" in result.stderr
+    assert not (tmp_path / "results").exists()
+
+
+@pytest.mark.skipif(os.name != "nt", reason="PowerShell integration runs on Windows")
+def test_powershell_sheet_command_executes(tmp_path, monkeypatch):
+    monkeypatch.setattr(engine, "FICHIER_ACTIF", tmp_path / "State's directory" / "active.json")
+    result = subprocess.run(["powershell", "-NoProfile", "-Command", engine.sheet_command("powershell") + " help"],
+        capture_output=True, text=True, encoding="utf-8", timeout=15,
+        creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    assert result.returncode == 0, result.stderr
+    assert "click" in result.stdout
+
+
+def test_managed_app_identity_survives_keep_app_and_stops_owned_tree(tmp_path):
+    with socket.socket() as reserved:
+        reserved.bind(("127.0.0.1", 0))
+        port = reserved.getsockname()[1]
+    command = [sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1"]
+    app_command = subprocess.list2cmdline(command) if os.name == "nt" else shlex.join(command)
+    env = dict(os.environ, CHAOSFOLK_HOME=str(tmp_path / "state"))
+    folder = tmp_path / "session"
+    result = cli("launch", "--url", f"http://127.0.0.1:{port}/", "--folder", folder,
+                 "--app-command", app_command, "--app-folder", Path(engine.__file__).parent / "demo",
+                 "--app-wait", "10", env=env)
+    assert result.returncode == 0, result.stdout + result.stderr
+    info = engine.lire_json(folder / "serveur.json")
+    leader = dict(env, CHAOSFOLK_LEADER_TOKEN=info["jeton_chef"])
+    try:
+        assert info["app_identity"]["pid"] == info["app_pid"]
+        assert info["app_identity"]["created"] > 0
+        assert cli("stop", "--keep-app", env=leader).returncode == 0
+        # Server shutdown completes asynchronously after its acknowledgement.
+        import time
+        active = Path(env["CHAOSFOLK_HOME"]) / "active.json"
+        deadline = time.monotonic() + 10
+        while active.exists() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert not active.exists()
+        result = cli("stop-app", "--folder", folder, env=env)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert engine.lire_json(folder / "serveur.json")["app_pid"] is None
+    finally:
+        if (Path(env["CHAOSFOLK_HOME"]) / "active.json").exists():
+            cli("stop", env=leader)
+        current = engine.lire_json(folder / "serveur.json")
+        if current.get("app_pid"):
+            engine.stop_owned_process(current["app_identity"])

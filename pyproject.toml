@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chaosfolk"
+version = "0.3.0"
+description = "Let simulated users explore your web app. Replay the failures with evidence."
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{name = "Lou Husson"}]
+dependencies = ["playwright>=1.63,<2", "psutil>=6,<8"]
+keywords = ["qa", "testing", "playwright", "ai-agents", "exploratory-testing"]
+classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "Topic :: Software Development :: Testing"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10", "build>=1,<2", "ruff>=0.11,<1"]
+
+[project.scripts]
+chaosfolk = "chaosfolk.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/loukan42/chaosfolk"
+Issues = "https://github.com/loukan42/chaosfolk/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+chaosfolk = ["*.js", "*.json", "templates/*", "demo/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["browser: launches a real Chromium browser"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]
