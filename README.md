@@ -66,9 +66,7 @@ not a measure of total coverage.
 
 ### Watch the trailer
 
-[![Chaosfolk trailer](assets/chaosfolk-thumbnail.png)](assets/chaosfolk-trailer.mp4)
-
-[Play the trailer (MP4)](assets/chaosfolk-trailer.mp4)
+https://github.com/user-attachments/assets/500cdc82-94da-466b-bc26-2f85cfc8072d
 
 ## Install
 
