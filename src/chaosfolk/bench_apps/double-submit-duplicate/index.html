@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Groceries · Chaosfolk benchmark</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px}input,button{font:inherit;padding:8px}</style>
+<h1>Groceries</h1>
+<label for="item">Item</label> <input id="item" autocomplete="off"> <button id="add">Add item</button>
+<ul id="list"></ul>
+<script>
+// Seeded defect: a slow save accepts a second click and adds the item twice.
+const fixed = new URLSearchParams(location.search).has('fixed');
+const field = document.querySelector('#item');
+let pending = false;
+document.querySelector('#add').addEventListener('click', () => {
+  const name = field.value.trim();
+  if (!name || (fixed && pending)) return;
+  pending = true;
+  setTimeout(() => {
+    const item = document.createElement('li');
+    item.textContent = name;
+    document.querySelector('#list').append(item);
+    field.value = '';
+    pending = false;
+  }, 400);
+});
+</script></html>

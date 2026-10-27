@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Notes · Chaosfolk benchmark</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px}textarea,button{font:inherit;padding:8px}</style>
+<h1>Notes</h1>
+<label for="note">Note</label><br><textarea id="note" rows="3"></textarea><br>
+<button id="save">Send note</button>
+<p id="status" role="status"></p>
+<script>
+// Seeded defect: a failed request still reports success.
+const fixed = new URLSearchParams(location.search).has('fixed');
+const status = document.querySelector('#status');
+document.querySelector('#save').addEventListener('click', async () => {
+  status.textContent = 'Sending…';
+  try {
+    const response = await fetch('accepted.json?t=' + Date.now(), {cache: 'no-store'});
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    status.textContent = 'Note sent';
+  } catch {
+    status.textContent = fixed ? 'Not sent: check your connection and try again.' : 'Note sent';
+  }
+});
+</script></html>

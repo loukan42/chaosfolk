@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Drafts · Chaosfolk benchmark</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px}input,button{font:inherit;padding:8px}</style>
+<h1>Drafts</h1>
+<form id="form"><label for="name">Project name</label> <input id="name" autocomplete="off"> <button>Save project</button></form>
+<p id="status" role="status"></p><ul id="list"></ul>
+<script>
+// Seeded defect: the field is cleared before the save, so a storage failure loses the draft.
+const fixed = new URLSearchParams(location.search).has('fixed');
+const field = document.querySelector('#name'), status = document.querySelector('#status');
+document.querySelector('#form').addEventListener('submit', event => {
+  event.preventDefault();
+  const name = field.value;
+  if (!fixed) field.value = '';
+  try {
+    localStorage.setItem('drafts.project', name);
+    field.value = '';
+    const item = document.createElement('li');
+    item.textContent = name;
+    document.querySelector('#list').append(item);
+    status.textContent = 'Project saved';
+  } catch {
+    status.textContent = 'Could not save. Your draft is still here.';
+  }
+});
+</script></html>

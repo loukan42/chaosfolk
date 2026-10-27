@@ -7,6 +7,25 @@ from . import __version__
 
 def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
+    if args and args[0] == "--state-dir":
+        if len(args) < 3:
+            print("Usage: chaosfolk --state-dir DIRECTORY COMMAND", file=sys.stderr)
+            return 2
+        os.environ["CHAOSFOLK_HOME"] = os.path.abspath(args[1])
+        args = args[2:]
+    extensions = {"regression": "regression", "planning": "planning", "integrations": "integrations",
+                  "mcp": "mcp_server", "visual": "visual", "privacy": "privacy", "usage": "usage",
+                  "benchmark": "benchmark"}
+    if args and args[0] in extensions:
+        import importlib
+        try:
+            module = importlib.import_module(f".{extensions[args[0]]}", __package__)
+            return module.main(args[1:])
+        except (OSError, ValueError, RuntimeError) as error:
+            print(f"chaosfolk {args[0]}: {error}", file=sys.stderr)
+            return 2
+        except KeyboardInterrupt:
+            return 130
     if args == ["--version"]:
         print(f"chaosfolk {__version__}")
         return 0

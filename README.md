@@ -232,7 +232,30 @@ left out.
 | High | 12 | 40 |
 
 These cap browser actions, not tokens. Model cost depends on your agent host,
-your pages and the analysis; check it there.
+your pages and the analysis; check it there. If the host exports its usage,
+`chaosfolk usage` stops the next batch at a token or cost limit.
+
+## Keep what you found
+
+A proven finding can outlive the session, with no model in the loop:
+
+```bash
+chaosfolk regression export .horde/run/scenarios/h02-save.json --output tests/test_save_draft.py
+chaosfolk regression run qa/scenarios/*.json --output qa-results
+```
+
+The first writes a plain Playwright test for your repository. The second replays
+saved scenarios in CI and writes JUnit results; exit code 1 means a product
+failure, 2 means the run itself is not trustworthy. See
+[regression tests and CI](docs/regression.md), with visual comparison and
+Firefox and WebKit.
+
+`chaosfolk planning changes` picks the journeys a pull request touches,
+`chaosfolk privacy` makes a copy of a report you can share, and
+`chaosfolk benchmark run` checks the harness on apps with known defects
+(see [benchmark](docs/benchmark.md)). Optional adapters cover a Mailpit test
+mailbox, downloaded files, axe-core, k6, Appium and a read-only MCP server:
+[integrations](docs/integrations.md).
 
 ## Limits
 
@@ -250,4 +273,5 @@ sharing. See [SECURITY.md](SECURITY.md).
 ---
 
 [Workflow and coverage](docs/workflow.md) · [QA checks](docs/checks.md) · [Campaigns and sessions](docs/campaigns.md) ·
-[Fault injection](docs/faults.md) · [Replay format](docs/replay.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
+[Fault injection](docs/faults.md) · [Replay format](docs/replay.md) · [Regressions and CI](docs/regression.md) ·
+[Planning](docs/planning.md) · [Integrations](docs/integrations.md) · [Benchmark](docs/benchmark.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)

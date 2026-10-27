@@ -17,6 +17,8 @@ classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Pytho
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "build>=1,<2", "ruff>=0.11,<1"]
+visual = ["Pillow>=10,<13"]
+pdf = ["pypdf>=5,<7"]
 
 [project.scripts]
 chaosfolk = "chaosfolk.cli:main"
@@ -29,7 +31,7 @@ Issues = "https://github.com/loukan42/chaosfolk/issues"
 where = ["src"]
 
 [tool.setuptools.package-data]
-chaosfolk = ["*.js", "*.json", "templates/*", "demo/*"]
+chaosfolk = ["*.js", "*.json", "templates/*", "demo/*", "bench_apps/*", "bench_apps/*/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
