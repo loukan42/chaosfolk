@@ -62,6 +62,8 @@ same report.
 | `compare` | Replays two scenarios and compares their outcomes | Password reset says "no account for this email" |
 | `audit` | Measures a page at several screen sizes, then tabs through it | The submit button leaves the screen at 320 px; keyboard focus gets stuck |
 | `replay --persist` | Reloads, reopens, clears storage or retries before asserting | A success message with nothing saved; a duplicate after a retry |
+| `replay --environment` | Restores and verifies the fixture before every trial and retry | A previous trial changes the data and contaminates the next result |
+| `replay --baseline` | Runs the observed and reference journeys with and without faults | A failure limited to one journey under the same fault conditions |
 | `campaign` | Keeps a project's findings across runs and replays the open ones | A fix that came back two campaigns later |
 
 Test values cover several countries, because validation should follow the
@@ -78,6 +80,10 @@ different roles to find conflicts and permission gaps. See
 [campaigns and sessions](docs/campaigns.md).
 
 ## What you get
+
+Replay results include reproduction manifests and failure counts with valid,
+invalid and requested trials. For setup and reference comparisons, see the
+[replay guide](docs/replay.md) and [0.8.0 release notes](docs/release-notes/replay-reproducibility.md).
 
 A local HTML report in English or French.
 

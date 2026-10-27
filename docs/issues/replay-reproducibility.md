@@ -19,4 +19,4 @@ QA teams need to distinguish a repeatable application defect from an expected fa
 
 ## Validation
 
-Implemented on the local `codex/replay-reproducibility` branch. Full suite: 314 passed, 2 skipped. Ruff and wheel/source builds pass. The matrix report was checked at mobile width. Changelog entries and release notes are under Unreleased.
+Implemented in [PR #14](https://github.com/loukan42/chaosfolk/pull/14). Full suite: 314 passed, 2 skipped. Ruff and wheel/source builds pass. The matrix report was checked at mobile width. Changelog entries and release notes are prepared for 0.8.0 alpha.

@@ -8,6 +8,11 @@ Each entry explains what the change helps you do and gives an example.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-27
+
+Replay findings against verified test data and compare them with a reference
+journey. Retain the reproduction metadata and measured failure rate for QA review.
+
 ### Added
 
 - Verified fixture preparation before every replay trial and divergence retry.
@@ -30,7 +35,8 @@ Each entry explains what the change helps you do and gives an example.
   series. For example, distinguish `1/5` from `5/5` without treating execution
   errors as successful trials. Severity and reproduced-badge rules stay separate.
 
-See [the replay guide](docs/replay.md) and [issue #13](https://github.com/loukan42/chaosfolk/issues/13).
+See [the replay guide](docs/replay.md), [release notes](docs/release-notes/replay-reproducibility.md)
+and [issue #13](https://github.com/loukan42/chaosfolk/issues/13).
 
 ## [0.7.0] - 2026-10-27
 
@@ -250,7 +256,8 @@ First public alpha for exploratory browser testing with simulated users.
   example, use the engine to drive browsers while a compatible coding agent
   coordinates simulated users.
 
-[Unreleased]: https://github.com/loukan42/chaosfolk/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/loukan42/chaosfolk/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/loukan42/chaosfolk/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/loukan42/chaosfolk/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/loukan42/chaosfolk/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/loukan42/chaosfolk/compare/v0.5.0...v0.5.1

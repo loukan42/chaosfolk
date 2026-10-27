@@ -1,4 +1,6 @@
-# Replay reproducibility (unreleased)
+# Chaosfolk 0.8.0 alpha: replay reproducibility
+
+Release preparation for [PR #14](https://github.com/loukan42/chaosfolk/pull/14).
 
 Replay a finding against the same verified dataset, retain its reproduction
 metadata, and compare it with a reference journey supplied by your team.
