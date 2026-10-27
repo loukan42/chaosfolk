@@ -8,6 +8,30 @@ Each entry explains what the change helps you do and gives an example.
 
 ## [Unreleased]
 
+### Added
+
+- Verified fixture preparation before every replay trial and divergence retry.
+  Configure bounded preparation and verification commands with `--environment`;
+  trials run sequentially, and an unavailable or mismatched fixture is invalid.
+  For example, restore the same checkout dataset before each of five attempts.
+- Reproduction manifests link results to the scenario snapshot, seed, generated
+  profiles, catalog/template fingerprints, application build or Git revision,
+  browser and engine versions, initial browser-state hashes and fault schedule.
+  Missing metadata stays explicit; browser-state contents remain private.
+- Optional 2x2 reference comparison with `replay --baseline reference.json`.
+  Replay the observed and reference journeys with and without the same fault
+  conditions, keeping each journey's own assertions and action anchors. The
+  four series and their summary are available in JSON and the session report.
+
+### Changed
+
+- Replay results, CLI and English/French reports show failures / valid trials,
+  percentage, invalid trials and requested trials, including small and incomplete
+  series. For example, distinguish `1/5` from `5/5` without treating execution
+  errors as successful trials. Severity and reproduced-badge rules stay separate.
+
+See [the replay guide](docs/replay.md) and [issue #13](https://github.com/loukan42/chaosfolk/issues/13).
+
 ## [0.7.0] - 2026-10-27
 
 Control fault injection across users and test sessions, with optional limits

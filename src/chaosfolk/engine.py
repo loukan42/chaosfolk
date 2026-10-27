@@ -2577,6 +2577,8 @@ def extraire(dossier, hid, jusqua=None):
     return {"nom": f"{hid}-jusqu-a-{jusqua or 'fin'}", "humain": hid, "url": config.get("url"),
             "dossier_horde": Path(dossier).resolve().as_posix(), "depart": depart, "appareil": alias(fiche.get("appareil") or "desktop", ALIAS_APPAREILS), "etat": etat,
             "horloge": bool(fiche.get("horloge")), "etapes": etapes, "pannes": pannes,
+            "fault_events": [e for e in evts if e.get("type") in ("panne-debut", "panne-fin")
+                             and e.get("h") in (None, hid)],
             "attendu": [{"type": "no-page-error"}],
             "a_completer": "Écrire dans 'attendu' la propriété qui doit tenir (voir references/reproduction.md)."}
 
@@ -2684,6 +2686,12 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
 
     m = await ouvrir(principale)
     journal_etapes = []
+    fault_events = []
+    started = time.monotonic()
+    def record_fault(event, fault, step):
+        fault_events.append({"event": event, "type": fault["type"], "step": step,
+                             "id": fault.get("id"),
+                             "elapsed_ms": round((time.monotonic() - started) * 1000)})
     try:
         plan, avertissements = planifier_pannes(sc) if avec_pannes else ([], [])
         principal = m
@@ -2693,10 +2701,12 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
             for p in plan:
                 if p["avant_etape"] == i:
                     await principal.appliquer(p)
+                    record_fault("start", p, i)
                     if p.get("sans_geste"):
                         # la panne n'a couvert que des regards : l'application la vit un instant, puis elle cesse
                         await principal.calme()
                         await principal.retirer(p)
+                        record_fault("end", p, i)
             session = etape.get("session") or principale
             m = mondes.get(session) or await ouvrir(session)
             tolerant = etape.get("echec_original")
@@ -2720,6 +2730,7 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
             for p in plan:
                 if p["apres_etape"] == i and p in principal.pannes:
                     await principal.retirer(p)
+                    record_fault("end", p, i)
         if m.dialogue is not None:
             await m.repondre_boite(False)
             calme_fait = False
@@ -2731,6 +2742,7 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
             except Exception as e:
                 capture = await m.capturer(nom)
                 return {"ok": None, "raisons": [], "rejeu_impossible": f"recette {sc['recette']} impossible : {traduire_erreur(e)}",
+                        "fault_events": fault_events,
                         "capture": capture.as_posix() if capture else None, "etapes": journal_etapes}
             if m.dialogue is not None:
                 await m.repondre_boite(False)
@@ -2747,6 +2759,7 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
             # l'attendu n'a pas pu être contrôlé : l'essai ne dit rien, ce n'est pas une casse
             capture = await m.capturer(nom)
             return {"ok": None, "raisons": [], "rejeu_impossible": "attendu invérifiable : " + inverifiable,
+                    "fault_events": fault_events,
                     "capture": capture.as_posix() if capture else None, "etapes": journal_etapes,
                     "avertissements": avertissements}
         capture = await m.capturer(nom)
@@ -2754,6 +2767,7 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
         # un geste qui ne s'exécute pas alors qu'il avait marché à l'origine : le rejeu a quitté le parcours
         divergence = next((x for x in journal_etapes if not x["ok"]), None)
         resultat = {"ok": not raisons, "raisons": raisons, "capture": capture.as_posix() if capture else None,
+                    "fault_events": fault_events,
                     "erreurs_page": m.erreurs_page[:10], "etapes": journal_etapes, "ecran": ecran["lignes"][:40],
                     "divergence": divergence, "avertissements": avertissements}
         if observer and m.page is not None:
@@ -2761,10 +2775,13 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
                 resultat["observation"] = await borne(m.page.evaluate(observer), DELAI_LECTURE)
             except Exception as e:
                 return {"ok": None, "raisons": [], "rejeu_impossible": f"observation impossible ({traduire_erreur(e)})",
+                        "fault_events": fault_events,
                         "capture": resultat["capture"], "etapes": journal_etapes}
         return resultat
     finally:
         for monde in mondes.values():
+            for fault in monde.pannes:
+                record_fault("context-closed", fault, len(journal_etapes))
             with suppress(Exception):
                 await monde.ctx.close()
 
@@ -2928,51 +2945,93 @@ async def rejouer(opts):
     parallèle (un contexte isolé chacun, REJEUX_SIMULTANES au plus), sauf avec `a.sequentiel` (application dont le
     serveur partage un état entre essais). Un fichier de résultat et un verdict par série (scénario, témoin)."""
     from playwright.async_api import async_playwright
+    from chaosfolk import reproducibility as evidence
+    from uuid import uuid4
+    environment = evidence.load_environment(getattr(opts, "environment", None))
+    baseline = getattr(opts, "baseline", None)
     chemins = opts.scenario if isinstance(opts.scenario, list) else [opts.scenario]
-    if opts.nom and len(chemins) > 1:
+    if baseline:
+        if len(chemins) != 1 or opts.temoin:
+            raise ValueError("--baseline requires one observed scenario and cannot use --control")
+        chemins = [*chemins, baseline]
+    run_id = uuid4().hex
+    if environment and environment.get("prepare"):
+        opts.sequentiel = True
+        print("Fixture preparation enabled: all trials and retries run sequentially")
+    if opts.nom and len(chemins) > 1 and not baseline:
         raise SystemExit("--name ne va qu'avec un seul scénario (sinon chaque série prend le nom de son fichier)")
     # tout est lu et validé avant de lancer le navigateur : un attendu mal écrit arrête tout de suite
     recettes = recettes_demandees(getattr(opts, "persist", None))
     scenarios = []
-    for chemin in chemins:
+    for journey_index, chemin in enumerate(chemins):
         fichier, sc, dossier_horde = charger_scenario(chemin)
+        if baseline and (not sc.get("attendu") or not sc.get("pannes")):
+            raise ValueError("Both matrix journeys require explicit assertions and their own fault schedule")
+        if baseline and not any(p.get("avant_etape") in range(1, len(sc["etapes"]) + 1)
+                                for p in planifier_pannes(sc)[0]):
+            raise ValueError("Each matrix journey needs a fault anchored to an executed step")
         if getattr(opts, "fail_on_bug", False) and not sc.get("attendu"):
             print("--fail-on-bug requires at least one explicit assertion", file=sys.stderr)
             return 2
         sortie = Path(opts.sortie or dossier_horde / "reproductions")
+        if baseline and scenarios:
+            sortie = scenarios[0]["sortie"]
         sortie.mkdir(parents=True, exist_ok=True)
         # chaque recette est une série à part : le rapport montre laquelle perd les données
         for recette in recettes or [sc.get("recette")]:
             base = opts.nom or fichier.stem
+            journey = "reference" if journey_index else "observed"
+            if baseline:
+                base = (opts.nom or "matrix") + "-" + journey
             if recette and recettes:
                 base += f"-persist-{recette}"
             nom = base + ("-temoin" if opts.temoin else ("-traitement" if not opts.nom else ""))
             series = [(nom, not opts.temoin)]
-            if opts.avec_temoin and not opts.temoin:
+            if (opts.avec_temoin or baseline) and not opts.temoin:
                 series.append((nom + "-temoin", False))
             scenarios.append({"fichier": fichier, "sc": dict(sc, recette=recette), "dossier": dossier_horde,
                               "sortie": sortie, "series": series,
+                              "journey": journey, "recipe": recette,
                               "essai_max": max(ESSAI_MAX, 12 * len(sc["etapes"]) + 60)})
     places = asyncio.Semaphore(1 if opts.sequentiel else REJEUX_SIMULTANES)
+    if baseline:
+        if not recettes and scenarios[0]["recipe"] != scenarios[-1]["recipe"]:
+            raise ValueError("Matrix journeys must use the same persistence recipe, or override both with --persist")
+        def conditions(sc):
+            anchors = {"debut_n", "fin_n", "debut_etape", "fin_etape", "id", "note"}
+            return sorted(evidence.fingerprint({k: v for k, v in fault.items() if k not in anchors})
+                          for fault in sc.get("pannes", []))
+        if conditions(scenarios[0]["sc"]) != conditions(scenarios[-1]["sc"]):
+            raise ValueError("Matrix journeys must use the same fault conditions; action anchors may differ")
 
     async def essai(navigateur, k, nom_serie, avec_pannes, i):
         s = scenarios[k]
         async with places:
+            preparation = await evidence.prepare(environment)
+            if preparation["status"] == "invalid":
+                return {"ok": None, "raisons": [], "capture": None, "preparation": preparation,
+                        "rejeu_impossible": preparation["reason"]}
             try:
-                return await asyncio.wait_for(
+                result = await asyncio.wait_for(
                     rejouer_un(navigateur, s["sc"], avec_pannes, s["sortie"], f"{nom_serie}-{i}", s["dossier"]),
                     timeout=s["essai_max"])
+                return dict(result, preparation=preparation)
             except asyncio.TimeoutError:
                 return {"ok": None, "raisons": [], "rejeu_impossible": f"essai arrêté après {s['essai_max']} s",
-                        "capture": None}
+                        "capture": None, "preparation": preparation}
             except Exception as e:
                 # l'application ne répond pas : ce n'est ni une casse ni une tenue
-                return {"ok": None, "raisons": [], "rejeu_impossible": traduire_erreur(e), "capture": None}
+                return {"ok": None, "raisons": [], "rejeu_impossible": traduire_erreur(e), "capture": None,
+                        "preparation": preparation}
 
     travaux = [(k, nom_serie, avec_pannes, i) for k, s in enumerate(scenarios) for nom_serie, avec_pannes in s["series"]
                for i in range(1, opts.fois + 1)]
     async with async_playwright() as pw:
         navigateur, _ = await lancer_navigateur(pw, opts.visible, opts.canal)
+        for index, s in enumerate(scenarios):
+            s["manifest"] = f"manifests/{run_id}-{index}.json"
+            ecrire_json(s["sortie"] / s["manifest"], evidence.manifest(
+                s["sc"], s["dossier"], navigateur, environment, s["fichier"]))
         if opts.sequentiel:
             resultats = [await essai(navigateur, *t) for t in travaux]
         else:
@@ -2989,11 +3048,13 @@ async def rejouer(opts):
                     f"le parcours bloque à l'étape {d2['etape']} ({d2['action']} : {d2['message']})"])
             elif d2:
                 r2 = {"ok": None, "raisons": [], "capture": r2.get("capture"), "etapes": r2.get("etapes"),
+                      "preparation": r2.get("preparation"),
                       "rejeu_impossible": f"le rejeu a quitté le parcours à des étapes différentes ({d1['etape']}, puis {d2['etape']})"}
             resultats[k] = r2
         await navigateur.close()
 
     for k, s in enumerate(scenarios):
+        s["results"] = {}
         for nom_serie, avec_pannes in s["series"]:
             essais = [r for t, r in zip(travaux, resultats) if t[0] == k and t[1] == nom_serie]
             for i, r in enumerate(essais, 1):
@@ -3010,12 +3071,25 @@ async def rejouer(opts):
             est_temoin = not avec_pannes
             verdict = verdict_rejeu(casses, n, opts.fois, est_temoin)
             resultat = {"scenario": s["fichier"].resolve().as_posix(), "nom": nom_serie,
+                        "manifest": s["manifest"], "run_id": run_id,
                         "mode": "temoin" if est_temoin else "traitement", "fois": n, "demandes": opts.fois,
                         "casses": casses, "verdict": verdict, "essais": essais,
                         "date": datetime.now().isoformat(timespec="seconds")}
+            resultat["reproducibility"] = evidence.trial_counts(resultat)
+            s["results"]["with_faults" if avec_pannes else "without_faults"] = resultat
             cible = s["sortie"] / f"{nom_serie}.json"
             ecrire_json(cible, resultat)
             print(f"{nom_serie} : {verdict} ({casses}/{n} cassés) : fichier {cible.as_posix()}")
+            rate = f"{100 * casses / n:.1f}%" if n else "n/a"
+            print(f"  {casses}/{n} failures / valid trials ({rate}); {opts.fois - n} invalid; {opts.fois} requested")
+    if baseline:
+        for recipe in dict.fromkeys(s["recipe"] for s in scenarios):
+            members = [s for s in scenarios if s["recipe"] == recipe]
+            cells = {s["journey"] + "/" + mode: value for s in members for mode, value in s["results"].items()}
+            summary = dict(evidence.matrix_summary(cells), run_id=run_id, cells=cells)
+            target = members[0]["sortie"] / ("matrix" + (f"-persist-{recipe}" if recipe else "") + ".json")
+            ecrire_json(target, summary)
+            print(f"Matrix: {summary['status']} : {target.as_posix()}")
     if getattr(opts, "fail_on_bug", False):
         if any(r["ok"] is None for r in resultats):
             return 2
@@ -3037,7 +3111,7 @@ def preuve_resolue(dossier, chemin):
     for e in essais:
         if e.get("capture"):
             e["capture"] = chemin_relatif(e["capture"], dossier)
-    return {**{k: resultat.get(k) for k in ("nom", "mode", "fois", "demandes", "casses", "verdict")}, "source": chemin,
+    return {**{k: resultat.get(k) for k in ("nom", "mode", "fois", "demandes", "casses", "verdict", "manifest", "reproducibility")}, "source": chemin,
             "captures": [e.get("capture") for e in essais], "raisons": [e.get("raisons") for e in essais]}
 
 
@@ -3119,7 +3193,13 @@ def rapport(dossier, langue="en"):
         raise ValueError("coverage.json must be a JSON object")
     coverage = {"requested": tirage.get("themes", []), "results": coverage.get("results", [])}
     application = personas.get("application") if isinstance(personas.get("application"), dict) else {}
+    matrices = []
+    for path in sorted((dossier / "reproductions").glob("matrix*.json")):
+        matrix = lire_json(path)
+        if isinstance(matrix, dict) and matrix.get("cells"):
+            matrices.append(matrix)
     donnees = {"config": config, "personas": personas, "coverage": coverage,
+               "replay_matrices": matrices,
                "journal": allege, "constats": constats, "genere": datetime.now().isoformat(timespec="seconds"),
                # ce dont le prompt de correction a besoin, à un seul endroit
                "application": {"nom": application.get("nom") or constats.get("application") or None,
@@ -3749,6 +3829,8 @@ def construire_parseur():
     p.add_argument("--times", dest="fois", type=positive_int, default=3)
     p.add_argument("--fail-on-bug", action="store_true", help="exit 1 for failed assertions, 2 for invalid trials")
     p.add_argument("--control", dest="temoin", action="store_true", help="rejouer sans les pannes")
+    p.add_argument("--environment", help="JSON file with bounded fixture prepare/verify commands and build metadata")
+    p.add_argument("--baseline", help="team-supplied reference scenario; runs both journeys with and without faults")
     p.add_argument("--with-control", dest="avec_temoin", action="store_true",
                    help="rejouer aussi le témoin sans les pannes, en même temps")
     p.add_argument("--sequential", dest="sequentiel", action="store_true", help="essais l'un après l'autre (serveur à état partagé)")

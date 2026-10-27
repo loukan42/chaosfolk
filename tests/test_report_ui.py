@@ -77,6 +77,28 @@ def test_bilingual_score_compact_findings_and_proof_integrity(report_page):
     assert not page.evaluate("proven({condition:'offline',preuves:{avant:{fois:3,demandes:3,casses:3,mode:'traitement'},temoin:{fois:3,demandes:3,casses:0,mode:'traitement'}}})")
 
 
+def test_matrix_and_incomplete_rates_remain_separate_from_proven_badge(report_page):
+    page, payload, create = report_page
+    incomplete = {"demandes": 5, "fois": 4, "casses": 1, "mode": "traitement",
+                  "essais": [{"preparation": {"status": "reset-verified"}}] * 5}
+    payload["constats"]["constats"][0]["preuves"]["avant"] = incomplete
+    payload["replay_matrices"] = [{"cells": {
+        f"{journey}/{mode}": incomplete for journey in ("observed", "reference")
+        for mode in ("with_faults", "without_faults")}}]
+    page.goto(create().as_uri())
+    assert page.locator("#matrix-section").is_visible()
+    assert page.locator("#matrix-list td").count() == 4
+    assert "1/4 échecs (25.0%); 1 invalides; 5 demandés" in page.locator("#matrix-list").inner_text()
+    assert "Données restaurées et vérifiées" in page.locator("#matrix-list").inner_text()
+    page.locator(".finding-toggle").first.click()
+    assert "1/4 échecs" in page.locator(".finding-body").first.inner_text()
+    assert not page.evaluate("proven(data.constats.constats[0])")
+    page.get_by_role("button", name="EN", exact=True).click()
+    assert "1/4 failures (25.0%); 1 invalid; 5 requested" in page.locator("#matrix-list").inner_text()
+    page.set_viewport_size({"width": 375, "height": 812})
+    assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+
+
 def test_mosaic_filters_timeline_and_bulk_copy_fallback(report_page):
     page, _, _ = report_page
     assert page.locator(".screen-card").count() == 2

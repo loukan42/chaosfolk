@@ -51,6 +51,112 @@ def ref_for(screen, label):
     raise AssertionError(f"No reference for {label!r} in screen:\n{screen}")
 
 
+def test_replay_reference_matrix_and_manifest(tmp_path, fixture_url):
+    observed = {"url": fixture_url, "steps": [
+        {"n": 1, "action": "type", "target": {"role": "textbox", "name": "Project name"}, "args": {"text": "Test"}},
+        {"n": 2, "action": "click", "target": {"role": "button", "name": "Save project"}}],
+        "faults": [{"type": "storage-full", "start_action": 1}],
+        "expect": [{"type": "js", "expression": "document.querySelector('#name').value === 'Test' || localStorage.getItem('fieldnotes.project') === 'Test'"}]}
+    reference = dict(observed, url=fixture_url + "?fixed=1")
+    for name, value in (("observed", observed), ("reference", reference)):
+        (tmp_path / f"{name}.json").write_text(json.dumps(value), encoding="utf-8")
+    output = tmp_path / "reproductions"
+    result = cli("replay", tmp_path / "observed.json", "--baseline", tmp_path / "reference.json",
+                 "--times", 3, "--output", output, "--channel", "chromium")
+    assert result.returncode == 0, result.stdout + result.stderr
+    matrix = json.loads((output / "matrix.json").read_text())
+    assert len(matrix["cells"]) == 4
+    assert matrix["counts"]["observed/with_faults"]["failures"] == 3
+    assert matrix["counts"]["reference/with_faults"]["failures"] == 0
+    assert matrix["counts"]["observed/without_faults"]["failures"] == 0
+    assert matrix["counts"]["reference/without_faults"]["failures"] == 0
+    cell = matrix["cells"]["observed/with_faults"]
+    manifest = json.loads((output / cell["manifest"]).read_text())
+    assert manifest["browser"]["type"] == "chromium"
+    assert manifest["scenario"]["etapes"]
+    assert cell["essais"][0]["preparation"]["status"] == "browser-only"
+    assert cell["essais"][0]["fault_events"][0]["event"] == "start"
+    assert "100.0%" in result.stdout
+
+
+def test_reset_removes_backend_contamination_between_trials(tmp_path):
+    class Handler(QuietHandler):
+        writes = 0
+        resets = 0
+
+        def do_GET(self):
+            if self.path == "/reset":
+                Handler.writes = 0
+                Handler.resets += 1
+                body = b"reset"
+            elif self.path == "/verify":
+                body = json.dumps({"ready": Handler.writes == 0, "data_id": "fixture-v1"}).encode()
+            else:
+                if self.path == "/write":
+                    Handler.writes += 1
+                body = f"<html><body>Writes: {Handler.writes}</body></html>".encode()
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(body)
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    url = f"http://127.0.0.1:{server.server_port}"
+    scenario = tmp_path / "scenario.json"
+    scenario.write_text(json.dumps({"url": url, "steps": [{"n": 1, "action": "goto", "args": {"url": url + "/write"}}],
+                                    "expect": [{"type": "text-visible", "text": "Writes: 1"}]}))
+    environment = tmp_path / "environment.json"
+    hook = tmp_path / "fixture.py"
+    hook.write_text("import sys, urllib.request\nprint(urllib.request.urlopen(sys.argv[1]).read().decode())\n")
+    environment.write_text(json.dumps({"data_id": "fixture-v1", "app_version": "test-build",
+        "prepare": {"command": [sys.executable, str(hook), url + "/reset"]},
+        "verify": {"command": [sys.executable, str(hook), url + "/verify"]}}))
+    output = tmp_path / "results"
+    try:
+        dirty = cli("replay", scenario, "--times", 3, "--sequential", "--output", output, "--channel", "chromium")
+        assert dirty.returncode == 0, dirty.stderr
+        assert json.loads((output / "scenario-traitement.json").read_text())["casses"] == 2
+        clean = cli("replay", scenario, "--times", 3, "--environment", environment,
+                    "--output", output, "--channel", "chromium", "--fail-on-bug")
+        assert clean.returncode == 0, clean.stdout + clean.stderr
+        result = json.loads((output / "scenario-traitement.json").read_text())
+        assert result["casses"] == 0 and Handler.resets == 3
+        assert all(t["preparation"]["status"] == "reset-verified" for t in result["essais"])
+        environment.write_text(environment.read_text().replace('fixture-v1', 'wrong-fixture'))
+        invalid = cli("replay", scenario, "--times", 1, "--environment", environment,
+                      "--output", output, "--channel", "chromium", "--fail-on-bug")
+        assert invalid.returncode == 2
+        result = json.loads((output / "scenario-traitement.json").read_text())
+        assert result["fois"] == result["casses"] == 0
+        assert result["reproducibility"]["invalid"] == 1
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_divergence_retry_prepares_a_fresh_fixture(tmp_path, fixture_url, monkeypatch):
+    from chaosfolk import reproducibility
+    preparations = []
+    async def prepare(_):
+        preparations.append(True)
+        return {"status": "reset-verified", "data_id": "fixture-v1"}
+    async def replay(*args, **kwargs):
+        return {"ok": False, "raisons": [], "capture": None,
+                "divergence": {"etape": 1, "action": "click", "message": "blocked"}}
+    monkeypatch.setattr(reproducibility, "prepare", prepare)
+    monkeypatch.setattr(engine, "rejouer_un", replay)
+    source = tmp_path / "scenario.json"
+    source.write_text(json.dumps({"url": fixture_url, "steps": [], "expect": [{"type": "no-page-error"}]}))
+    assert engine.principal(["replay", str(source), "--times", "1", "--channel", "chromium",
+                             "--output", str(tmp_path / "results")]) == 0
+    assert len(preparations) == 2
+    result = json.loads((tmp_path / "results" / "scenario-traitement.json").read_text())
+    assert result["casses"] == 1
+    assert result["essais"][0]["preparation"]["status"] == "reset-verified"
+
+
 def test_daemon_authentication_actions_and_storage_isolation(tmp_path, fixture_url):
     env = dict(os.environ, CHAOSFOLK_HOME=str(tmp_path / "state"))
     env.pop("CHAOSFOLK_LEADER_TOKEN", None)
