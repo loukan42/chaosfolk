@@ -8,7 +8,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![MIT license](https://img.shields.io/badge/license-MIT-dcf78b)](LICENSE)
 
-[Test checklist](#test-checklist) · [Why](#why) · [How](#how) · [What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Try the demo](#try-the-demo) · [Use it on your app](#use-it-on-your-app) · [Control fault injection](#control-fault-injection) · [Keep what you found](#keep-what-you-found) · [Changelog](CHANGELOG.md)
+[What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Demo](#try-the-demo) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -26,195 +26,198 @@ A check means the capability is available, not that every run executes it.
 Some checks need test accounts, a mailbox, coordinated users, project assertions
 or an explicitly configured integration. Country-dependent values cover 15 countries.
 
-| What Chaosfolk can test | Supported |
-| --- | :---: |
-| **Open-ended exploration and randomized scenarios** | |
-| Agent-chosen actions and unexpected routes within supplied goals and authorized scope | ✓ |
-| Pure exploration without predefined catalog checks (`--checks none`) | ✓ |
-| Seeded selection and combinations of behavior profiles and shared habits | ✓ |
-| Varied computer confidence and patience in generated user sheets | ✓ |
-| Weighted draws of desktop, laptop, tablet and mobile contexts | ✓ |
-| Shuffled objective order so users approach the same goals differently | ✓ |
-| Randomized shares of applicable checks and samples of valid/invalid test values | ✓ |
-| Weighted fault draws, including the possibility of no injected fault | ✓ |
-| Randomized fault-start action, duration and parameters within catalog ranges | ✓ |
-| Combined behavior, device, objective order and fault conditions | ✓ |
-| Less-visited and unvisited known routes suggested from previous project campaigns | ✓ |
-| Unexpected outcomes when users repeat, interrupt, abandon or resume an action | ✓ |
-| Seed retained to reproduce the draw; recorded actions used to replay the actual journey | ✓ |
-| **All 16 simulated behavior profiles** | |
-| First-time visitor: visible paths, unfamiliar terms and help <!-- profile:first-time --> | ✓ |
-| In a hurry: repeated clicks, skipped help and required fields only <!-- profile:in-a-hurry --> | ✓ |
-| Keyboard-focused: Tab, Enter, Escape and menu arrow keys <!-- profile:keyboard --> | ✓ |
-| Mobile user: phone viewport, quick scrolling and going back when lost <!-- profile:mobile --> | ✓ |
-| Careful reader: slow reading, persistence checks and cautious deletion <!-- profile:careful-reader --> | ✓ |
-| Unfamiliar with jargon: unclear terms and plain-language navigation <!-- profile:plain-language --> | ✓ |
-| Distracted: interruptions, returning halfway and restarting after reload <!-- profile:distracted --> | ✓ |
-| Detail checker: rereading lists, confirmation and saved-state checks <!-- profile:detail-checker --> | ✓ |
-| Cautious: undo, full confirmations and hesitation before submission <!-- profile:cautious --> | ✓ |
-| Explorer: menus, footers, unusual authorized URLs and rarely used pages <!-- profile:explorer --> | ✓ |
-| Multitasker: duplicated tabs and stale views after an edit <!-- profile:multitasker --> | ✓ |
-| Text-focused: required fields, errors and states conveyed in text <!-- profile:text-focused --> | ✓ |
-| Copy-paster: surrounding spaces, accented text, emoji and multiline input <!-- profile:copy-paster --> | ✓ |
-| Backtracker: Back/Forward, cancelled edits and unfinished drafts <!-- profile:backtracker --> | ✓ |
-| Search-first: partial names, combined filters and cleared searches <!-- profile:search-first --> | ✓ |
-| Recovery seeker: correcting invalid input, Undo/Cancel and resuming after errors <!-- profile:recovery-seeker --> | ✓ |
-| **Controlled chaos experiments and execution controls** | |
-| Per-injection admission probability, sampled during the session | ✓ |
-| Manual, time-delayed and action-triggered fault injection | ✓ |
-| Configurable allowed fault types and excluded users, roles, routes and HTTP methods | ✓ |
-| Target groups selected by user, role or route | ✓ |
-| Cooldowns between injections, including group-specific intervals | ✓ |
-| Limits on simultaneous injections and the fraction of affected users | ✓ |
-| Total injection budgets and maximum fault duration | ✓ |
-| Forbidden combinations of overlapping faults | ✓ |
-| Injection windows by weekday, hour and timezone | ✓ |
-| Dry-run admission simulation with recorded decisions and no applied fault | ✓ |
-| Live pause/resume and stopping reversible active faults | ✓ |
-| Separate controls for scheduled injections and immediate manual faults | ✓ |
-| Policy reload for future injections during a session | ✓ |
-| Independent incident/health command that can block new injections | ✓ |
-| Cross-process coordination of active limits, cooldowns and forbidden pairs through shared local state | ✓ |
-| Recorded applied, simulated, skipped and cancelled injections with reasons | ✓ |
-| Injection-event tracking and separate engine/hook error counters via configured commands | ✓ |
-| Bounded recurring test commands via an external scheduler, with finite attempts and timeouts | ✓ |
-| **QA catalog: all 69 checks** | |
-| First names: alphabets, accents, punctuation and saved values <!-- check:first-name-formats --> | ✓ |
-| Family names: particles, apostrophes, case and saved values <!-- check:last-name-formats --> | ✓ |
-| Single names, multiple family names and non-Western name order <!-- check:name-structure --> | ✓ |
-| Email formats, plus addressing, case, whitespace and invalid addresses <!-- check:email-formats --> | ✓ |
-| Sign-in with uppercase emails and surrounding spaces (test account) <!-- check:email-case-and-trim --> | ✓ |
-| International and national phone formats, normalization and mobile keypad <!-- check:phone-formats --> | ✓ |
-| Postal codes by country, letters, spaces and leading zeros <!-- check:postal-code-formats --> | ✓ |
-| International addresses, town names and keyboard address suggestions <!-- check:address-formats --> | ✓ |
-| Birth dates: invalid dates, future dates, age rules and timezone shifts <!-- check:birth-date-rules --> | ✓ |
-| Date ranges: reversed dates, year boundaries and daylight-saving changes <!-- check:date-ranges --> | ✓ |
-| Amounts: locale separators, currency precision, rounding and limits <!-- check:amount-formats --> | ✓ |
-| Quantities: empty, zero, negative, decimal, oversized values and steppers <!-- check:quantity-bounds --> | ✓ |
-| IBAN: checksum, country length, spaces, case and masked display <!-- check:iban-checksum --> | ✓ |
-| Company registration numbers and country-specific validation <!-- check:company-id-formats --> | ✓ |
-| Web addresses: schemes, saved links and unsafe URL schemes <!-- check:url-formats --> | ✓ |
-| Password rules, passphrases, paste, show/hide and confirmation <!-- check:new-password-rules --> | ✓ |
-| Free text: Unicode, emoji, line breaks, RTL, CJK and literal markup <!-- check:free-text-content --> | ✓ |
-| Search: accents, case, symbols, whitespace, empty and unmatched queries <!-- check:search-inputs --> | ✓ |
-| Uploads: file type, size, empty files, names, removal and replacement <!-- check:file-upload-rules --> | ✓ |
-| Form validation: required fields, precise errors, focus and retained values <!-- check:form-errors-keep-data --> | ✓ |
-| Duplicate records after double-clicking or pressing Enter twice <!-- check:double-submit --> | ✓ |
-| Duplicate submissions after reload, Back and Forward <!-- check:reload-after-submit --> | ✓ |
-| Saved values after reload and opening a new tab <!-- check:persistence-new-tab --> | ✓ |
-| Cancellation of edits and recovery of unsaved work <!-- check:edit-cancel --> | ✓ |
-| Delete confirmation, cancellation, persistence and undo when available <!-- check:delete-safety --> | ✓ |
-| Lists: empty states, pagination bounds, stable sorting and combined filters <!-- check:list-edges --> | ✓ |
-| Conflicting edits to the same record in two tabs <!-- check:two-tabs-conflict --> | ✓ |
-| Private deep links while signed out and return after sign-in (test account) <!-- check:deep-link-auth --> | ✓ |
-| Account enumeration through password-reset responses (test account) <!-- check:reset-enumeration --> | ✓ |
-| Account enumeration through sign-in errors (test account) <!-- check:login-enumeration --> | ✓ |
-| Account enumeration through sign-up responses (product review) (test account) <!-- check:signup-enumeration --> | ✓ |
-| Throttling after repeated wrong passwords (six attempts, explicit approval) (test account) <!-- check:login-throttling --> | ✓ |
-| Password masking, paste, password-manager support and URL exposure <!-- check:password-field-hygiene --> | ✓ |
-| Passwords, session tokens and personal data exposed in URLs <!-- check:secrets-in-url --> | ✓ |
-| Sign-out, Back, private-page reloads and session invalidation across tabs (test account) <!-- check:logout-session --> | ✓ |
-| HTML-like input rendered as literal text <!-- check:html-escaping --> | ✓ |
-| Technical details exposed in error pages <!-- check:error-leaks --> | ✓ |
-| Access to another authorized test account's records (two test accounts) <!-- check:object-access-control --> | ✓ |
-| Password-reset links: expiry and single use (test mailbox) <!-- check:reset-token-lifecycle --> | ✓ |
-| Masking of sensitive data after saving (test account) <!-- check:sensitive-display --> | ✓ |
-| Field labels, required indicators and accessible error associations <!-- check:field-labels-and-errors --> | ✓ |
-| Completing a whole form using the keyboard <!-- check:keyboard-form --> | ✓ |
-| Autocomplete purpose and mobile input attributes <!-- check:autocomplete-attributes --> | ✓ |
-| Reflow at 320 CSS pixels and 200% zoom <!-- check:small-screen-reflow --> | ✓ |
-| Feedback and recovery during slow or failed saves <!-- check:slow-submit-feedback --> | ✓ |
-| Clear, actionable error messages in the application language <!-- check:error-message-quality --> | ✓ |
-| Pasting values, automatic formatting and caret behavior <!-- check:paste-and-formatting --> | ✓ |
-| Text inputs: empty, whitespace-only, long and special-character values <!-- check:text-input-extremes --> | ✓ |
-| Numeric inputs: zero, negative, decimal and announced boundaries <!-- check:number-extremes --> | ✓ |
-| Retrying a submission after an error <!-- check:submit-retry-after-error --> | ✓ |
-| Interrupted forms: reload, Back/Forward, tab closure and reopening <!-- check:interrupted-form --> | ✓ |
-| Search/filter races, reset and state retained after navigation <!-- check:search-filter-behavior --> | ✓ |
-| Success messages checked against actual saved data <!-- check:false-success --> | ✓ |
-| Unedited fields and attachments retained after another field changes <!-- check:data-loss-on-edit --> | ✓ |
-| Consistency between lists, detail views, counters, badges and tabs <!-- check:ui-desync --> | ✓ |
-| Controls reachable on phone, tablet and desktop viewports <!-- check:responsive-controls --> | ✓ |
-| Horizontal overflow, clipped forms and unreachable submit buttons <!-- check:layout-overflow --> | ✓ |
-| Tab order, focus visibility, hidden focus targets and modal focus traps <!-- check:keyboard-reachability --> | ✓ |
-| Accessible names for controls, informative images and frames <!-- check:accessible-names --> | ✓ |
-| Estimated text contrast (review signal) <!-- check:color-contrast --> | ✓ |
-| Pointer-target dimensions and spacing (WCAG signal) <!-- check:target-size --> | ✓ |
-| Page language, title, heading order, duplicate IDs, tabindex and zoom <!-- check:page-structure --> | ✓ |
-| Live-region markup for results, success messages and errors <!-- check:status-messages --> | ✓ |
-| Session-timeout warnings, extension and retained work (test account) <!-- check:time-limits --> | ✓ |
-| Broken images and failed same-site styles, scripts, fonts and resources <!-- check:broken-resources --> | ✓ |
-| Unhandled JavaScript errors and promise rejections during interactions <!-- check:javascript-errors --> | ✓ |
-| Conflicting edits by two users on the same record (coordinated users) <!-- check:concurrent-edit-two-users --> | ✓ |
-| Editor/reader permissions, direct URLs and visibility of changes (coordinated users) <!-- check:role-permissions --> | ✓ |
-| Changes or deletions made by another user while a screen stays open (coordinated users) <!-- check:shared-object-notifications --> | ✓ |
-| **Additional field and page inspection** | |
-| Password forms submitted with GET or served over plain HTTP outside localhost | ✓ |
-| Session-like cookies readable by JavaScript (review signal) | ✓ |
-| Numeric field types that lose phone prefixes or postal-code zeros | ✓ |
-| Labels provided only by disappearing placeholders | ✓ |
-| Overly short maxlength limits for names, emails and addresses | ✓ |
-| Controls covered by sticky bars, banners or other elements | ✓ |
-| Clipped text in buttons, links, labels and headings | ✓ |
-| Clickable-looking elements unreachable from the keyboard | ✓ |
-| Focusable elements inside aria-hidden regions | ✓ |
-| Generic link names such as "click here" | ✓ |
-| Focus escaping a modal, landing on hidden elements or lacking a visible indicator | ✓ |
-| **Fault injection and recovery** | |
-| Offline browser context (`offline`) | ✓ |
-| Slow matching requests (`slow`) | ✓ |
-| Aborted application requests (`server-down`) | ✓ |
-| Stop/restart of a local application managed by Chaosfolk (`app-stop`; replay uses request failure) | ✓ |
-| HTTP error responses, including selected routes and methods (`http-error`) | ✓ |
-| Backend writes whose responses are lost (`lost-response`) | ✓ |
-| localStorage write failures from simulated quota exhaustion (`storage-full`) | ✓ |
-| Cleared local/session storage (`storage-empty`) | ✓ |
-| Corrupted browser-storage values (`storage-corrupt`) | ✓ |
-| Page-clock advances (`clock`) | ✓ |
-| Viewport changes during a journey (`window`) | ✓ |
-| Cleared browser cookies (`cookies-cleared`) | ✓ |
-| **Replay assertions and persistence** | |
-| Expected text visible, absent or present a specified number of times | ✓ |
-| Expected field value, exact or containing a substring | ✓ |
-| Expected localStorage key/value or JSON content | ✓ |
-| Expected URL substring | ✓ |
-| No recorded JavaScript page errors | ✓ |
-| Page body contains visible text | ✓ |
-| Custom JavaScript assertions defined by the project | ✓ |
-| Persistence after reload (`--persist reload`) | ✓ |
-| Persistence after reopening the start address (`--persist revisit`) | ✓ |
-| Persistence in a new tab (`--persist new-tab`) | ✓ |
-| Persistence after clearing local/session storage (`--persist local-only`) | ✓ |
-| Behavior after Back (`--persist back`) | ✓ |
-| Duplicates and recovery after retrying the last successful action (`--persist retry`) | ✓ |
-| All supplied field values, with separate acceptance/rejection assertions (`vary`) | ✓ |
-| Equivalent or different final outcomes from two scenarios (`compare`) | ✓ |
-| Repeated treatment/control trials with and without injected faults | ✓ |
-| Observed/reference journey comparison with and without faults (2×2 matrix) | ✓ |
-| Fixture preparation and identity verification before every trial and retry (project commands) | ✓ |
-| Failure rates with valid, invalid and requested trial counts | ✓ |
-| Whether saved findings still fail or pass after a fix or in a later campaign | ✓ |
-| Saved scenario assertions in CI, with JUnit results (`regression run`) | ✓ |
-| **Browser journeys and compatibility** | |
-| Project-defined create, read, edit, delete and multi-step journeys | ✓ |
-| Navigation, links, Back/Forward, tabs and browser dialogs | ✓ |
-| Journey comprehension, labels, discoverability and feedback through simulated users | ✓ |
-| Assigned behavior profiles, including hurried, distracted, keyboard and mobile users | ✓ |
-| Independent users and coordinated users with separate roles on shared records | ✓ |
-| Desktop, laptop, tablet and mobile viewport/input emulation | ✓ |
-| Chromium, Firefox and WebKit scenario replays (installed browser engines) | ✓ |
-| Pixel differences against reviewed screenshot baselines (optional visual extra) | ✓ |
-| **Performance signals and optional integrations** | |
-| Observed responsiveness and delays during user journeys | ✓ |
-| Bounded local concurrent page-load smoke tests: HTTP errors, median and p95 timings (`probe`) | ✓ |
-| Presence of CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy and HSTS headers (local probe) | ✓ |
-| Email subject, recipient and body content (Mailpit test mailbox) | ✓ |
-| Downloaded CSV files: required columns, row-count bounds and expected content | ✓ |
-| Downloaded text files: expected content | ✓ |
-| Downloaded PDF files: PDF parsing and expected text (optional PDF extra) | ✓ |
-| Automated axe-core accessibility rules (locally supplied axe-core script) | ✓ |
-| External k6 load-test results (configured k6 executable and script) | ✓ |
-| External Appium test results, including native mobile suites (configured Appium runner and script) | ✓ |
+<table>
+<thead><tr><th>What Chaosfolk can test</th><th>Supported</th></tr></thead>
+<tbody>
+<tr><th colspan="2" align="left">OPEN-ENDED EXPLORATION AND RANDOMIZED SCENARIOS</th></tr>
+<tr><td>Agent-chosen actions and unexpected routes within supplied goals and authorized scope</td><td align="center">✓</td></tr>
+<tr><td>Pure exploration without predefined catalog checks (<code>--checks none</code>)</td><td align="center">✓</td></tr>
+<tr><td>Seeded selection and combinations of behavior profiles and shared habits</td><td align="center">✓</td></tr>
+<tr><td>Varied computer confidence and patience in generated user sheets</td><td align="center">✓</td></tr>
+<tr><td>Weighted draws of desktop, laptop, tablet and mobile contexts</td><td align="center">✓</td></tr>
+<tr><td>Shuffled objective order so users approach the same goals differently</td><td align="center">✓</td></tr>
+<tr><td>Randomized shares of applicable checks and samples of valid/invalid test values</td><td align="center">✓</td></tr>
+<tr><td>Weighted fault draws, including the possibility of no injected fault</td><td align="center">✓</td></tr>
+<tr><td>Randomized fault-start action, duration and parameters within catalog ranges</td><td align="center">✓</td></tr>
+<tr><td>Combined behavior, device, objective order and fault conditions</td><td align="center">✓</td></tr>
+<tr><td>Less-visited and unvisited known routes suggested from previous project campaigns</td><td align="center">✓</td></tr>
+<tr><td>Unexpected outcomes when users repeat, interrupt, abandon or resume an action</td><td align="center">✓</td></tr>
+<tr><td>Seed retained to reproduce the draw; recorded actions used to replay the actual journey</td><td align="center">✓</td></tr>
+<tr><th colspan="2" align="left">ALL 16 SIMULATED BEHAVIOR PROFILES</th></tr>
+<tr><td>First-time visitor: visible paths, unfamiliar terms and help<!-- profile:first-time --></td><td align="center">✓</td></tr>
+<tr><td>In a hurry: repeated clicks, skipped help and required fields only<!-- profile:in-a-hurry --></td><td align="center">✓</td></tr>
+<tr><td>Keyboard-focused: Tab, Enter, Escape and menu arrow keys<!-- profile:keyboard --></td><td align="center">✓</td></tr>
+<tr><td>Mobile user: phone viewport, quick scrolling and going back when lost<!-- profile:mobile --></td><td align="center">✓</td></tr>
+<tr><td>Careful reader: slow reading, persistence checks and cautious deletion<!-- profile:careful-reader --></td><td align="center">✓</td></tr>
+<tr><td>Unfamiliar with jargon: unclear terms and plain-language navigation<!-- profile:plain-language --></td><td align="center">✓</td></tr>
+<tr><td>Distracted: interruptions, returning halfway and restarting after reload<!-- profile:distracted --></td><td align="center">✓</td></tr>
+<tr><td>Detail checker: rereading lists, confirmation and saved-state checks<!-- profile:detail-checker --></td><td align="center">✓</td></tr>
+<tr><td>Cautious: undo, full confirmations and hesitation before submission<!-- profile:cautious --></td><td align="center">✓</td></tr>
+<tr><td>Explorer: menus, footers, unusual authorized URLs and rarely used pages<!-- profile:explorer --></td><td align="center">✓</td></tr>
+<tr><td>Multitasker: duplicated tabs and stale views after an edit<!-- profile:multitasker --></td><td align="center">✓</td></tr>
+<tr><td>Text-focused: required fields, errors and states conveyed in text<!-- profile:text-focused --></td><td align="center">✓</td></tr>
+<tr><td>Copy-paster: surrounding spaces, accented text, emoji and multiline input<!-- profile:copy-paster --></td><td align="center">✓</td></tr>
+<tr><td>Backtracker: Back/Forward, cancelled edits and unfinished drafts<!-- profile:backtracker --></td><td align="center">✓</td></tr>
+<tr><td>Search-first: partial names, combined filters and cleared searches<!-- profile:search-first --></td><td align="center">✓</td></tr>
+<tr><td>Recovery seeker: correcting invalid input, Undo/Cancel and resuming after errors<!-- profile:recovery-seeker --></td><td align="center">✓</td></tr>
+<tr><th colspan="2" align="left">CONTROLLED CHAOS EXPERIMENTS AND EXECUTION CONTROLS</th></tr>
+<tr><td>Per-injection admission probability, sampled during the session</td><td align="center">✓</td></tr>
+<tr><td>Manual, time-delayed and action-triggered fault injection</td><td align="center">✓</td></tr>
+<tr><td>Configurable allowed fault types and excluded users, roles, routes and HTTP methods</td><td align="center">✓</td></tr>
+<tr><td>Target groups selected by user, role or route</td><td align="center">✓</td></tr>
+<tr><td>Cooldowns between injections, including group-specific intervals</td><td align="center">✓</td></tr>
+<tr><td>Limits on simultaneous injections and the fraction of affected users</td><td align="center">✓</td></tr>
+<tr><td>Total injection budgets and maximum fault duration</td><td align="center">✓</td></tr>
+<tr><td>Forbidden combinations of overlapping faults</td><td align="center">✓</td></tr>
+<tr><td>Injection windows by weekday, hour and timezone</td><td align="center">✓</td></tr>
+<tr><td>Dry-run admission simulation with recorded decisions and no applied fault</td><td align="center">✓</td></tr>
+<tr><td>Live pause/resume and stopping reversible active faults</td><td align="center">✓</td></tr>
+<tr><td>Separate controls for scheduled injections and immediate manual faults</td><td align="center">✓</td></tr>
+<tr><td>Policy reload for future injections during a session</td><td align="center">✓</td></tr>
+<tr><td>Independent incident/health command that can block new injections</td><td align="center">✓</td></tr>
+<tr><td>Cross-process coordination of active limits, cooldowns and forbidden pairs through shared local state</td><td align="center">✓</td></tr>
+<tr><td>Recorded applied, simulated, skipped and cancelled injections with reasons</td><td align="center">✓</td></tr>
+<tr><td>Injection-event tracking and separate engine/hook error counters via configured commands</td><td align="center">✓</td></tr>
+<tr><td>Bounded recurring test commands via an external scheduler, with finite attempts and timeouts</td><td align="center">✓</td></tr>
+<tr><th colspan="2" align="left">QA CATALOG: ALL 69 CHECKS</th></tr>
+<tr><td>First names: alphabets, accents, punctuation and saved values<!-- check:first-name-formats --></td><td align="center">✓</td></tr>
+<tr><td>Family names: particles, apostrophes, case and saved values<!-- check:last-name-formats --></td><td align="center">✓</td></tr>
+<tr><td>Single names, multiple family names and non-Western name order<!-- check:name-structure --></td><td align="center">✓</td></tr>
+<tr><td>Email formats, plus addressing, case, whitespace and invalid addresses<!-- check:email-formats --></td><td align="center">✓</td></tr>
+<tr><td>Sign-in with uppercase emails and surrounding spaces (test account)<!-- check:email-case-and-trim --></td><td align="center">✓</td></tr>
+<tr><td>International and national phone formats, normalization and mobile keypad<!-- check:phone-formats --></td><td align="center">✓</td></tr>
+<tr><td>Postal codes by country, letters, spaces and leading zeros<!-- check:postal-code-formats --></td><td align="center">✓</td></tr>
+<tr><td>International addresses, town names and keyboard address suggestions<!-- check:address-formats --></td><td align="center">✓</td></tr>
+<tr><td>Birth dates: invalid dates, future dates, age rules and timezone shifts<!-- check:birth-date-rules --></td><td align="center">✓</td></tr>
+<tr><td>Date ranges: reversed dates, year boundaries and daylight-saving changes<!-- check:date-ranges --></td><td align="center">✓</td></tr>
+<tr><td>Amounts: locale separators, currency precision, rounding and limits<!-- check:amount-formats --></td><td align="center">✓</td></tr>
+<tr><td>Quantities: empty, zero, negative, decimal, oversized values and steppers<!-- check:quantity-bounds --></td><td align="center">✓</td></tr>
+<tr><td>IBAN: checksum, country length, spaces, case and masked display<!-- check:iban-checksum --></td><td align="center">✓</td></tr>
+<tr><td>Company registration numbers and country-specific validation<!-- check:company-id-formats --></td><td align="center">✓</td></tr>
+<tr><td>Web addresses: schemes, saved links and unsafe URL schemes<!-- check:url-formats --></td><td align="center">✓</td></tr>
+<tr><td>Password rules, passphrases, paste, show/hide and confirmation<!-- check:new-password-rules --></td><td align="center">✓</td></tr>
+<tr><td>Free text: Unicode, emoji, line breaks, RTL, CJK and literal markup<!-- check:free-text-content --></td><td align="center">✓</td></tr>
+<tr><td>Search: accents, case, symbols, whitespace, empty and unmatched queries<!-- check:search-inputs --></td><td align="center">✓</td></tr>
+<tr><td>Uploads: file type, size, empty files, names, removal and replacement<!-- check:file-upload-rules --></td><td align="center">✓</td></tr>
+<tr><td>Form validation: required fields, precise errors, focus and retained values<!-- check:form-errors-keep-data --></td><td align="center">✓</td></tr>
+<tr><td>Duplicate records after double-clicking or pressing Enter twice<!-- check:double-submit --></td><td align="center">✓</td></tr>
+<tr><td>Duplicate submissions after reload, Back and Forward<!-- check:reload-after-submit --></td><td align="center">✓</td></tr>
+<tr><td>Saved values after reload and opening a new tab<!-- check:persistence-new-tab --></td><td align="center">✓</td></tr>
+<tr><td>Cancellation of edits and recovery of unsaved work<!-- check:edit-cancel --></td><td align="center">✓</td></tr>
+<tr><td>Delete confirmation, cancellation, persistence and undo when available<!-- check:delete-safety --></td><td align="center">✓</td></tr>
+<tr><td>Lists: empty states, pagination bounds, stable sorting and combined filters<!-- check:list-edges --></td><td align="center">✓</td></tr>
+<tr><td>Conflicting edits to the same record in two tabs<!-- check:two-tabs-conflict --></td><td align="center">✓</td></tr>
+<tr><td>Private deep links while signed out and return after sign-in (test account)<!-- check:deep-link-auth --></td><td align="center">✓</td></tr>
+<tr><td>Account enumeration through password-reset responses (test account)<!-- check:reset-enumeration --></td><td align="center">✓</td></tr>
+<tr><td>Account enumeration through sign-in errors (test account)<!-- check:login-enumeration --></td><td align="center">✓</td></tr>
+<tr><td>Account enumeration through sign-up responses (product review) (test account)<!-- check:signup-enumeration --></td><td align="center">✓</td></tr>
+<tr><td>Throttling after repeated wrong passwords (six attempts, explicit approval) (test account)<!-- check:login-throttling --></td><td align="center">✓</td></tr>
+<tr><td>Password masking, paste, password-manager support and URL exposure<!-- check:password-field-hygiene --></td><td align="center">✓</td></tr>
+<tr><td>Passwords, session tokens and personal data exposed in URLs<!-- check:secrets-in-url --></td><td align="center">✓</td></tr>
+<tr><td>Sign-out, Back, private-page reloads and session invalidation across tabs (test account)<!-- check:logout-session --></td><td align="center">✓</td></tr>
+<tr><td>HTML-like input rendered as literal text<!-- check:html-escaping --></td><td align="center">✓</td></tr>
+<tr><td>Technical details exposed in error pages<!-- check:error-leaks --></td><td align="center">✓</td></tr>
+<tr><td>Access to another authorized test account&#x27;s records (two test accounts)<!-- check:object-access-control --></td><td align="center">✓</td></tr>
+<tr><td>Password-reset links: expiry and single use (test mailbox)<!-- check:reset-token-lifecycle --></td><td align="center">✓</td></tr>
+<tr><td>Masking of sensitive data after saving (test account)<!-- check:sensitive-display --></td><td align="center">✓</td></tr>
+<tr><td>Field labels, required indicators and accessible error associations<!-- check:field-labels-and-errors --></td><td align="center">✓</td></tr>
+<tr><td>Completing a whole form using the keyboard<!-- check:keyboard-form --></td><td align="center">✓</td></tr>
+<tr><td>Autocomplete purpose and mobile input attributes<!-- check:autocomplete-attributes --></td><td align="center">✓</td></tr>
+<tr><td>Reflow at 320 CSS pixels and 200% zoom<!-- check:small-screen-reflow --></td><td align="center">✓</td></tr>
+<tr><td>Feedback and recovery during slow or failed saves<!-- check:slow-submit-feedback --></td><td align="center">✓</td></tr>
+<tr><td>Clear, actionable error messages in the application language<!-- check:error-message-quality --></td><td align="center">✓</td></tr>
+<tr><td>Pasting values, automatic formatting and caret behavior<!-- check:paste-and-formatting --></td><td align="center">✓</td></tr>
+<tr><td>Text inputs: empty, whitespace-only, long and special-character values<!-- check:text-input-extremes --></td><td align="center">✓</td></tr>
+<tr><td>Numeric inputs: zero, negative, decimal and announced boundaries<!-- check:number-extremes --></td><td align="center">✓</td></tr>
+<tr><td>Retrying a submission after an error<!-- check:submit-retry-after-error --></td><td align="center">✓</td></tr>
+<tr><td>Interrupted forms: reload, Back/Forward, tab closure and reopening<!-- check:interrupted-form --></td><td align="center">✓</td></tr>
+<tr><td>Search/filter races, reset and state retained after navigation<!-- check:search-filter-behavior --></td><td align="center">✓</td></tr>
+<tr><td>Success messages checked against actual saved data<!-- check:false-success --></td><td align="center">✓</td></tr>
+<tr><td>Unedited fields and attachments retained after another field changes<!-- check:data-loss-on-edit --></td><td align="center">✓</td></tr>
+<tr><td>Consistency between lists, detail views, counters, badges and tabs<!-- check:ui-desync --></td><td align="center">✓</td></tr>
+<tr><td>Controls reachable on phone, tablet and desktop viewports<!-- check:responsive-controls --></td><td align="center">✓</td></tr>
+<tr><td>Horizontal overflow, clipped forms and unreachable submit buttons<!-- check:layout-overflow --></td><td align="center">✓</td></tr>
+<tr><td>Tab order, focus visibility, hidden focus targets and modal focus traps<!-- check:keyboard-reachability --></td><td align="center">✓</td></tr>
+<tr><td>Accessible names for controls, informative images and frames<!-- check:accessible-names --></td><td align="center">✓</td></tr>
+<tr><td>Estimated text contrast (review signal)<!-- check:color-contrast --></td><td align="center">✓</td></tr>
+<tr><td>Pointer-target dimensions and spacing (WCAG signal)<!-- check:target-size --></td><td align="center">✓</td></tr>
+<tr><td>Page language, title, heading order, duplicate IDs, tabindex and zoom<!-- check:page-structure --></td><td align="center">✓</td></tr>
+<tr><td>Live-region markup for results, success messages and errors<!-- check:status-messages --></td><td align="center">✓</td></tr>
+<tr><td>Session-timeout warnings, extension and retained work (test account)<!-- check:time-limits --></td><td align="center">✓</td></tr>
+<tr><td>Broken images and failed same-site styles, scripts, fonts and resources<!-- check:broken-resources --></td><td align="center">✓</td></tr>
+<tr><td>Unhandled JavaScript errors and promise rejections during interactions<!-- check:javascript-errors --></td><td align="center">✓</td></tr>
+<tr><td>Conflicting edits by two users on the same record (coordinated users)<!-- check:concurrent-edit-two-users --></td><td align="center">✓</td></tr>
+<tr><td>Editor/reader permissions, direct URLs and visibility of changes (coordinated users)<!-- check:role-permissions --></td><td align="center">✓</td></tr>
+<tr><td>Changes or deletions made by another user while a screen stays open (coordinated users)<!-- check:shared-object-notifications --></td><td align="center">✓</td></tr>
+<tr><th colspan="2" align="left">ADDITIONAL FIELD AND PAGE INSPECTION</th></tr>
+<tr><td>Password forms submitted with GET or served over plain HTTP outside localhost</td><td align="center">✓</td></tr>
+<tr><td>Session-like cookies readable by JavaScript (review signal)</td><td align="center">✓</td></tr>
+<tr><td>Numeric field types that lose phone prefixes or postal-code zeros</td><td align="center">✓</td></tr>
+<tr><td>Labels provided only by disappearing placeholders</td><td align="center">✓</td></tr>
+<tr><td>Overly short maxlength limits for names, emails and addresses</td><td align="center">✓</td></tr>
+<tr><td>Controls covered by sticky bars, banners or other elements</td><td align="center">✓</td></tr>
+<tr><td>Clipped text in buttons, links, labels and headings</td><td align="center">✓</td></tr>
+<tr><td>Clickable-looking elements unreachable from the keyboard</td><td align="center">✓</td></tr>
+<tr><td>Focusable elements inside aria-hidden regions</td><td align="center">✓</td></tr>
+<tr><td>Generic link names such as &quot;click here&quot;</td><td align="center">✓</td></tr>
+<tr><td>Focus escaping a modal, landing on hidden elements or lacking a visible indicator</td><td align="center">✓</td></tr>
+<tr><th colspan="2" align="left">FAULT INJECTION AND RECOVERY</th></tr>
+<tr><td>Offline browser context (<code>offline</code>)</td><td align="center">✓</td></tr>
+<tr><td>Slow matching requests (<code>slow</code>)</td><td align="center">✓</td></tr>
+<tr><td>Aborted application requests (<code>server-down</code>)</td><td align="center">✓</td></tr>
+<tr><td>Stop/restart of a local application managed by Chaosfolk (<code>app-stop</code>; replay uses request failure)</td><td align="center">✓</td></tr>
+<tr><td>HTTP error responses, including selected routes and methods (<code>http-error</code>)</td><td align="center">✓</td></tr>
+<tr><td>Backend writes whose responses are lost (<code>lost-response</code>)</td><td align="center">✓</td></tr>
+<tr><td>localStorage write failures from simulated quota exhaustion (<code>storage-full</code>)</td><td align="center">✓</td></tr>
+<tr><td>Cleared local/session storage (<code>storage-empty</code>)</td><td align="center">✓</td></tr>
+<tr><td>Corrupted browser-storage values (<code>storage-corrupt</code>)</td><td align="center">✓</td></tr>
+<tr><td>Page-clock advances (<code>clock</code>)</td><td align="center">✓</td></tr>
+<tr><td>Viewport changes during a journey (<code>window</code>)</td><td align="center">✓</td></tr>
+<tr><td>Cleared browser cookies (<code>cookies-cleared</code>)</td><td align="center">✓</td></tr>
+<tr><th colspan="2" align="left">REPLAY ASSERTIONS AND PERSISTENCE</th></tr>
+<tr><td>Expected text visible, absent or present a specified number of times</td><td align="center">✓</td></tr>
+<tr><td>Expected field value, exact or containing a substring</td><td align="center">✓</td></tr>
+<tr><td>Expected localStorage key/value or JSON content</td><td align="center">✓</td></tr>
+<tr><td>Expected URL substring</td><td align="center">✓</td></tr>
+<tr><td>No recorded JavaScript page errors</td><td align="center">✓</td></tr>
+<tr><td>Page body contains visible text</td><td align="center">✓</td></tr>
+<tr><td>Custom JavaScript assertions defined by the project</td><td align="center">✓</td></tr>
+<tr><td>Persistence after reload (<code>--persist reload</code>)</td><td align="center">✓</td></tr>
+<tr><td>Persistence after reopening the start address (<code>--persist revisit</code>)</td><td align="center">✓</td></tr>
+<tr><td>Persistence in a new tab (<code>--persist new-tab</code>)</td><td align="center">✓</td></tr>
+<tr><td>Persistence after clearing local/session storage (<code>--persist local-only</code>)</td><td align="center">✓</td></tr>
+<tr><td>Behavior after Back (<code>--persist back</code>)</td><td align="center">✓</td></tr>
+<tr><td>Duplicates and recovery after retrying the last successful action (<code>--persist retry</code>)</td><td align="center">✓</td></tr>
+<tr><td>All supplied field values, with separate acceptance/rejection assertions (<code>vary</code>)</td><td align="center">✓</td></tr>
+<tr><td>Equivalent or different final outcomes from two scenarios (<code>compare</code>)</td><td align="center">✓</td></tr>
+<tr><td>Repeated treatment/control trials with and without injected faults</td><td align="center">✓</td></tr>
+<tr><td>Observed/reference journey comparison with and without faults (2×2 matrix)</td><td align="center">✓</td></tr>
+<tr><td>Fixture preparation and identity verification before every trial and retry (project commands)</td><td align="center">✓</td></tr>
+<tr><td>Failure rates with valid, invalid and requested trial counts</td><td align="center">✓</td></tr>
+<tr><td>Whether saved findings still fail or pass after a fix or in a later campaign</td><td align="center">✓</td></tr>
+<tr><td>Saved scenario assertions in CI, with JUnit results (<code>regression run</code>)</td><td align="center">✓</td></tr>
+<tr><th colspan="2" align="left">BROWSER JOURNEYS AND COMPATIBILITY</th></tr>
+<tr><td>Project-defined create, read, edit, delete and multi-step journeys</td><td align="center">✓</td></tr>
+<tr><td>Navigation, links, Back/Forward, tabs and browser dialogs</td><td align="center">✓</td></tr>
+<tr><td>Journey comprehension, labels, discoverability and feedback through simulated users</td><td align="center">✓</td></tr>
+<tr><td>Assigned behavior profiles, including hurried, distracted, keyboard and mobile users</td><td align="center">✓</td></tr>
+<tr><td>Independent users and coordinated users with separate roles on shared records</td><td align="center">✓</td></tr>
+<tr><td>Desktop, laptop, tablet and mobile viewport/input emulation</td><td align="center">✓</td></tr>
+<tr><td>Chromium, Firefox and WebKit scenario replays (installed browser engines)</td><td align="center">✓</td></tr>
+<tr><td>Pixel differences against reviewed screenshot baselines (optional visual extra)</td><td align="center">✓</td></tr>
+<tr><th colspan="2" align="left">PERFORMANCE SIGNALS AND OPTIONAL INTEGRATIONS</th></tr>
+<tr><td>Observed responsiveness and delays during user journeys</td><td align="center">✓</td></tr>
+<tr><td>Bounded local concurrent page-load smoke tests: HTTP errors, median and p95 timings (<code>probe</code>)</td><td align="center">✓</td></tr>
+<tr><td>Presence of CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy and HSTS headers (local probe)</td><td align="center">✓</td></tr>
+<tr><td>Email subject, recipient and body content (Mailpit test mailbox)</td><td align="center">✓</td></tr>
+<tr><td>Downloaded CSV files: required columns, row-count bounds and expected content</td><td align="center">✓</td></tr>
+<tr><td>Downloaded text files: expected content</td><td align="center">✓</td></tr>
+<tr><td>Downloaded PDF files: PDF parsing and expected text (optional PDF extra)</td><td align="center">✓</td></tr>
+<tr><td>Automated axe-core accessibility rules (locally supplied axe-core script)</td><td align="center">✓</td></tr>
+<tr><td>External k6 load-test results (configured k6 executable and script)</td><td align="center">✓</td></tr>
+<tr><td>External Appium test results, including native mobile suites (configured Appium runner and script)</td><td align="center">✓</td></tr>
+</tbody>
+</table>
 
 Accessibility and security rows describe checks and review signals, not compliance
 certification or a penetration test. Mobile viewports are browser emulation;
