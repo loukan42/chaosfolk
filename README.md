@@ -8,9 +8,225 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![MIT license](https://img.shields.io/badge/license-MIT-dcf78b)](LICENSE)
 
-[Why](#why) · [How](#how) · [What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Try the demo](#try-the-demo) · [Use it on your app](#use-it-on-your-app) · [Control fault injection](#control-fault-injection) · [Keep what you found](#keep-what-you-found) · [Changelog](CHANGELOG.md)
+[Test checklist](#test-checklist) · [Why](#why) · [How](#how) · [What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Try the demo](#try-the-demo) · [Use it on your app](#use-it-on-your-app) · [Control fault injection](#control-fault-injection) · [Keep what you found](#keep-what-you-found) · [Changelog](CHANGELOG.md)
 
 </div>
+
+## Test checklist
+
+<details>
+<summary><strong>Full test checklist: exploration, chaos experiments and 69 QA checks</strong></summary>
+
+Chaosfolk combines open-ended agent exploration, randomized behavior profiles,
+controlled fault injection and the 69 predefined QA checks. Agents choose their
+next actions from the page they see, their goals and their assigned habits;
+the catalog does not limit the journeys they can explore.
+
+A check means the capability is available, not that every run executes it.
+Some checks need test accounts, a mailbox, coordinated users, project assertions
+or an explicitly configured integration. Country-dependent values cover 15 countries.
+
+| What Chaosfolk can test | Supported |
+| --- | :---: |
+| **Open-ended exploration and randomized scenarios** | |
+| Agent-chosen actions and unexpected routes within supplied goals and authorized scope | ✓ |
+| Pure exploration without predefined catalog checks (`--checks none`) | ✓ |
+| Seeded selection and combinations of behavior profiles and shared habits | ✓ |
+| Varied computer confidence and patience in generated user sheets | ✓ |
+| Weighted draws of desktop, laptop, tablet and mobile contexts | ✓ |
+| Shuffled objective order so users approach the same goals differently | ✓ |
+| Randomized shares of applicable checks and samples of valid/invalid test values | ✓ |
+| Weighted fault draws, including the possibility of no injected fault | ✓ |
+| Randomized fault-start action, duration and parameters within catalog ranges | ✓ |
+| Combined behavior, device, objective order and fault conditions | ✓ |
+| Less-visited and unvisited known routes suggested from previous project campaigns | ✓ |
+| Unexpected outcomes when users repeat, interrupt, abandon or resume an action | ✓ |
+| Seed retained to reproduce the draw; recorded actions used to replay the actual journey | ✓ |
+| **All 16 simulated behavior profiles** | |
+| First-time visitor: visible paths, unfamiliar terms and help <!-- profile:first-time --> | ✓ |
+| In a hurry: repeated clicks, skipped help and required fields only <!-- profile:in-a-hurry --> | ✓ |
+| Keyboard-focused: Tab, Enter, Escape and menu arrow keys <!-- profile:keyboard --> | ✓ |
+| Mobile user: phone viewport, quick scrolling and going back when lost <!-- profile:mobile --> | ✓ |
+| Careful reader: slow reading, persistence checks and cautious deletion <!-- profile:careful-reader --> | ✓ |
+| Unfamiliar with jargon: unclear terms and plain-language navigation <!-- profile:plain-language --> | ✓ |
+| Distracted: interruptions, returning halfway and restarting after reload <!-- profile:distracted --> | ✓ |
+| Detail checker: rereading lists, confirmation and saved-state checks <!-- profile:detail-checker --> | ✓ |
+| Cautious: undo, full confirmations and hesitation before submission <!-- profile:cautious --> | ✓ |
+| Explorer: menus, footers, unusual authorized URLs and rarely used pages <!-- profile:explorer --> | ✓ |
+| Multitasker: duplicated tabs and stale views after an edit <!-- profile:multitasker --> | ✓ |
+| Text-focused: required fields, errors and states conveyed in text <!-- profile:text-focused --> | ✓ |
+| Copy-paster: surrounding spaces, accented text, emoji and multiline input <!-- profile:copy-paster --> | ✓ |
+| Backtracker: Back/Forward, cancelled edits and unfinished drafts <!-- profile:backtracker --> | ✓ |
+| Search-first: partial names, combined filters and cleared searches <!-- profile:search-first --> | ✓ |
+| Recovery seeker: correcting invalid input, Undo/Cancel and resuming after errors <!-- profile:recovery-seeker --> | ✓ |
+| **Controlled chaos experiments and execution controls** | |
+| Per-injection admission probability, sampled during the session | ✓ |
+| Manual, time-delayed and action-triggered fault injection | ✓ |
+| Configurable allowed fault types and excluded users, roles, routes and HTTP methods | ✓ |
+| Target groups selected by user, role or route | ✓ |
+| Cooldowns between injections, including group-specific intervals | ✓ |
+| Limits on simultaneous injections and the fraction of affected users | ✓ |
+| Total injection budgets and maximum fault duration | ✓ |
+| Forbidden combinations of overlapping faults | ✓ |
+| Injection windows by weekday, hour and timezone | ✓ |
+| Dry-run admission simulation with recorded decisions and no applied fault | ✓ |
+| Live pause/resume and stopping reversible active faults | ✓ |
+| Separate controls for scheduled injections and immediate manual faults | ✓ |
+| Policy reload for future injections during a session | ✓ |
+| Independent incident/health command that can block new injections | ✓ |
+| Cross-process coordination of active limits, cooldowns and forbidden pairs through shared local state | ✓ |
+| Recorded applied, simulated, skipped and cancelled injections with reasons | ✓ |
+| Injection-event tracking and separate engine/hook error counters via configured commands | ✓ |
+| Bounded recurring test commands via an external scheduler, with finite attempts and timeouts | ✓ |
+| **QA catalog: all 69 checks** | |
+| First names: alphabets, accents, punctuation and saved values <!-- check:first-name-formats --> | ✓ |
+| Family names: particles, apostrophes, case and saved values <!-- check:last-name-formats --> | ✓ |
+| Single names, multiple family names and non-Western name order <!-- check:name-structure --> | ✓ |
+| Email formats, plus addressing, case, whitespace and invalid addresses <!-- check:email-formats --> | ✓ |
+| Sign-in with uppercase emails and surrounding spaces (test account) <!-- check:email-case-and-trim --> | ✓ |
+| International and national phone formats, normalization and mobile keypad <!-- check:phone-formats --> | ✓ |
+| Postal codes by country, letters, spaces and leading zeros <!-- check:postal-code-formats --> | ✓ |
+| International addresses, town names and keyboard address suggestions <!-- check:address-formats --> | ✓ |
+| Birth dates: invalid dates, future dates, age rules and timezone shifts <!-- check:birth-date-rules --> | ✓ |
+| Date ranges: reversed dates, year boundaries and daylight-saving changes <!-- check:date-ranges --> | ✓ |
+| Amounts: locale separators, currency precision, rounding and limits <!-- check:amount-formats --> | ✓ |
+| Quantities: empty, zero, negative, decimal, oversized values and steppers <!-- check:quantity-bounds --> | ✓ |
+| IBAN: checksum, country length, spaces, case and masked display <!-- check:iban-checksum --> | ✓ |
+| Company registration numbers and country-specific validation <!-- check:company-id-formats --> | ✓ |
+| Web addresses: schemes, saved links and unsafe URL schemes <!-- check:url-formats --> | ✓ |
+| Password rules, passphrases, paste, show/hide and confirmation <!-- check:new-password-rules --> | ✓ |
+| Free text: Unicode, emoji, line breaks, RTL, CJK and literal markup <!-- check:free-text-content --> | ✓ |
+| Search: accents, case, symbols, whitespace, empty and unmatched queries <!-- check:search-inputs --> | ✓ |
+| Uploads: file type, size, empty files, names, removal and replacement <!-- check:file-upload-rules --> | ✓ |
+| Form validation: required fields, precise errors, focus and retained values <!-- check:form-errors-keep-data --> | ✓ |
+| Duplicate records after double-clicking or pressing Enter twice <!-- check:double-submit --> | ✓ |
+| Duplicate submissions after reload, Back and Forward <!-- check:reload-after-submit --> | ✓ |
+| Saved values after reload and opening a new tab <!-- check:persistence-new-tab --> | ✓ |
+| Cancellation of edits and recovery of unsaved work <!-- check:edit-cancel --> | ✓ |
+| Delete confirmation, cancellation, persistence and undo when available <!-- check:delete-safety --> | ✓ |
+| Lists: empty states, pagination bounds, stable sorting and combined filters <!-- check:list-edges --> | ✓ |
+| Conflicting edits to the same record in two tabs <!-- check:two-tabs-conflict --> | ✓ |
+| Private deep links while signed out and return after sign-in (test account) <!-- check:deep-link-auth --> | ✓ |
+| Account enumeration through password-reset responses (test account) <!-- check:reset-enumeration --> | ✓ |
+| Account enumeration through sign-in errors (test account) <!-- check:login-enumeration --> | ✓ |
+| Account enumeration through sign-up responses (product review) (test account) <!-- check:signup-enumeration --> | ✓ |
+| Throttling after repeated wrong passwords (six attempts, explicit approval) (test account) <!-- check:login-throttling --> | ✓ |
+| Password masking, paste, password-manager support and URL exposure <!-- check:password-field-hygiene --> | ✓ |
+| Passwords, session tokens and personal data exposed in URLs <!-- check:secrets-in-url --> | ✓ |
+| Sign-out, Back, private-page reloads and session invalidation across tabs (test account) <!-- check:logout-session --> | ✓ |
+| HTML-like input rendered as literal text <!-- check:html-escaping --> | ✓ |
+| Technical details exposed in error pages <!-- check:error-leaks --> | ✓ |
+| Access to another authorized test account's records (two test accounts) <!-- check:object-access-control --> | ✓ |
+| Password-reset links: expiry and single use (test mailbox) <!-- check:reset-token-lifecycle --> | ✓ |
+| Masking of sensitive data after saving (test account) <!-- check:sensitive-display --> | ✓ |
+| Field labels, required indicators and accessible error associations <!-- check:field-labels-and-errors --> | ✓ |
+| Completing a whole form using the keyboard <!-- check:keyboard-form --> | ✓ |
+| Autocomplete purpose and mobile input attributes <!-- check:autocomplete-attributes --> | ✓ |
+| Reflow at 320 CSS pixels and 200% zoom <!-- check:small-screen-reflow --> | ✓ |
+| Feedback and recovery during slow or failed saves <!-- check:slow-submit-feedback --> | ✓ |
+| Clear, actionable error messages in the application language <!-- check:error-message-quality --> | ✓ |
+| Pasting values, automatic formatting and caret behavior <!-- check:paste-and-formatting --> | ✓ |
+| Text inputs: empty, whitespace-only, long and special-character values <!-- check:text-input-extremes --> | ✓ |
+| Numeric inputs: zero, negative, decimal and announced boundaries <!-- check:number-extremes --> | ✓ |
+| Retrying a submission after an error <!-- check:submit-retry-after-error --> | ✓ |
+| Interrupted forms: reload, Back/Forward, tab closure and reopening <!-- check:interrupted-form --> | ✓ |
+| Search/filter races, reset and state retained after navigation <!-- check:search-filter-behavior --> | ✓ |
+| Success messages checked against actual saved data <!-- check:false-success --> | ✓ |
+| Unedited fields and attachments retained after another field changes <!-- check:data-loss-on-edit --> | ✓ |
+| Consistency between lists, detail views, counters, badges and tabs <!-- check:ui-desync --> | ✓ |
+| Controls reachable on phone, tablet and desktop viewports <!-- check:responsive-controls --> | ✓ |
+| Horizontal overflow, clipped forms and unreachable submit buttons <!-- check:layout-overflow --> | ✓ |
+| Tab order, focus visibility, hidden focus targets and modal focus traps <!-- check:keyboard-reachability --> | ✓ |
+| Accessible names for controls, informative images and frames <!-- check:accessible-names --> | ✓ |
+| Estimated text contrast (review signal) <!-- check:color-contrast --> | ✓ |
+| Pointer-target dimensions and spacing (WCAG signal) <!-- check:target-size --> | ✓ |
+| Page language, title, heading order, duplicate IDs, tabindex and zoom <!-- check:page-structure --> | ✓ |
+| Live-region markup for results, success messages and errors <!-- check:status-messages --> | ✓ |
+| Session-timeout warnings, extension and retained work (test account) <!-- check:time-limits --> | ✓ |
+| Broken images and failed same-site styles, scripts, fonts and resources <!-- check:broken-resources --> | ✓ |
+| Unhandled JavaScript errors and promise rejections during interactions <!-- check:javascript-errors --> | ✓ |
+| Conflicting edits by two users on the same record (coordinated users) <!-- check:concurrent-edit-two-users --> | ✓ |
+| Editor/reader permissions, direct URLs and visibility of changes (coordinated users) <!-- check:role-permissions --> | ✓ |
+| Changes or deletions made by another user while a screen stays open (coordinated users) <!-- check:shared-object-notifications --> | ✓ |
+| **Additional field and page inspection** | |
+| Password forms submitted with GET or served over plain HTTP outside localhost | ✓ |
+| Session-like cookies readable by JavaScript (review signal) | ✓ |
+| Numeric field types that lose phone prefixes or postal-code zeros | ✓ |
+| Labels provided only by disappearing placeholders | ✓ |
+| Overly short maxlength limits for names, emails and addresses | ✓ |
+| Controls covered by sticky bars, banners or other elements | ✓ |
+| Clipped text in buttons, links, labels and headings | ✓ |
+| Clickable-looking elements unreachable from the keyboard | ✓ |
+| Focusable elements inside aria-hidden regions | ✓ |
+| Generic link names such as "click here" | ✓ |
+| Focus escaping a modal, landing on hidden elements or lacking a visible indicator | ✓ |
+| **Fault injection and recovery** | |
+| Offline browser context (`offline`) | ✓ |
+| Slow matching requests (`slow`) | ✓ |
+| Aborted application requests (`server-down`) | ✓ |
+| Stop/restart of a local application managed by Chaosfolk (`app-stop`; replay uses request failure) | ✓ |
+| HTTP error responses, including selected routes and methods (`http-error`) | ✓ |
+| Backend writes whose responses are lost (`lost-response`) | ✓ |
+| localStorage write failures from simulated quota exhaustion (`storage-full`) | ✓ |
+| Cleared local/session storage (`storage-empty`) | ✓ |
+| Corrupted browser-storage values (`storage-corrupt`) | ✓ |
+| Page-clock advances (`clock`) | ✓ |
+| Viewport changes during a journey (`window`) | ✓ |
+| Cleared browser cookies (`cookies-cleared`) | ✓ |
+| **Replay assertions and persistence** | |
+| Expected text visible, absent or present a specified number of times | ✓ |
+| Expected field value, exact or containing a substring | ✓ |
+| Expected localStorage key/value or JSON content | ✓ |
+| Expected URL substring | ✓ |
+| No recorded JavaScript page errors | ✓ |
+| Page body contains visible text | ✓ |
+| Custom JavaScript assertions defined by the project | ✓ |
+| Persistence after reload (`--persist reload`) | ✓ |
+| Persistence after reopening the start address (`--persist revisit`) | ✓ |
+| Persistence in a new tab (`--persist new-tab`) | ✓ |
+| Persistence after clearing local/session storage (`--persist local-only`) | ✓ |
+| Behavior after Back (`--persist back`) | ✓ |
+| Duplicates and recovery after retrying the last successful action (`--persist retry`) | ✓ |
+| All supplied field values, with separate acceptance/rejection assertions (`vary`) | ✓ |
+| Equivalent or different final outcomes from two scenarios (`compare`) | ✓ |
+| Repeated treatment/control trials with and without injected faults | ✓ |
+| Observed/reference journey comparison with and without faults (2×2 matrix) | ✓ |
+| Fixture preparation and identity verification before every trial and retry (project commands) | ✓ |
+| Failure rates with valid, invalid and requested trial counts | ✓ |
+| Whether saved findings still fail or pass after a fix or in a later campaign | ✓ |
+| Saved scenario assertions in CI, with JUnit results (`regression run`) | ✓ |
+| **Browser journeys and compatibility** | |
+| Project-defined create, read, edit, delete and multi-step journeys | ✓ |
+| Navigation, links, Back/Forward, tabs and browser dialogs | ✓ |
+| Journey comprehension, labels, discoverability and feedback through simulated users | ✓ |
+| Assigned behavior profiles, including hurried, distracted, keyboard and mobile users | ✓ |
+| Independent users and coordinated users with separate roles on shared records | ✓ |
+| Desktop, laptop, tablet and mobile viewport/input emulation | ✓ |
+| Chromium, Firefox and WebKit scenario replays (installed browser engines) | ✓ |
+| Pixel differences against reviewed screenshot baselines (optional visual extra) | ✓ |
+| **Performance signals and optional integrations** | |
+| Observed responsiveness and delays during user journeys | ✓ |
+| Bounded local concurrent page-load smoke tests: HTTP errors, median and p95 timings (`probe`) | ✓ |
+| Presence of CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy and HSTS headers (local probe) | ✓ |
+| Email subject, recipient and body content (Mailpit test mailbox) | ✓ |
+| Downloaded CSV files: required columns, row-count bounds and expected content | ✓ |
+| Downloaded text files: expected content | ✓ |
+| Downloaded PDF files: PDF parsing and expected text (optional PDF extra) | ✓ |
+| Automated axe-core accessibility rules (locally supplied axe-core script) | ✓ |
+| External k6 load-test results (configured k6 executable and script) | ✓ |
+| External Appium test results, including native mobile suites (configured Appium runner and script) | ✓ |
+
+Accessibility and security rows describe checks and review signals, not compliance
+certification or a penetration test. Mobile viewports are browser emulation;
+native-device tests require the external Appium runner. Local performance probes
+do not establish production capacity.
+
+Details: [QA catalog](docs/checks.md), [faults](docs/faults.md),
+[replay and evidence](docs/replay.md), [regressions and visual checks](docs/regression.md),
+[optional integrations](docs/integrations.md), [chaos policies](docs/chaos.md)
+and [campaigns](docs/campaigns.md).
+
+</details>
 
 ### Watch the trailer
 
@@ -52,8 +268,38 @@ observation.
 
 ## What it checks
 
-These commands run without a model, alongside the exploration, and feed the
-same report.
+Chaosfolk explores the goals you give it in a real browser. Each agent chooses
+its next action from the current page and its assigned behavior: a hurried user
+clicks again, a distracted one returns to an unfinished form, a multitasker edits
+across tabs. The 16 profiles combine with sampled habits, devices and shuffled
+objectives, so exploration can reach journeys beyond the predefined checks.
+
+- **Open-ended exploration.** Try unexpected navigation, interrupted forms,
+  repeated actions, stale tabs and recovery after errors. Project memory points
+  later campaigns toward less-explored known routes. Use `--checks none` for
+  exploration without catalog assignments.
+- **Randomized fault scenarios.** Draw faults, start actions, durations and
+  parameters within configured ranges. Observe offline use, slow or failing
+  requests, lost responses, damaged storage, cleared cookies and clock changes
+  while users work. Keep the seed for the draw and the recorded actions for replay.
+- **Controlled chaos experiments.** Set admission probability, target groups,
+  exclusions, cooldowns, affected-user limits and allowed time windows. Simulate
+  injections first, pause them live, consult an incident gate and coordinate
+  concurrent sessions sharing a local environment.
+- **Systematic QA and proof.** Assign the 69 catalog checks, vary field values,
+  measure UI/accessibility signals and compare recorded outcomes. Repeat a
+  candidate with and without faults, optionally against a reference journey,
+  and report failures alongside invalid trials and product severity.
+
+The controlled experiments use probability, grouping and scheduling patterns
+also documented by [Netflix's Chaos Monkey](https://netflix.github.io/chaosmonkey/Termination-behavior/).
+Chaosfolk applies its faults inside browser contexts and an explicitly managed
+local test process; it has no cloud-instance or Kubernetes termination adapter.
+See [chaos policies](docs/chaos.md) for controls and limits.
+
+These commands run without a model, alongside agent exploration, and feed the
+same report. Expand the [full test checklist](#test-checklist) above for every
+listed capability.
 
 | Command | What it does | Example of a problem it finds |
 | --- | --- | --- |
