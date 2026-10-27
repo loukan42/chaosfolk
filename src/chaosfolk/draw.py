@@ -155,8 +155,10 @@ def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, 
             if panne.get("horloge"):
                 fiche["horloge"] = True
         humains.append(fiche)
+    from .reproducibility import draw_provenance
     personas = {"application": application, "escouade": escouade, "graine": graine, "budget": budget, "humains": humains}
     tirage = {"escouade": escouade, "graine": graine, "nombre": nombre, "budget": budget, "objectifs": objectifs, "pannes": pannes}
+    personas["provenance"] = tirage["provenance"] = draw_provenance()
     personas["themes"] = tirage["themes"] = selected_themes
     tirage["sessions"] = {"mode": sessions, "shared": shared or [], "roles": [r[0] for r in roles or []]}
     tirage["checks"] = {"selection": checks, "countries": pays or "all", "pool": [check["id"] for check in pool],

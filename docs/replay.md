@@ -3,6 +3,7 @@
 Replays follow recorded browser actions without asking a model. Supply an explicit
 expected outcome. The app and its initial data must be available for each trial.
 For shared backend state, use `--sequential` and reset or isolate test data.
+Use `--environment` to automate preparation and verification before every trial.
 
 ## English input format
 
@@ -56,6 +57,116 @@ chaosfolk replay scenario.json --times 3 --fail-on-bug
 `--control` runs only the no-fault series. `--with-control` adds a no-fault series
 to the treatment. It cannot control a user gesture such as double-clicking:
 write a separate single-click scenario for that comparison.
+
+## Clean data before every trial
+
+A fresh browser context does not reset server data. Supply an environment file
+when repeated trials write to a shared backend:
+
+```json
+{
+  "data_id": "checkout-fixture-v3",
+  "app_version": "build-2026-10-27",
+  "app_repo": "..",
+  "prepare": {"command": ["python", "reset_fixture.py"], "timeout": 30},
+  "verify": {"command": ["python", "verify_fixture.py"], "timeout": 10}
+}
+```
+
+```bash
+chaosfolk replay scenario.json --times 5 --with-control --environment qa/environment.json
+```
+
+Commands run from the environment file's directory, as argument lists without
+shell expansion. Use the executable available in your environment (`python3`
+where appropriate). Both commands must exit zero. The verification command must
+print a JSON object with `"ready": true` and the same `data_id`; it should check
+the actual fixture contents, not just echo the configured identity. Timeouts
+default to 30 seconds and cannot exceed 300 seconds per command. Timed-out
+commands and their remaining child processes are killed.
+
+With preparation configured, every trial and divergence retry runs sequentially,
+after preparation and verification. This applies to control trials too. A failed
+command, timeout, malformed response or fixture mismatch makes the trial invalid
+and prevents its browser actions. Hook output and commands are not included in
+the evidence. Configure credentials through the local environment rather than
+putting them in command arguments.
+
+Each trial records `preparation.status`: `reset-verified`, `browser-only`, or
+`invalid`. Without preparation, existing scenarios continue to run in isolated
+browser contexts and no claim is made about clean backend data. Serial execution
+coordinates trials in this replay invocation; use a dedicated backend or an
+external lock if other processes can write to the same fixture.
+
+`app_version` and `app_repo` are optional metadata and can be supplied without
+preparation commands. `app_repo` resolves relative to the environment file and
+records the Git commit and whether the working tree has changes. Unknown build
+metadata remains null. A dirty commit alone cannot reconstruct the app: retain
+the source changes or the tested build separately.
+
+## Reference journey matrix
+
+Supply a reference scenario reviewed by your team to run four series:
+
+```bash
+chaosfolk replay observed.json --baseline reference.json --times 5 --environment qa/environment.json --output .horde/run/reproductions
+```
+
+| Journey | Without faults | With faults |
+| --- | --- | --- |
+| Observed | Recorded actions, no injection | Recorded actions and injections |
+| Reference | Team's reference actions, no injection | Reference actions and injections |
+
+Both scenarios need explicit assertions and a reachable fault schedule. They
+must describe the same fault conditions and parameters, but their start/end
+action anchors can differ to match each journey. Chaosfolk does not copy action
+numbers between journeys or generate a reference. Each journey keeps its own
+expected outcomes; choose assertions that describe acceptable behavior with and
+without the fault, such as a draft retained on failure or a successful save.
+
+`--baseline` accepts one observed scenario and cannot be combined with `--control`.
+It automatically includes controls; `--with-control` is redundant. `--persist`
+produces a separate matrix per recipe. Without this override, both journeys must
+use the same persistence recipe. Four series of five trials cost twenty
+trials, before any existing divergence retry. They do not call a model.
+
+The result directory contains the four series and `matrix.json` (or
+`matrix-persist-<recipe>.json`). Each summary embeds all four series and counts,
+with status `all-pass`, `failures-observed`, `intermittent` or `inconclusive`.
+When saved in the session's `reproductions/`, matrices also appear in the HTML
+report. A matrix identifies differences in observed outcomes; product review
+still determines whether a failure is a bug, and how severe it is. An unusual
+journey can expose a valid defect.
+
+## Reproduction manifests and rates
+
+Every replay writes a uniquely named `manifests/<run>-<index>.json` and links it
+from the result's `manifest` field. It includes the normalized scenario snapshot
+and hashes of that scenario and its original file, the seed and generated profile
+definitions when available, original profile/catalog/template fingerprints,
+engine, Playwright and browser versions, application metadata, browser-state
+fingerprints, fixture identity, and the configured fault schedule. New draws
+record profile and agent/persona template hashes; older sessions explicitly lack
+this provenance. Extracted scenarios also retain the original fault events.
+Individual trials record the injections actually applied, removed, or ended by
+context closure, with step anchors and elapsed milliseconds.
+
+Browser-state contents and fixture command output are excluded from manifests.
+Keep the original scenario, private browser-state files, fixture scripts and
+backend snapshot with the evidence in order to replay elsewhere. Manifests record
+identity and provenance; they do not bundle or restore an application or database.
+Missing metadata stays null. A seed repeats a draw under the same catalog and
+parameters, not an agent's decisions. Replays follow recorded actions and fault
+anchors rather than promising identical network races or wall-clock timing.
+
+Result JSON adds `reproducibility` with `requested`, `valid`, `failures`, `invalid`
+and `failure_rate` (0 to 1, or null when no trial is valid). CLI and bilingual HTML
+reports show failures / valid trials, percentage, invalid count and requested
+count, including series with fewer than three valid trials. For example, one
+failure in four valid trials out of five requested is `1/4 (25.0%)`, with one
+invalid trial. Invalid trials never count as successes. Small or incomplete
+series remain visible without acquiring a reproduced badge. The measured rate
+describes these trials; severity stays separate.
 
 ## Persistence recipes
 
