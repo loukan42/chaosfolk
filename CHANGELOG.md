@@ -7,6 +7,10 @@ software: until 1.0, a minor version can change commands and file formats.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-27
+
+Chaosfolk now installs with one command, with nothing to install first.
+
 ### Added
 
 - One-command installers for macOS and Linux (`install.sh`) and Windows
@@ -100,7 +104,8 @@ First public alpha.
 - A local demo with 12 real Chromium trials and no model or API key.
 - The Python engine and a separate agent skill.
 
-[Unreleased]: https://github.com/loukan42/chaosfolk/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/loukan42/chaosfolk/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/loukan42/chaosfolk/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/loukan42/chaosfolk/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/loukan42/chaosfolk/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/loukan42/chaosfolk/releases/tag/v0.3.0

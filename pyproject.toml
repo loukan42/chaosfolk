@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chaosfolk"
-version = "0.5.0"
+version = "0.5.1"
 description = "Let simulated users explore your web app. Replay the failures with evidence."
 readme = "README.md"
 requires-python = ">=3.12"
