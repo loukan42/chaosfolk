@@ -600,7 +600,12 @@ async def borne(coroutine, delai=DELAI_PAGE):
 
 
 async def lancer_navigateur(pw, visible=False, canal=None):
-    """Lance Chromium, Edge ou Chrome (le premier qui marche). Renvoie (navigateur, canal)."""
+    """Launch the requested engine; an explicit engine never falls back silently."""
+    if canal in ("firefox", "webkit"):
+        try:
+            return await getattr(pw, canal).launch(headless=not visible), canal
+        except Exception as error:
+            raise RuntimeError(f"{canal} could not start. Install it with python -m playwright install {canal}: {error}") from error
     derniere = None
     for essai in ([canal] if canal else CANAUX):
         try:
@@ -1049,7 +1054,9 @@ class Monde:
             return None
         chemin = Path(self.captures) / f"{nom}.jpg"
         try:
-            await self.page.screenshot(path=str(chemin), type="jpeg", quality=50, scale="css", timeout=6000)
+            from chaosfolk.privacy import screenshot_masks
+            await self.page.screenshot(path=str(chemin), type="jpeg", quality=50, scale="css", timeout=6000,
+                                       mask=screenshot_masks(self.page))
             return chemin
         except Exception:
             return None
@@ -3538,7 +3545,8 @@ def positive_int(value):
 
 def construire_parseur():
     """Analyse des commandes du chef d'orchestre : une sous-commande par commande."""
-    parseur = argparse.ArgumentParser(prog="chaosfolk")
+    parseur = argparse.ArgumentParser(prog="chaosfolk", epilog=
+        "Additional commands (COMMAND --help): regression, planning, visual, privacy, usage, benchmark, integrations, mcp.")
     sous = parseur.add_subparsers(dest="commande", required=True)
 
     def commande(nom, fonction, parents=()):

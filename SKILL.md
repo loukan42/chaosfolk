@@ -11,6 +11,13 @@ command sequence. Use [docs/replay.md](docs/replay.md) when proving a candidate,
 [docs/checks.md](docs/checks.md) for QA checks, `vary`, `compare`, `audit` and
 persistence recipes, and [docs/campaigns.md](docs/campaigns.md) for project
 memory, journey maps, campaign comparison and coordinated sessions.
+[docs/regression.md](docs/regression.md) turns a proven scenario into a portable
+Playwright test or a CI gate and covers visual comparison and other browser
+engines; [docs/planning.md](docs/planning.md) chooses journeys from a diff,
+tracks check coverage and groups findings; [docs/integrations.md](docs/integrations.md)
+covers report sanitizing, host-reported cost limits, test mailbox, files, axe-core,
+k6, Appium and the read-only MCP server; [docs/benchmark.md](docs/benchmark.md)
+measures the harness and an exploration on apps with known defects.
 
 ## Choose the work the user requested
 
@@ -18,6 +25,14 @@ memory, journey maps, campaign comparison and coordinated sessions.
 - Verify a fix: replay the affected scenario and its control. When the project
   has recorded campaigns, `campaign select --project NAME --replay` picks and
   replays the open findings instead of exploring again.
+- Keep a proven finding: `regression export` writes a test only when the user asks
+  for one; `regression run` is the CI gate. Never overwrite a user's test file.
+- Test a change or pull request: `planning changes` proposes journeys from the
+  diff; show the plan and its reasons, and keep the whole-app option.
+- Share a report outside the team: run `privacy` and tell the user to review the
+  copy, since automatic redaction is incomplete.
+- When the host reports token usage and the user set a limit, run `usage` before
+  each batch of users and stop at exit code 1; with 2, say the cost is unknown.
 - New exploration: choose the requested consumption level: `low` (2 users,
   12 actions each), `medium` (4 users, 20 actions each), or `high` (12 users,
   40 actions each). Default to `medium`. `chaosfolk plan --level low|medium|high`

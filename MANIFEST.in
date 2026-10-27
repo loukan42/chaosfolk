@@ -1,4 +1,5 @@
 # The agent skill bundled by setup.py; keep in sync with SKILL_FILES in src/chaosfolk/install.py.
 include SKILL.md LICENSE
-include docs/agents.md docs/campaigns.md docs/checks.md docs/faults.md
+include docs/agents.md docs/benchmark.md docs/campaigns.md docs/checks.md docs/faults.md
+include docs/integrations.md docs/planning.md docs/regression.md
 include docs/replay.md docs/scoring.md docs/workflow.md

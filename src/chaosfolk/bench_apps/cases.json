@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "cases": [
+    {
+      "id": "storage-draft-loss",
+      "title": "A storage failure clears the unsaved draft",
+      "category": "data-loss",
+      "condition": "storage-full",
+      "keywords": ["draft", "storage", "brouillon", "stockage"],
+      "scenario": {
+        "steps": [
+          {"n": 1, "action": "type", "target": {"role": "textbox", "name": "Project name"}, "args": {"text": "Weekend project"}},
+          {"n": 2, "action": "click", "target": {"role": "button", "name": "Save project"}, "args": {}}
+        ],
+        "faults": [{"type": "storage-full", "start_action": 1}],
+        "expect": [{"type": "js", "description": "The project is saved or the draft is still in the field",
+                    "expression": "document.querySelector('#name').value === 'Weekend project' || document.querySelector('#status').textContent === 'Project saved'"}]
+      }
+    },
+    {
+      "id": "offline-false-success",
+      "title": "A failed request still reports success",
+      "category": "false-success",
+      "condition": "offline",
+      "keywords": ["offline", "false success", "connection", "hors ligne", "faux succès", "connexion"],
+      "scenario": {
+        "steps": [
+          {"n": 1, "action": "type", "target": {"role": "textbox", "name": "Note"}, "args": {"text": "Synthetic note"}},
+          {"n": 2, "action": "click", "target": {"role": "button", "name": "Send note"}, "args": {}},
+          {"n": 3, "action": "wait", "args": {"seconds": 1}}
+        ],
+        "faults": [{"type": "offline", "start_action": 1}],
+        "expect": [{"type": "js", "description": "Success is only reported when the request can succeed",
+                    "expression": "navigator.onLine || document.querySelector('#status').textContent !== 'Note sent'"}]
+      }
+    },
+    {
+      "id": "double-submit-duplicate",
+      "title": "A double click adds the same item twice",
+      "category": "duplicate",
+      "condition": null,
+      "keywords": ["duplicate", "twice", "double", "doublon", "deux fois"],
+      "scenario": {
+        "steps": [
+          {"n": 1, "action": "type", "target": {"role": "textbox", "name": "Item"}, "args": {"text": "Oat milk"}},
+          {"n": 2, "action": "click", "target": {"role": "button", "name": "Add item"}, "args": {"times": 2}},
+          {"n": 3, "action": "wait", "args": {"seconds": 1}}
+        ],
+        "faults": [],
+        "expect": [{"type": "count", "text": "Oat milk", "exact": true, "equals": 1}]
+      }
+    },
+    {
+      "id": "reload-loses-data",
+      "title": "Saved tasks disappear after a reload",
+      "category": "persistence",
+      "condition": null,
+      "keywords": ["reload", "refresh", "disappear", "persist", "recharg", "dispar"],
+      "scenario": {
+        "steps": [
+          {"n": 1, "action": "type", "target": {"role": "textbox", "name": "Task"}, "args": {"text": "Call the plumber", "enter": true}},
+          {"n": 2, "action": "reload", "args": {}}
+        ],
+        "faults": [],
+        "expect": [{"type": "text-visible", "text": "Call the plumber", "exact": true}]
+      }
+    }
+  ]
+}

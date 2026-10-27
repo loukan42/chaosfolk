@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tasks · Chaosfolk benchmark</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px}input,button{font:inherit;padding:8px}</style>
+<h1>Tasks</h1>
+<form id="form"><label for="task">Task</label> <input id="task" autocomplete="off"> <button>Add task</button></form>
+<p id="status" role="status"></p><ul id="list"></ul>
+<script>
+// Seeded defect: tasks are confirmed as saved but only kept in memory.
+const fixed = new URLSearchParams(location.search).has('fixed');
+const key = 'tasks.items';
+const tasks = fixed ? JSON.parse(localStorage.getItem(key) || '[]') : [];
+function render() {
+  document.querySelector('#list').replaceChildren(...tasks.map(name => {
+    const item = document.createElement('li');
+    item.textContent = name;
+    return item;
+  }));
+}
+document.querySelector('#form').addEventListener('submit', event => {
+  event.preventDefault();
+  const field = document.querySelector('#task');
+  if (!field.value.trim()) return;
+  tasks.push(field.value.trim());
+  if (fixed) localStorage.setItem(key, JSON.stringify(tasks));
+  field.value = '';
+  document.querySelector('#status').textContent = 'Task saved';
+  render();
+});
+render();
+</script></html>

@@ -7,6 +7,32 @@ software: until 1.0, a minor version can change commands and file formats.
 
 ## [Unreleased]
 
+Confirmed findings can now be kept as tests and replayed in CI.
+
+### Added
+
+- `regression export` writes a portable Python Playwright test from a proven
+  scenario, and refuses what it cannot reproduce faithfully. `regression run`
+  replays saved scenarios without a model and writes JUnit results; exit code 1
+  is a product failure, 2 an invalid or intermittent run.
+- `planning changes` proposes journeys from a Git diff and the journey map,
+  `planning coverage` tracks planned, passed, failed and untested checks, and
+  `planning triage` groups findings that look alike for review.
+- `benchmark run|serve|score`: four apps with a known defect and a corrected
+  variant, to check the harness and score an exploration (recall, precision
+  bounds, host-reported cost).
+- `visual capture|compare|approve` for screenshot baselines, with masks and a
+  reviewed approval step (optional `visual` extra).
+- `privacy` exports a sanitized copy of a report. Password, card and one-time
+  code fields are masked in screenshots, plus `CHAOSFOLK_MASK_SELECTORS`.
+- `usage` gates the next batch on host-reported tokens and cost.
+- `integrations mailpit|file|axe|external`: test mailbox, CSV/text/PDF downloads
+  (optional `pdf` extra), a local axe-core bundle, k6 and Appium runners.
+- `mcp`: a read-only MCP server over one project memory folder.
+- Replays, regression runs and visual captures accept `firefox` and `webkit`.
+  An explicit engine never falls back to Chromium.
+- `--state-dir DIR` before any command isolates the engine state.
+
 ## [0.5.1] - 2026-10-27
 
 Chaosfolk now installs with one command, with nothing to install first.
