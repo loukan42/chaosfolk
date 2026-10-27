@@ -118,6 +118,15 @@ curl -LsSf https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.sh 
 powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.ps1 | iex"
 ```
 
+**With the [Skills CLI](https://github.com/vercel-labs/skills)** ([skills.sh](https://skills.sh))
+
+```bash
+npx skills add loukan42/chaosfolk --skill chaosfolk -g
+```
+
+The Skills CLI installs the skill, not the engine it drives. Run the macOS and
+Linux or Windows command above as well.
+
 Then restart your coding agent and ask it: `Run chaosfolk check and tell me if
 anything is missing.` Run the same command again to update.
 
@@ -153,9 +162,6 @@ running them. Set `CHAOSFOLK_NO_MODIFY_PATH=1` to keep your PATH unchanged.
   `pipx install git+https://github.com/loukan42/chaosfolk.git`, or
   `uv tool install git+https://github.com/loukan42/chaosfolk.git`, then
   `chaosfolk setup`.
-- **With the [Skills CLI](https://github.com/vercel-labs/skills)** for the skill:
-  `npx skills add loukan42/chaosfolk --skill chaosfolk -g`. It does not install
-  the engine: use one of the commands above for that.
 - **Manual installation** and details for each agent: see the
   [agent guide](docs/agents.md).
 
