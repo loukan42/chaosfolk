@@ -28,7 +28,7 @@ or an explicitly configured integration. Country-dependent values cover 15 count
 
 | What Chaosfolk can test | Supported |
 | --- | :---: |
-| **Open-ended exploration and randomized scenarios** | |
+| **OPEN-ENDED EXPLORATION AND RANDOMIZED SCENARIOS** | **✓** |
 | Agent-chosen actions and unexpected routes within supplied goals and authorized scope | ✓ |
 | Pure exploration without predefined catalog checks (`--checks none`) | ✓ |
 | Seeded selection and combinations of behavior profiles and shared habits | ✓ |
@@ -42,7 +42,7 @@ or an explicitly configured integration. Country-dependent values cover 15 count
 | Less-visited and unvisited known routes suggested from previous project campaigns | ✓ |
 | Unexpected outcomes when users repeat, interrupt, abandon or resume an action | ✓ |
 | Seed retained to reproduce the draw; recorded actions used to replay the actual journey | ✓ |
-| **All 16 simulated behavior profiles** | |
+| **ALL 16 SIMULATED BEHAVIOR PROFILES** | **✓** |
 | First-time visitor: visible paths, unfamiliar terms and help <!-- profile:first-time --> | ✓ |
 | In a hurry: repeated clicks, skipped help and required fields only <!-- profile:in-a-hurry --> | ✓ |
 | Keyboard-focused: Tab, Enter, Escape and menu arrow keys <!-- profile:keyboard --> | ✓ |
@@ -59,7 +59,7 @@ or an explicitly configured integration. Country-dependent values cover 15 count
 | Backtracker: Back/Forward, cancelled edits and unfinished drafts <!-- profile:backtracker --> | ✓ |
 | Search-first: partial names, combined filters and cleared searches <!-- profile:search-first --> | ✓ |
 | Recovery seeker: correcting invalid input, Undo/Cancel and resuming after errors <!-- profile:recovery-seeker --> | ✓ |
-| **Controlled chaos experiments and execution controls** | |
+| **CONTROLLED CHAOS EXPERIMENTS AND EXECUTION CONTROLS** | **✓** |
 | Per-injection admission probability, sampled during the session | ✓ |
 | Manual, time-delayed and action-triggered fault injection | ✓ |
 | Configurable allowed fault types and excluded users, roles, routes and HTTP methods | ✓ |
@@ -78,7 +78,7 @@ or an explicitly configured integration. Country-dependent values cover 15 count
 | Recorded applied, simulated, skipped and cancelled injections with reasons | ✓ |
 | Injection-event tracking and separate engine/hook error counters via configured commands | ✓ |
 | Bounded recurring test commands via an external scheduler, with finite attempts and timeouts | ✓ |
-| **QA catalog: all 69 checks** | |
+| **QA CATALOG: ALL 69 CHECKS** | **✓** |
 | First names: alphabets, accents, punctuation and saved values <!-- check:first-name-formats --> | ✓ |
 | Family names: particles, apostrophes, case and saved values <!-- check:last-name-formats --> | ✓ |
 | Single names, multiple family names and non-Western name order <!-- check:name-structure --> | ✓ |
@@ -148,7 +148,7 @@ or an explicitly configured integration. Country-dependent values cover 15 count
 | Conflicting edits by two users on the same record (coordinated users) <!-- check:concurrent-edit-two-users --> | ✓ |
 | Editor/reader permissions, direct URLs and visibility of changes (coordinated users) <!-- check:role-permissions --> | ✓ |
 | Changes or deletions made by another user while a screen stays open (coordinated users) <!-- check:shared-object-notifications --> | ✓ |
-| **Additional field and page inspection** | |
+| **ADDITIONAL FIELD AND PAGE INSPECTION** | **✓** |
 | Password forms submitted with GET or served over plain HTTP outside localhost | ✓ |
 | Session-like cookies readable by JavaScript (review signal) | ✓ |
 | Numeric field types that lose phone prefixes or postal-code zeros | ✓ |
@@ -160,7 +160,7 @@ or an explicitly configured integration. Country-dependent values cover 15 count
 | Focusable elements inside aria-hidden regions | ✓ |
 | Generic link names such as "click here" | ✓ |
 | Focus escaping a modal, landing on hidden elements or lacking a visible indicator | ✓ |
-| **Fault injection and recovery** | |
+| **FAULT INJECTION AND RECOVERY** | **✓** |
 | Offline browser context (`offline`) | ✓ |
 | Slow matching requests (`slow`) | ✓ |
 | Aborted application requests (`server-down`) | ✓ |
@@ -173,7 +173,7 @@ or an explicitly configured integration. Country-dependent values cover 15 count
 | Page-clock advances (`clock`) | ✓ |
 | Viewport changes during a journey (`window`) | ✓ |
 | Cleared browser cookies (`cookies-cleared`) | ✓ |
-| **Replay assertions and persistence** | |
+| **REPLAY ASSERTIONS AND PERSISTENCE** | **✓** |
 | Expected text visible, absent or present a specified number of times | ✓ |
 | Expected field value, exact or containing a substring | ✓ |
 | Expected localStorage key/value or JSON content | ✓ |
@@ -195,7 +195,7 @@ or an explicitly configured integration. Country-dependent values cover 15 count
 | Failure rates with valid, invalid and requested trial counts | ✓ |
 | Whether saved findings still fail or pass after a fix or in a later campaign | ✓ |
 | Saved scenario assertions in CI, with JUnit results (`regression run`) | ✓ |
-| **Browser journeys and compatibility** | |
+| **BROWSER JOURNEYS AND COMPATIBILITY** | **✓** |
 | Project-defined create, read, edit, delete and multi-step journeys | ✓ |
 | Navigation, links, Back/Forward, tabs and browser dialogs | ✓ |
 | Journey comprehension, labels, discoverability and feedback through simulated users | ✓ |
@@ -204,7 +204,7 @@ or an explicitly configured integration. Country-dependent values cover 15 count
 | Desktop, laptop, tablet and mobile viewport/input emulation | ✓ |
 | Chromium, Firefox and WebKit scenario replays (installed browser engines) | ✓ |
 | Pixel differences against reviewed screenshot baselines (optional visual extra) | ✓ |
-| **Performance signals and optional integrations** | |
+| **PERFORMANCE SIGNALS AND OPTIONAL INTEGRATIONS** | **✓** |
 | Observed responsiveness and delays during user journeys | ✓ |
 | Bounded local concurrent page-load smoke tests: HTTP errors, median and p95 timings (`probe`) | ✓ |
 | Presence of CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy and HSTS headers (local probe) | ✓ |
