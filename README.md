@@ -14,14 +14,70 @@
 
 ## Test checklist
 
+<details>
+<summary><strong>Full test checklist: exploration, chaos experiments and 69 QA checks</strong></summary>
+
+Chaosfolk combines open-ended agent exploration, randomized behavior profiles,
+controlled fault injection and the 69 predefined QA checks. Agents choose their
+next actions from the page they see, their goals and their assigned habits;
+the catalog does not limit the journeys they can explore.
+
 A check means the capability is available, not that every run executes it.
-The 69 catalog checks guide simulated users; replay assertions and audit commands
-verify the corresponding evidence. Some checks need test accounts, a mailbox,
-coordinated users, project assertions or an explicitly configured integration.
-Country-dependent test values cover 15 countries, according to the product's scope.
+Some checks need test accounts, a mailbox, coordinated users, project assertions
+or an explicitly configured integration. Country-dependent values cover 15 countries.
 
 | What Chaosfolk can test | Supported |
 | --- | :---: |
+| **Open-ended exploration and randomized scenarios** | |
+| Agent-chosen actions and unexpected routes within supplied goals and authorized scope | ✓ |
+| Pure exploration without predefined catalog checks (`--checks none`) | ✓ |
+| Seeded selection and combinations of behavior profiles and shared habits | ✓ |
+| Varied computer confidence and patience in generated user sheets | ✓ |
+| Weighted draws of desktop, laptop, tablet and mobile contexts | ✓ |
+| Shuffled objective order so users approach the same goals differently | ✓ |
+| Randomized shares of applicable checks and samples of valid/invalid test values | ✓ |
+| Weighted fault draws, including the possibility of no injected fault | ✓ |
+| Randomized fault-start action, duration and parameters within catalog ranges | ✓ |
+| Combined behavior, device, objective order and fault conditions | ✓ |
+| Less-visited and unvisited known routes suggested from previous project campaigns | ✓ |
+| Unexpected outcomes when users repeat, interrupt, abandon or resume an action | ✓ |
+| Seed retained to reproduce the draw; recorded actions used to replay the actual journey | ✓ |
+| **All 16 simulated behavior profiles** | |
+| First-time visitor: visible paths, unfamiliar terms and help <!-- profile:first-time --> | ✓ |
+| In a hurry: repeated clicks, skipped help and required fields only <!-- profile:in-a-hurry --> | ✓ |
+| Keyboard-focused: Tab, Enter, Escape and menu arrow keys <!-- profile:keyboard --> | ✓ |
+| Mobile user: phone viewport, quick scrolling and going back when lost <!-- profile:mobile --> | ✓ |
+| Careful reader: slow reading, persistence checks and cautious deletion <!-- profile:careful-reader --> | ✓ |
+| Unfamiliar with jargon: unclear terms and plain-language navigation <!-- profile:plain-language --> | ✓ |
+| Distracted: interruptions, returning halfway and restarting after reload <!-- profile:distracted --> | ✓ |
+| Detail checker: rereading lists, confirmation and saved-state checks <!-- profile:detail-checker --> | ✓ |
+| Cautious: undo, full confirmations and hesitation before submission <!-- profile:cautious --> | ✓ |
+| Explorer: menus, footers, unusual authorized URLs and rarely used pages <!-- profile:explorer --> | ✓ |
+| Multitasker: duplicated tabs and stale views after an edit <!-- profile:multitasker --> | ✓ |
+| Text-focused: required fields, errors and states conveyed in text <!-- profile:text-focused --> | ✓ |
+| Copy-paster: surrounding spaces, accented text, emoji and multiline input <!-- profile:copy-paster --> | ✓ |
+| Backtracker: Back/Forward, cancelled edits and unfinished drafts <!-- profile:backtracker --> | ✓ |
+| Search-first: partial names, combined filters and cleared searches <!-- profile:search-first --> | ✓ |
+| Recovery seeker: correcting invalid input, Undo/Cancel and resuming after errors <!-- profile:recovery-seeker --> | ✓ |
+| **Controlled chaos experiments and execution controls** | |
+| Per-injection admission probability, sampled during the session | ✓ |
+| Manual, time-delayed and action-triggered fault injection | ✓ |
+| Configurable allowed fault types and excluded users, roles, routes and HTTP methods | ✓ |
+| Target groups selected by user, role or route | ✓ |
+| Cooldowns between injections, including group-specific intervals | ✓ |
+| Limits on simultaneous injections and the fraction of affected users | ✓ |
+| Total injection budgets and maximum fault duration | ✓ |
+| Forbidden combinations of overlapping faults | ✓ |
+| Injection windows by weekday, hour and timezone | ✓ |
+| Dry-run admission simulation with recorded decisions and no applied fault | ✓ |
+| Live pause/resume and stopping reversible active faults | ✓ |
+| Separate controls for scheduled injections and immediate manual faults | ✓ |
+| Policy reload for future injections during a session | ✓ |
+| Independent incident/health command that can block new injections | ✓ |
+| Cross-process coordination of active limits, cooldowns and forbidden pairs through shared local state | ✓ |
+| Recorded applied, simulated, skipped and cancelled injections with reasons | ✓ |
+| Injection-event tracking and separate engine/hook error counters via configured commands | ✓ |
+| Bounded recurring test commands via an external scheduler, with finite attempts and timeouts | ✓ |
 | **QA catalog: all 69 checks** | |
 | First names: alphabets, accents, punctuation and saved values <!-- check:first-name-formats --> | ✓ |
 | Family names: particles, apostrophes, case and saved values <!-- check:last-name-formats --> | ✓ |
@@ -167,7 +223,10 @@ do not establish production capacity.
 
 Details: [QA catalog](docs/checks.md), [faults](docs/faults.md),
 [replay and evidence](docs/replay.md), [regressions and visual checks](docs/regression.md),
-[optional integrations](docs/integrations.md).
+[optional integrations](docs/integrations.md), [chaos policies](docs/chaos.md)
+and [campaigns](docs/campaigns.md).
+
+</details>
 
 ### Watch the trailer
 
@@ -209,8 +268,38 @@ observation.
 
 ## What it checks
 
-These commands run without a model, alongside the exploration, and feed the
-same report.
+Chaosfolk explores the goals you give it in a real browser. Each agent chooses
+its next action from the current page and its assigned behavior: a hurried user
+clicks again, a distracted one returns to an unfinished form, a multitasker edits
+across tabs. The 16 profiles combine with sampled habits, devices and shuffled
+objectives, so exploration can reach journeys beyond the predefined checks.
+
+- **Open-ended exploration.** Try unexpected navigation, interrupted forms,
+  repeated actions, stale tabs and recovery after errors. Project memory points
+  later campaigns toward less-explored known routes. Use `--checks none` for
+  exploration without catalog assignments.
+- **Randomized fault scenarios.** Draw faults, start actions, durations and
+  parameters within configured ranges. Observe offline use, slow or failing
+  requests, lost responses, damaged storage, cleared cookies and clock changes
+  while users work. Keep the seed for the draw and the recorded actions for replay.
+- **Controlled chaos experiments.** Set admission probability, target groups,
+  exclusions, cooldowns, affected-user limits and allowed time windows. Simulate
+  injections first, pause them live, consult an incident gate and coordinate
+  concurrent sessions sharing a local environment.
+- **Systematic QA and proof.** Assign the 69 catalog checks, vary field values,
+  measure UI/accessibility signals and compare recorded outcomes. Repeat a
+  candidate with and without faults, optionally against a reference journey,
+  and report failures alongside invalid trials and product severity.
+
+The controlled experiments use probability, grouping and scheduling patterns
+also documented by [Netflix's Chaos Monkey](https://netflix.github.io/chaosmonkey/Termination-behavior/).
+Chaosfolk applies its faults inside browser contexts and an explicitly managed
+local test process; it has no cloud-instance or Kubernetes termination adapter.
+See [chaos policies](docs/chaos.md) for controls and limits.
+
+These commands run without a model, alongside agent exploration, and feed the
+same report. Expand the [full test checklist](#test-checklist) above for every
+listed capability.
 
 | Command | What it does | Example of a problem it finds |
 | --- | --- | --- |
