@@ -22,6 +22,9 @@ def main(argv=None):
     if args and args[0] == "themes":
         from .themes import main as list_themes
         return list_themes(args[1:])
+    if args and args[0] == "checks":
+        from .checks import main as list_checks
+        return list_checks(args[1:])
     if args and args[0] == "install-browser":
         # Use the engine's own interpreter so pipx, uv tool and venv installs all get the matching browser.
         import subprocess
@@ -37,6 +40,16 @@ def main(argv=None):
     from . import engine
     from pathlib import Path
     engine.FICHIER_ACTIF = Path(os.environ.get("CHAOSFOLK_HOME", str(Path.home() / ".chaosfolk"))) / "active.json"
+    if args and args[0] == "campaign":
+        from .campaigns import main as campaign
+        return campaign(args[1:])
+    if args and args[0] == "map":
+        import argparse
+        from .campaigns import command_map
+        parser = argparse.ArgumentParser(prog="chaosfolk map", description="Routes and transitions seen in a session.")
+        parser.add_argument("--folder", dest="dossier", required=True)
+        parser.add_argument("--project", help="merge into this project's memory and show every campaign")
+        return command_map(parser.parse_args(args[1:]))
     try:
         return engine.principal(args)
     except (OSError, ValueError) as error:

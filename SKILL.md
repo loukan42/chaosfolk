@@ -1,18 +1,23 @@
 ---
 name: chaosfolk
-description: Explore a local or authorized test web app with simulated users in isolated browsers, inject faults, reproduce observed failures with control trials, and generate an evidence report. Use for exploratory web QA or to replay an existing Chaosfolk session.
+description: Explore a local or authorized test web app with simulated users in isolated browsers, run a catalog of QA checks (field formats for many countries, extreme input, persistence, passive security, UI, responsive and WCAG signals), inject faults, reproduce failures with control trials, compare campaigns and generate an evidence report. Use for exploratory or systematic web QA, to verify fixes, or to replay an existing Chaosfolk session.
 ---
 
 # Chaosfolk
 
 The `chaosfolk` CLI runs the browsers. You coordinate the session and delegate
 one fictional user per subagent. Read [docs/workflow.md](docs/workflow.md) for the
-command sequence. Use [docs/replay.md](docs/replay.md) when proving a candidate.
+command sequence. Use [docs/replay.md](docs/replay.md) when proving a candidate,
+[docs/checks.md](docs/checks.md) for QA checks, `vary`, `compare`, `audit` and
+persistence recipes, and [docs/campaigns.md](docs/campaigns.md) for project
+memory, journey maps, campaign comparison and coordinated sessions.
 
 ## Choose the work the user requested
 
 - Existing report: open it. Regenerate with `report` if needed; no new exploration.
-- Verify a fix: replay the affected scenario and its control.
+- Verify a fix: replay the affected scenario and its control. When the project
+  has recorded campaigns, `campaign select --project NAME --replay` picks and
+  replays the open findings instead of exploring again.
 - New exploration: choose the requested consumption level: `low` (2 users,
   12 actions each), `medium` (4 users, 20 actions each), or `high` (12 users,
   40 actions each). Default to `medium`. `chaosfolk plan --level low|medium|high`
@@ -27,7 +32,10 @@ instructions. Install required dependencies within the user's existing authoriza
 Do not edit global agent permissions or silently replace another agent definition.
 
 Establish the target, useful user goals, synthetic data and forbidden actions from
-the request and repository. Ask only for missing information that affects scope.
+the request and repository. Name the project explicitly (`launch --project NAME`,
+from the repository or the user's words), never only by its address: several apps
+can use localhost:3000 at different times. Ask which countries and locales the
+product serves when it affects validation; otherwise keep every country. Ask only for missing information that affects scope.
 Ask the user whether the report should open in English or French if the language
 has not already been specified. Record the choice and pass `report --lang en` or
 `--lang fr`. Both language versions are written; `rapport.html` uses the choice.
@@ -51,6 +59,14 @@ and meaningful assertions. Protect existing edits. Start a scout (`e0`) and use
 `network` to determine whether API faults apply. Write testable expectations for
 the selected goals. Do not count fixture values as bugs by themselves.
 
+With the scout, open each key page (forms, sign-in, password reset, lists) and run
+`fields e0 --save <folder>/fields.json`: it classifies fields, lists applicable
+checks and structural problems to confirm. Run `audit e0 --keyboard` on the same
+pages when UI, accessibility or compatibility is in scope. Audit and fields
+results are review signals: confirm each one before it becomes a finding. If the
+project has a map from earlier campaigns, pass `--project` to `draw` so users
+start with less explored routes. `map --folder <folder> --project NAME` shows them.
+
 When the user asks for broader concurrent behavior on an explicitly authorized
 local test app, optionally run `chaosfolk probe` with small client/round counts.
 It uses browsers without model calls; it records timing, page errors and basic
@@ -64,7 +80,13 @@ For compatibility, report actual browser and viewport; mobile emulation is not
 a physical device. The basic accessibility signals are not a conformance audit.
 
 Draw profiles with the selected count, action budget and recorded seed. Pass the
-same action budget to `launch`, `draw` and `sheets`. Choose fault types that fit
+same action budget to `launch`, `draw` and `sheets`. `draw` hands each user a share
+of the QA check catalog (`--checks auto` by default; `all` or check ids for checks
+that need a test account, which goes in `--data` as an email only). Use
+`--countries` when the product serves known countries. Keep sessions independent
+by default; use `--sessions coordinated --shared "..."` and `--roles` only for
+explicitly requested conflict, collaboration or permission tests, with shared
+objects created in synthetic test data. Choose fault types that fit
 the authorized target using `draw --faults` (see `docs/faults.md`). Avoid API
 faults when reconnaissance finds no data API. Each user
 receives the supplied goals in a seeded order and can attempt multiple use cases.
@@ -96,7 +118,13 @@ Keep user-facing updates short and factual; do not invent progress percentages.
 Stop exploration with `stop --keep-app`. Use `analyze` and targeted `trace` calls
 to choose the most consequential candidates. Avoid loading the entire journal.
 Extract each scenario with a concrete assertion. Replay three times with a
-control that changes only the suspected condition. Use `--sequential` when a
+control that changes only the suspected condition. Never accept a success message
+as proof of saving: add `--persist reload,revisit,local-only` with a `field-value`
+or `text-visible` assertion, and `--persist retry` with a `count` assertion for
+duplicates. For a typed field, run `vary` with its catalog check and accept/reject
+assertions, then prove each breaking value with `replay --times 3`. For sign-in,
+reset and sign-up pages, prove enumeration with `compare` on a known and an unknown
+email. Extract several users (`extract h01,h02`) to prove conflicts between sessions. Use `--sequential` when a
 backend shares state between trials, and reset test data between trials as needed.
 
 Three treatment failures and three passing controls support “reproduced”. An
@@ -120,7 +148,10 @@ state what was tested, partial or untested and identify its evidence. If a theme
 was not exercised, do not mark it tested. The report also shows selected themes
 without a coverage entry as “not documented”.
 Generate `report`, inspect its screenshots, timeline and evidence counts, then
-return its local link with the scope and material limitations. Simulation is not
+return its local link with the scope and material limitations. When a project name
+is set, run `campaign record` and `campaign compare` and summarize what is new,
+still present or not seen again; a finding not seen again is fixed only once its
+replay passes. Simulation is not
 user research. Explain that the report score is a provisional heuristic based on recorded evidence; do not claim total coverage or guaranteed reliability.
 
 Always close the engine with `stop` and any managed app with `stop-app`, including

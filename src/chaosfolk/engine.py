@@ -12,6 +12,14 @@
   chaosfolk h01 help                      List browser actions
   chaosfolk analyze --folder DIR
   chaosfolk replay scenario.json --times 3 --with-control --fail-on-bug
+  chaosfolk replay scenario.json --times 3 --persist reload,local-only,retry
+  chaosfolk checks [--id phone-formats]   QA check catalog
+  chaosfolk fields e0 --save DIR/fields.json   Classify a page's fields, list checks
+  chaosfolk audit e0 --keyboard           Responsive, keyboard and WCAG signals
+  chaosfolk vary scenario.json --field "Phone" --check phone-formats
+  chaosfolk compare known.json unknown.json   Same outcome expected (enumeration)
+  chaosfolk map --folder DIR --project NAME   Journey map and routes to explore
+  chaosfolk campaign record|compare|select|status --project NAME
   chaosfolk report --folder DIR --lang en|fr
   chaosfolk stop                          Close browsers and the managed app
 
@@ -65,13 +73,14 @@ def charger_moteur():
 COMMANDES_CHEF = {
     "check", "launch", "start", "serve", "humans", "fault", "faults", "fault-end", "status",
     "network", "stop", "stop-app", "save-state", "inspect", "analyze", "trace", "extract", "replay", "report",
-    "draw", "drawn-faults", "sheets", "install-agent",
+    "draw", "drawn-faults", "sheets", "install-agent", "fields", "vary", "compare", "audit",
 }
 # commandes qui exigent le jeton du chef (un humain n'en a pas besoin et ne doit pas pouvoir les lancer).
 # Le client ne l'envoie que si la variable d'environnement CHAOSFOLK_LEADER_TOKEN le porte : un humain qui lirait
 # serveur.json n'obtient rien en lançant la commande sans elle
-COMMANDES_RESERVEES = {"stop", "fault", "fault-end", "inspect", "save-state", "humans"}
-COMMANDES_LOURDES = {"check", "launch", "start", "serve", "stop-app", "analyze", "trace", "extract", "replay", "report"}
+COMMANDES_RESERVEES = {"stop", "fault", "fault-end", "inspect", "save-state", "humans", "audit"}
+COMMANDES_LOURDES = {"check", "launch", "start", "serve", "stop-app", "analyze", "trace", "extract", "replay", "report",
+                     "vary", "compare"}
 # "draw" ne charge que tirage.py ; "drawn-faults" et "sheets" n'ont besoin que du client
 GESTES = {
     "goto", "click", "type", "select", "tick", "key", "hover", "scroll",
@@ -1478,7 +1487,7 @@ class Horde:
             ecrire_json(FICHIER_ACTIF, info)
             config = lire_json(self.dossier / "config.json", {})
             config.update({"url": self.url, "debut": info["debut"], "navigateur": self.canal,
-                           "app_commande": self.opts.app_commande})
+                           "app_commande": self.opts.app_commande, "projet": getattr(self.opts, "project", None)})
             ecrire_json(self.dossier / "config.json", config)
             self.journal({"type": "debut", "url": self.url, "navigateur": self.canal})
             print(f"horde prête sur le port {port} ({self.canal})", flush=True)
@@ -1566,7 +1575,8 @@ class Horde:
             return {"ok": True, "texte": simples[cmd]()}
         commandes = {"humans": self.creer_humains, "action": self.action, "fault": self.programmer_panne,
                      "fault-end": self.terminer_panne, "save-state": self.sauver_etat,
-                     "inspect": self.inspecter, "stop": self.demander_arret, "erreur_commande": self.noter_erreur_commande}
+                     "inspect": self.inspecter, "stop": self.demander_arret, "erreur_commande": self.noter_erreur_commande,
+                     "audit": self.auditer}
         if cmd not in commandes:
             return {"ok": False, "texte": f"commande inconnue : {cmd}"}
         return await commandes[cmd](req)
@@ -1625,6 +1635,28 @@ class Horde:
         finally:
             verrou.release()
         return {"ok": True, "texte": json.dumps(resultat, ensure_ascii=False, indent=1)[:20000]}
+
+    async def auditer(self, req):
+        """Contrôles UI, responsive et accessibilité de l'onglet courant d'un humain (voir qa.audit_world)."""
+        m = self.humains.get(req["h"])
+        if m is None:
+            return {"ok": False, "texte": f"humain inconnu : {req['h']}"}
+        verrou = self.verrous[req["h"]]
+        try:
+            await asyncio.wait_for(verrou.acquire(), DELAI_LECTURE)
+        except asyncio.TimeoutError:
+            return {"ok": False, "texte": "l'humain est occupé (un geste est en cours)"}
+        try:
+            if m.dialogue is not None:
+                return {"ok": False, "texte": "une boîte du navigateur est ouverte"}
+            if m.page is None:
+                return {"ok": False, "texte": "aucun onglet ouvert"}
+            from chaosfolk import audit
+            resultat = await audit.audit_world(m, req.get("viewports") or [], bool(req.get("clavier")),
+                                            Path(self.dossier) / "audits", req.get("nom"))
+        finally:
+            verrou.release()
+        return {"ok": True, "texte": resultat}
 
     # -- humains --
     async def creer_humains(self, req):
@@ -2438,7 +2470,7 @@ def extraire(dossier, hid, jusqua=None):
                 change = (e.get("ecran"), e.get("url")) != ecrans.get(cle)
             ecrans[cle] = (e.get("ecran"), e.get("url"))
             if e["action"] in GESTES:
-                etapes.append({"n": e["n"], "action": e["action"], "args": e.get("args") or {},
+                etapes.append({"n": e["n"], "t": e.get("t"), "action": e["action"], "args": e.get("args") or {},
                                "cible": e.get("cible"), "echec_original": e["resultat"] == "echec",
                                "effet": bool(change), "pense": e.get("pense"), "dit": e.get("dit")})
     etat = fiche.get("etat")
@@ -2505,30 +2537,70 @@ async def jouer_etape(m, etape):
     await m.executer(m.geste(action, args, loc), delai=DELAI_EXECUTION_LENT if args.get("lent") else DELAI_EXECUTION)
 
 
-async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_horde):
-    """Un essai de rejeu dans un navigateur neuf. Renvoie le résultat de l'essai (dict)."""
+async def appliquer_recette(m, sc):
+    """Après le parcours, avant les attendus : recharger, revenir par l'adresse de départ, ouvrir un nouvel onglet,
+    vider le stockage du navigateur puis recharger, revenir en arrière, ou refaire le dernier geste réussi."""
+    recette = sc["recette"]
+    if recette == "reload":
+        await m.executer(m.geste("reload", {}, None))
+    elif recette == "revisit":
+        await m.executer(m.geste("goto", {"url": sc.get("depart") or sc["url"]}, None))
+    elif recette == "new-tab":
+        await m.executer(m.geste("tab", {"quoi": "new"}, None))
+    elif recette == "local-only":
+        await borne(m.page.evaluate("() => { localStorage.clear(); sessionStorage.clear(); }"))
+        await m.executer(m.geste("reload", {}, None))
+    elif recette == "back":
+        await m.executer(m.geste("back", {}, None))
+    elif recette == "retry":
+        derniere = next((e for e in reversed(sc["etapes"]) if not e.get("echec_original")), None)
+        if derniere is None:
+            raise ValueError("aucun geste à refaire")
+        await jouer_etape(m, derniere)
+    else:
+        raise ValueError(f"recette inconnue : {recette} (connues : {', '.join(RECETTES)})")
+
+
+async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_horde, observer=None):
+    """Un essai de rejeu dans un navigateur neuf. Renvoie le résultat de l'essai (dict).
+    `observer` : fonction JavaScript évaluée sur la page finale, son résultat va dans "observation"."""
     url = sc["url"]
-    fiche = dict(sc)
-    if isinstance(fiche.get("etat"), str) and not (Path(dossier_horde) / fiche["etat"]).exists():
-        # le dossier de la horde a pu être déplacé : l'état se retrouve dans son dossier etats/
-        autre = Path(dossier_horde) / "etats" / Path(fiche["etat"]).name
-        if autre.exists():
-            fiche["etat"] = autre.as_posix()
-    m = await nouveau_monde(navigateur, "rejeu", fiche, url, dossier_horde, captures=dossier_sortie, dossier=dossier_horde)
+    # plusieurs sessions (utilisateurs, rôles) : un contexte isolé chacune, ouvert à son premier geste
+    sessions = sc.get("sessions") or {}
+    principale = (sc["etapes"][0].get("session") if sc["etapes"] else None) or next(iter(sessions), None)
+    mondes = {}
+
+    async def ouvrir(session):
+        fiche = dict(sc, **(sessions.get(session) or {}))
+        if isinstance(fiche.get("etat"), str) and not (Path(dossier_horde) / fiche["etat"]).exists():
+            # le dossier de la horde a pu être déplacé : l'état se retrouve dans son dossier etats/
+            autre = Path(dossier_horde) / "etats" / Path(fiche["etat"]).name
+            if autre.exists():
+                fiche["etat"] = autre.as_posix()
+        monde = await nouveau_monde(navigateur, f"rejeu-{session}" if session else "rejeu", fiche, url, dossier_horde,
+                                    captures=dossier_sortie, dossier=dossier_horde)
+        mondes[session] = monde
+        await monde.nouvelle_page(fiche.get("depart") or url)
+        await monde.calme()
+        return monde
+
+    m = await ouvrir(principale)
     journal_etapes = []
     try:
         plan, avertissements = planifier_pannes(sc) if avec_pannes else ([], [])
-        await m.nouvelle_page(sc.get("depart") or url)
-        await m.calme()
+        principal = m
         calme_fait = True                 # la page vient d'être attendue : pas de second calme en fin d'essai
         for i, etape in enumerate(sc["etapes"], start=1):
+            # les pannes ne touchent que la session principale ; chaque geste se joue dans sa session
             for p in plan:
                 if p["avant_etape"] == i:
-                    await m.appliquer(p)
+                    await principal.appliquer(p)
                     if p.get("sans_geste"):
                         # la panne n'a couvert que des regards : l'application la vit un instant, puis elle cesse
-                        await m.calme()
-                        await m.retirer(p)
+                        await principal.calme()
+                        await principal.retirer(p)
+            session = etape.get("session") or principale
+            m = mondes.get(session) or await ouvrir(session)
             tolerant = etape.get("echec_original")
             calme_fait = False
             if tolerant and not etape.get("effet") and not sc.get("garder_echecs"):
@@ -2548,14 +2620,31 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
                         calme_fait = True
                 journal_etapes.append({"etape": i, "action": etape["action"], "ok": ok, "message": message})
             for p in plan:
-                if p["apres_etape"] == i and p in m.pannes:
-                    await m.retirer(p)
+                if p["apres_etape"] == i and p in principal.pannes:
+                    await principal.retirer(p)
         if m.dialogue is not None:
             await m.repondre_boite(False)
             calme_fait = False
         if not calme_fait:
             await m.calme()
-        raisons, inverifiable = await verifier_attendu(m, sc.get("attendu") or [])
+        if sc.get("recette"):
+            try:
+                await appliquer_recette(m, sc)
+            except Exception as e:
+                capture = await m.capturer(nom)
+                return {"ok": None, "raisons": [], "rejeu_impossible": f"recette {sc['recette']} impossible : {traduire_erreur(e)}",
+                        "capture": capture.as_posix() if capture else None, "etapes": journal_etapes}
+            if m.dialogue is not None:
+                await m.repondre_boite(False)
+            await m.calme()
+        raisons, inverifiable = [], ""
+        for session in dict.fromkeys(r.get("session") for r in sc.get("attendu") or []):
+            # un attendu sans session se lit dans la dernière session qui a agi
+            monde = m if session in (None, "") else mondes.get(session) or await ouvrir(session)
+            trouve, inverifiable = await verifier_attendu(monde, [r for r in sc["attendu"] if r.get("session") == session])
+            raisons += [f"{session} : {x}" for x in trouve] if session else trouve
+            if inverifiable:
+                break
         if inverifiable:
             # l'attendu n'a pas pu être contrôlé : l'essai ne dit rien, ce n'est pas une casse
             capture = await m.capturer(nom)
@@ -2566,17 +2655,29 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
         ecran = await m.lire()
         # un geste qui ne s'exécute pas alors qu'il avait marché à l'origine : le rejeu a quitté le parcours
         divergence = next((x for x in journal_etapes if not x["ok"]), None)
-        return {"ok": not raisons, "raisons": raisons, "capture": capture.as_posix() if capture else None,
-                "erreurs_page": m.erreurs_page[:10], "etapes": journal_etapes, "ecran": ecran["lignes"][:40],
-                "divergence": divergence, "avertissements": avertissements}
+        resultat = {"ok": not raisons, "raisons": raisons, "capture": capture.as_posix() if capture else None,
+                    "erreurs_page": m.erreurs_page[:10], "etapes": journal_etapes, "ecran": ecran["lignes"][:40],
+                    "divergence": divergence, "avertissements": avertissements}
+        if observer and m.page is not None:
+            try:
+                resultat["observation"] = await borne(m.page.evaluate(observer), DELAI_LECTURE)
+            except Exception as e:
+                return {"ok": None, "raisons": [], "rejeu_impossible": f"observation impossible ({traduire_erreur(e)})",
+                        "capture": resultat["capture"], "etapes": journal_etapes}
+        return resultat
     finally:
-        await m.ctx.close()
+        for monde in mondes.values():
+            with suppress(Exception):
+                await monde.ctx.close()
 
 
 CHAMPS_ATTENDU = {
     "no-page-error": (), "page-not-blank": (), "text-visible": ("texte",), "text-absent": ("texte",),
     "count": ("texte",), "storage": ("cle",), "js": ("expression",), "url-contains": ("texte",),
+    "field-value": ("champ",),
 }
+# Vérifications après le parcours : ce qu'un message de succès ne prouve pas (persistance, doublons, désynchronisation)
+RECETTES = ("reload", "revisit", "new-tab", "local-only", "back", "retry")
 
 
 def valider_attendu(attendu, origine="le scénario"):
@@ -2603,6 +2704,8 @@ def valider_attendu(attendu, origine="le scénario"):
         for key in ("egal", "min", "max"):
             if key in regle and (type(regle[key]) is not int or regle[key] < 0):
                 raise ValueError(f"Assertion {k}: {key} must be a non-negative integer")
+        if t == "field-value" and not any(isinstance(regle.get(key), str) for key in ("valeur", "contient")):
+            raise ValueError(f"Assertion {k}: field-value needs a value or contains string")
         if t == "count" and not any(key in regle for key in ("egal", "min", "max")):
             raise ValueError("A count assertion needs equals, min or max")
         if regle.get("min", 0) > regle.get("max", float("inf")):
@@ -2653,6 +2756,17 @@ async def verifier_attendu(m, attendu):
             elif t == "js":
                 ok = bool(await page.evaluate(regle["expression"]))
                 desc = regle.get("description") or f'expression vraie : {regle["expression"][:80]}'
+            elif t == "field-value":
+                loc = page.get_by_label(regle["champ"], exact=bool(regle.get("exact")))
+                if not await loc.count():
+                    loc = page.get_by_placeholder(regle["champ"], exact=bool(regle.get("exact")))
+                if not await loc.count():
+                    return raisons, f'champ "{regle["champ"]}" absent de la page finale'
+                valeur = await loc.first.input_value()
+                if "valeur" in regle:
+                    ok, desc = valeur == regle["valeur"], f'champ "{regle["champ"]}" vaut "{regle["valeur"]}" (vu "{valeur[:80]}")'
+                else:
+                    ok, desc = regle["contient"] in valeur, f'champ "{regle["champ"]}" contient "{regle["contient"]}" (vu "{valeur[:80]}")'
             elif t == "url-contains":
                 ok, desc = regle["texte"] in page.url, f'adresse contient "{regle["texte"]}"'
             elif t == "page-not-blank":
@@ -2663,6 +2777,17 @@ async def verifier_attendu(m, attendu):
         if not ok:
             raisons.append(desc)
     return raisons, ""
+
+
+def recettes_demandees(texte):
+    """Valeur de --persist : des recettes séparées par des virgules, ou all."""
+    if not texte:
+        return []
+    noms = list(RECETTES) if texte.strip() == "all" else [x.strip() for x in texte.split(",") if x.strip()]
+    inconnues = [x for x in noms if x not in RECETTES]
+    if inconnues:
+        raise ValueError(f"Unknown --persist recipe: {', '.join(inconnues)}. Known: {', '.join(RECETTES)}, all")
+    return list(dict.fromkeys(noms))
 
 
 def verdict_rejeu(casses, n, fois, est_temoin):
@@ -2709,20 +2834,27 @@ async def rejouer(opts):
     if opts.nom and len(chemins) > 1:
         raise SystemExit("--name ne va qu'avec un seul scénario (sinon chaque série prend le nom de son fichier)")
     # tout est lu et validé avant de lancer le navigateur : un attendu mal écrit arrête tout de suite
+    recettes = recettes_demandees(getattr(opts, "persist", None))
     scenarios = []
     for chemin in chemins:
         fichier, sc, dossier_horde = charger_scenario(chemin)
         if getattr(opts, "fail_on_bug", False) and not sc.get("attendu"):
             print("--fail-on-bug requires at least one explicit assertion", file=sys.stderr)
             return 2
-        nom = opts.nom or (fichier.stem + ("-temoin" if opts.temoin else "-traitement"))
         sortie = Path(opts.sortie or dossier_horde / "reproductions")
         sortie.mkdir(parents=True, exist_ok=True)
-        series = [(nom, not opts.temoin)]
-        if opts.avec_temoin and not opts.temoin:
-            series.append((nom + "-temoin", False))
-        scenarios.append({"fichier": fichier, "sc": sc, "dossier": dossier_horde, "sortie": sortie, "series": series,
-                          "essai_max": max(ESSAI_MAX, 12 * len(sc["etapes"]) + 60)})
+        # chaque recette est une série à part : le rapport montre laquelle perd les données
+        for recette in recettes or [sc.get("recette")]:
+            base = opts.nom or fichier.stem
+            if recette and recettes:
+                base += f"-persist-{recette}"
+            nom = base + ("-temoin" if opts.temoin else ("-traitement" if not opts.nom else ""))
+            series = [(nom, not opts.temoin)]
+            if opts.avec_temoin and not opts.temoin:
+                series.append((nom + "-temoin", False))
+            scenarios.append({"fichier": fichier, "sc": dict(sc, recette=recette), "dossier": dossier_horde,
+                              "sortie": sortie, "series": series,
+                              "essai_max": max(ESSAI_MAX, 12 * len(sc["etapes"]) + 60)})
     places = asyncio.Semaphore(1 if opts.sequentiel else REJEUX_SIMULTANES)
 
     async def essai(navigateur, k, nom_serie, avec_pannes, i):
@@ -3143,6 +3275,7 @@ def commande_fiches(opts):
     personas = lire_json(dossier / "personas.json", {})
     if not personas.get("humains"):
         raise SystemExit(f"aucun humain dans {(dossier / 'personas.json').as_posix()} (lancer draw d'abord)")
+    from chaosfolk.checks import sheet_text
     texte_md = (ICI / "templates" / "persona.md").read_text(encoding="utf-8")
     trouve = re.search(r"## Agent sheet\s+```text\n(.*?)\n```", texte_md, re.S)
     if not trouve:
@@ -3169,7 +3302,7 @@ def commande_fiches(opts):
                        intention=h.get("intention"), histoire=h.get("histoire"), aisance=h.get("aisance"),
                        patience=h.get("patience"), habitudes=liste(h.get("habitudes")), manies=liste(h.get("manies")),
                        appareil=APPAREILS_FICHE.get(appareil, appareil), contexte=h.get("contexte") or "",
-                       budget=h.get("budget") or opts.budget)
+                       budget=h.get("budget") or opts.budget, verifications=sheet_text(h.get("checks") or []))
         champs = set(re.findall(r"\{([a-z_]+)\}", modele))
         vides = sorted(k for k in champs & set(valeurs) if valeurs[k] in (None, "") and k != "contexte")
         inconnus = sorted(champs - set(valeurs))
@@ -3274,6 +3407,19 @@ def commande_panne(opts):
 def commande_tirer(opts):
     """Tire au sort une horde (escouade, graine) et écrit personas.json et tirage.json."""
     from chaosfolk import draw as tirage
+    from chaosfolk.checks import known_pages
+    from chaosfolk import campaigns
+    explore = None
+    if opts.project:
+        explore = campaigns.unexplored(campaigns.read(campaigns.project_dir(opts.project) / "map.json", {}), limit=24)
+    shared = [x.strip() for x in (opts.shared or "").split(";") if x.strip()]
+    if opts.sessions == "coordinated" and not shared:
+        raise ValueError("--sessions coordinated needs --shared with at least one test object")
+    roles = []
+    for item in (opts.roles or "").split(";"):
+        if item.strip():
+            role, _, state = item.partition("=")
+            roles.append((role.strip(), state.strip() or None))
     graine = opts.graine if opts.graine is not None else tirage.graine_aleatoire()
     objectifs = [o.strip() for o in opts.objectifs.split(";") if o.strip()]
     if len(objectifs) == 1 and Path(objectifs[0]).is_file():
@@ -3282,13 +3428,17 @@ def commande_tirer(opts):
     selected_faults = [name.strip() for name in opts.faults.split(",")] if opts.faults is not None else None
     personas, plan = tirage.tirer_horde(opts.escouade, opts.nombre, objectifs, graine,
                                         {"nom": opts.application or "Test app", "url": opts.url or ""}, metiers,
-                                        budget=opts.budget, fault_types=selected_faults, themes=opts.themes)
+                                        budget=opts.budget, fault_types=selected_faults, themes=opts.themes,
+                                        checks=opts.checks, detected=known_pages(opts.dossier), countries=opts.countries,
+                                        explore=explore, sessions=opts.sessions, shared=shared, roles=roles)
     dossier = Path(opts.dossier)
     ecrire_json(dossier / "personas.json", personas)
     ecrire_json(dossier / "tirage.json", plan)
     print(f"Seed {graine}, squad {opts.escouade}, {opts.nombre} users, budget {opts.budget}: {(dossier / 'personas.json').as_posix()}")
     for h in personas["humains"]:
         print(f"  {h['id']} {h['nom']:<22} {h['profil']:<20} {h['appareil']:<10} {h['condition']}")
+    if plan["checks"]["pool"]:
+        print(f"{len(plan['checks']['pool'])} QA checks in the pool ({opts.checks}); each user's share is on its sheet.")
     print(f"{len(plan['pannes'])} faults: run `chaosfolk drawn-faults {(dossier / 'tirage.json').as_posix()}` "
           "after creating the users. The seed, goals, catalog, selected faults, count and budget determine this draw.")
     return 0
@@ -3326,9 +3476,26 @@ def lire_attendu(texte):
     return valider_attendu(attendu, "--expect")
 
 
+def extraire_plusieurs(dossier, hids):
+    """Scénario coordonné : les gestes de plusieurs humains dans l'ordre du journal, chacun dans sa session
+    (son état et son appareil). Les pannes ne sont pas reprises, leur ancrage par numéro d'action serait ambigu."""
+    parts = {hid: extraire(dossier, hid) for hid in hids}
+    etapes = sorted(((dict(e, session=hid)) for hid, sc in parts.items() for e in sc["etapes"]),
+                    key=lambda e: e.get("t") or 0)
+    premier = parts[hids[0]]
+    sessions = {hid: {k: sc[k] for k in ("etat", "appareil", "depart", "horloge") if sc.get(k)} for hid, sc in parts.items()}
+    perdues = sum(len(sc["pannes"]) for sc in parts.values())
+    return dict(premier, nom="-".join(hids), humain=",".join(hids), sessions=sessions, etapes=etapes, pannes=[],
+                avertissement=f"{perdues} panne(s) non reprises dans un scénario à plusieurs sessions" if perdues else None)
+
+
 def commande_extraire(opts):
     attendu = lire_attendu(opts.attendu) if opts.attendu else None
-    scenario = extraire(dossier_courant(opts.dossier), opts.humain, opts.jusqua)
+    hids = [h.strip() for h in opts.humain.split(",") if h.strip()]
+    if len(hids) > 1 and opts.jusqua is not None:
+        raise ValueError("--up-to works with one user; cut a coordinated scenario by editing its steps")
+    scenario = extraire_plusieurs(dossier_courant(opts.dossier), hids) if len(hids) > 1 else \
+        extraire(dossier_courant(opts.dossier), opts.humain, opts.jusqua)
     if attendu is not None:
         scenario["attendu"] = attendu
         scenario.pop("a_completer", None)
@@ -3341,7 +3508,7 @@ def commande_extraire(opts):
                                                      if args.get(c) not in (None, "")), "")
         if cible and args.get("texte"):
             quoi += f' = "{str(args["texte"])[:40]}"'
-        print(f"  {k}. n{etape.get('n')} {etape['action']} {quoi}".rstrip()
+        print(f"  {k}. {etape['session'] + ' ' if etape.get('session') else ''}n{etape.get('n')} {etape['action']} {quoi}".rstrip()
               + (" (raté à l'origine)" if etape.get("echec_original") else ""))
     for p in scenario["pannes"]:
         print(f"  panne {p['type']} : après le geste n{p.get('debut_n')}"
@@ -3385,6 +3552,7 @@ def construire_parseur():
     lancement.add_argument("--app-wait", dest="app_attente", type=positive_int, default=120, help="secondes d'attente de l'application")
     lancement.add_argument("--channel", dest="canal")
     lancement.add_argument("--port", type=int)
+    lancement.add_argument("--project", help="explicit project name kept with the session and its history, such as shop-front")
     lancement.add_argument("--visible", action="store_true")
     lancement.add_argument("--idle", dest="inactivite", type=positive_int, default=3600, help="arrêt automatique après N s sans commande")
     lancement.add_argument("--budget", type=positive_int, default=20, help="gestes par humain (sa fiche peut en donner un autre)")
@@ -3446,6 +3614,14 @@ def construire_parseur():
     p.add_argument("--seed", dest="graine", type=int, help="pour refaire la même horde ; tirée au hasard sinon, et affichée")
     p.add_argument("--faults", help="comma-separated fault types, none, or all; omit for the default catalog")
     p.add_argument("--themes", help="comma-separated themes, or all; see chaosfolk themes")
+    p.add_argument("--checks", default="auto",
+                   help="QA checks handed to users: auto (selected themes, safe scope), all, none, or check ids")
+    p.add_argument("--countries", help="country codes for test values, such as FR,GB,US (default: every country)")
+    p.add_argument("--project", help="use this project's journey map to send users towards less explored routes")
+    p.add_argument("--sessions", choices=("independent", "coordinated"), default="independent",
+                   help="independent: each user tags and keeps its own data; coordinated: users share --shared objects")
+    p.add_argument("--shared", help="coordinated mode: test objects every user works on, separated by semicolons")
+    p.add_argument("--roles", help='roles with saved states, such as "editor=etats/editor.json;reader=etats/reader.json"')
     p.add_argument("--objectives", dest="objectifs", required=True,
                    help="ce que les gens viennent faire, séparés par des points-virgules, ou un fichier JSON (liste)")
     p.add_argument("--jobs", dest="metiers", help="métiers des humains, séparés par des points-virgules (sinon un catalogue)")
@@ -3472,8 +3648,54 @@ def construire_parseur():
     p.add_argument("--with-control", dest="avec_temoin", action="store_true",
                    help="rejouer aussi le témoin sans les pannes, en même temps")
     p.add_argument("--sequential", dest="sequentiel", action="store_true", help="essais l'un après l'autre (serveur à état partagé)")
+    p.add_argument("--persist", help="after the steps, verify with recipes: reload, revisit, new-tab, local-only, back, "
+                                     "retry (comma-separated, or all); one series per recipe")
     p.add_argument("--name", dest="nom")
     p.add_argument("--output", dest="sortie", help="dossier des résultats (par défaut : reproductions/ à côté du scénario)")
+    p.add_argument("--visible", action="store_true")
+    p.add_argument("--channel", dest="canal")
+    from chaosfolk import qa
+    p = commande("fields", qa.command_fields)
+    p.add_argument("humain", help="user whose current tab is analysed, usually the scout e0")
+    p.add_argument("--save", help="add this page to a fields.json file (draw reads <folder>/fields.json)")
+    p.add_argument("--json", action="store_true")
+    from chaosfolk import audit
+    p = commande("audit", audit.command_audit)
+    p.add_argument("humain", help="user whose current tab is audited, usually the scout e0")
+    p.add_argument("--viewports", default=audit.DEFAULT_VIEWPORTS,
+                   help="comma-separated WIDTHxHEIGHT sizes checked one after the other; the tab is restored afterwards")
+    p.add_argument("--keyboard", action="store_true", help="also tab through the page to check reachability and focus")
+    p.add_argument("--name", dest="nom", help="file name for the audit evidence (default: from the page address)")
+    p = commande("vary", lambda a: asyncio.run(qa.vary(a)))
+    p.add_argument("scenario")
+    cible = p.add_mutually_exclusive_group(required=True)
+    cible.add_argument("--step", type=int, help="source action number (n) of the type step to vary")
+    cible.add_argument("--field", help="label of the typed field to vary (its last type step)")
+    valeurs = p.add_mutually_exclusive_group(required=True)
+    valeurs.add_argument("--check", help="use the test values of this catalog check")
+    valeurs.add_argument("--values", help='JSON list, {"valid": [...], "invalid": [...]}, or a JSON file')
+    p.add_argument("--countries", help="with --check: only universal values and these countries, such as FR,GB,US")
+    p.add_argument("--accept", help="assertions that must hold for a valid value (JSON or file)")
+    p.add_argument("--reject", help="assertions that must hold for an invalid value (JSON or file)")
+    p.add_argument("--times", dest="fois", type=positive_int, default=1)
+    p.add_argument("--parallel", action="store_true", help="run values in parallel (the backend must isolate them)")
+    p.add_argument("--persist", choices=("reload", "revisit", "new-tab", "local-only", "back", "retry"),
+                   help="verify each value after this recipe, for example reload")
+    p.add_argument("--fail-on-bug", action="store_true", help="exit 1 when a value breaks its assertions, 2 when a trial is invalid")
+    p.add_argument("--name", dest="nom")
+    p.add_argument("--output", dest="sortie")
+    p.add_argument("--visible", action="store_true")
+    p.add_argument("--channel", dest="canal")
+    p = commande("compare", lambda a: asyncio.run(qa.compare(a)))
+    p.add_argument("scenario_a")
+    p.add_argument("scenario_b")
+    p.add_argument("--expect", dest="attente", choices=("same", "different"), default="same",
+                   help="same: any difference is a failure (enumeration); different: identical outcomes fail")
+    p.add_argument("--ignore", action="append", default=[], help="regular expression masked before comparing (repeatable)")
+    p.add_argument("--times", dest="fois", type=positive_int, default=3)
+    p.add_argument("--fail-on-bug", action="store_true", help="exit 1 when the outcome breaks the expectation, 2 when a trial is invalid")
+    p.add_argument("--name", dest="nom")
+    p.add_argument("--output", dest="sortie")
     p.add_argument("--visible", action="store_true")
     p.add_argument("--channel", dest="canal")
     def generate_report(a):

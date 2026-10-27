@@ -8,7 +8,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![MIT license](https://img.shields.io/badge/license-MIT-dcf78b)](LICENSE)
 
-[Why](#why) · [How](#how) · [What you get](#what-you-get) · [Install](#install) · [Try the demo](#try-the-demo) · [Use it on your app](#use-it-on-your-app)
+[Why](#why) · [How](#how) · [What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Try the demo](#try-the-demo) · [Use it on your app](#use-it-on-your-app)
 
 </div>
 
@@ -40,10 +40,45 @@ its own Chromium context and can work through several of your goals.
 users meet: offline, slow or failing requests, lost responses, full or corrupted
 storage, cleared cookies, clock jumps and viewport changes.
 
+**The checks a QA team would run.** Each tester also carries a share of a catalog
+of 69 concrete checks, with test values and the expected behavior: names in any
+script, phone numbers and postal codes from 15 countries, extreme input, double
+submits, interrupted forms, account enumeration, keyboard access and more. The
+engine reads each page's fields first, so testers get the checks that apply.
+
 **Proof before verdict.** The agent turns each promising observation into a
 scenario with an explicit assertion. The engine replays it without a model:
 three failing trials with the fault and three passing controls without it mark a
-finding as reproduced. Anything weaker stays labeled as an observation.
+finding as reproduced. A "saved" message is not proof: replays reload, reopen,
+clear local storage or submit again before checking. Anything weaker stays
+labeled as an observation.
+
+## What it checks
+
+Random exploration finds what nobody planned. These deterministic commands run
+next to it, without a model, and their results feed the same report.
+
+| Command | What it does | Example of a problem it finds |
+| --- | --- | --- |
+| `fields` | Classifies every field of a page and lists the checks that apply | A postal code in `type=number` loses its leading zero |
+| `vary` | Replays a form once per test value of a field, for the countries you serve | `+44 7700 900123` refused because the rule only knows French numbers |
+| `compare` | Replays two scenarios and compares their outcomes | Password reset says "no account for this email" |
+| `audit` | Measures a page at several screen sizes, then tabs through it | The submit button leaves the screen at 320 px; keyboard focus gets stuck |
+| `replay --persist` | Reloads, reopens, clears storage or retries before asserting | A success message with nothing saved; a duplicate after a retry |
+| `campaign` | Keeps a project's findings across runs and replays the open ones | A fix that came back two campaigns later |
+
+Test values are international: validation should follow the user's country,
+never one national pattern. Security checks stay passive and use synthetic
+accounts. `audit` reports WCAG signals such as contrast, target size, names and
+reflow; they are measurements to confirm, not a conformance audit. See the
+[QA checks guide](docs/checks.md).
+
+Each app is identified by an explicit project name, not by `localhost:3000`.
+Its memory keeps a map of the journeys already explored, so the next testers
+start where earlier ones did not go, and the findings of every campaign, so a
+fix is checked by replaying what failed instead of starting over. Testers can
+work on separate data or on the same records on purpose, with different roles,
+to find conflicts and permission gaps. See [campaigns and sessions](docs/campaigns.md).
 
 ## What you get
 
@@ -205,11 +240,24 @@ has a language switch.
 Start your app locally, open your coding agent in its project, and ask:
 
 ```text
-Use Chaosfolk on my local test app at http://localhost:3000.
+Use Chaosfolk on my local test app at http://localhost:3000, project "shop-front".
 Explore creating, finding and editing a project. Use the medium run size,
 synthetic data and an English report. Do not send messages or make purchases.
 Report what you find without changing the app.
 ```
+
+For a QA-style pass, say so and name what matters:
+
+```text
+Run Chaosfolk on project "shop-front" at http://localhost:3000 with the themes
+functional, security and accessibility. Our customers are in France, Belgium and
+Switzerland. Check every form field with the catalog, prove persistence after
+reload, check the password reset for account enumeration with the test account
+test@example.com, and audit the sign-up page on mobile and desktop.
+```
+
+After a fix, ask: `Replay the open Chaosfolk findings for shop-front and tell me
+what is fixed.`
 
 **Pick what to test.** Name one or more themes, or ask for `all`:
 `functional`, `ux`, `accessibility`, `resilience`, `security`, `performance`,
@@ -231,9 +279,10 @@ your pages and the analysis; check it there.
 
 Chaosfolk is alpha software and its users are fictional: their reactions are
 test hypotheses, not research with real people. Security checks are passive,
-performance probes are small local smoke tests, accessibility checks are not a
-conformance audit, and mobile means browser emulation. Use dedicated tools and
-real devices to go deeper.
+performance probes are small local smoke tests, accessibility signals (including
+estimated contrast) are not a conformance audit, and mobile means browser
+emulation. The catalog replaces neither product knowledge nor a dedicated
+security test, a screen reader review or real devices: use them to go deeper.
 
 Run it only on local apps or test environments you are allowed to test, with
 synthetic data. Screenshots can contain sensitive content, so review them before
@@ -241,5 +290,5 @@ sharing. See [SECURITY.md](SECURITY.md).
 
 ---
 
-[Workflow and coverage](docs/workflow.md) · [Fault injection](docs/faults.md) ·
-[Replay format](docs/replay.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
+[Workflow and coverage](docs/workflow.md) · [QA checks](docs/checks.md) · [Campaigns and sessions](docs/campaigns.md) ·
+[Fault injection](docs/faults.md) · [Replay format](docs/replay.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)

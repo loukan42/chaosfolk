@@ -1,0 +1,729 @@
+{
+  "version": 1,
+  "scopes": {
+    "safe": "Runs with synthetic data in any authorized test session.",
+    "test-account": "Needs the email of an existing test account in --data. Never put its password in a sheet.",
+    "two-accounts": "Needs two authorized test accounts owned by the user. The coordinator runs it.",
+    "mailbox": "Needs access to a test mailbox (for example Mailpit). The coordinator runs it.",
+    "coordinated": "Several users act on the same test object on purpose; the coordinator plans the shared data."
+  },
+  "countries": {"FR": "France", "GB": "United Kingdom", "US": "United States", "CA": "Canada", "DE": "Germany", "ES": "Spain", "IT": "Italy", "BE": "Belgium", "CH": "Switzerland", "NL": "Netherlands", "PT": "Portugal", "IE": "Ireland", "BR": "Brazil", "JP": "Japan", "IN": "India"},
+  "kinds": [
+    {"id": "new-password", "label": "New password", "autocomplete": ["new-password"], "password": true, "keywords": ["new password", "nouveau mot de passe", "confirm", "confirmation", "confirmer", "repeat password", "choose a password", "choisissez un mot de passe", "create password", "neues passwort", "passwort bestatigen", "nueva contrasena", "confirmar contrasena", "nuova password", "conferma password", "nova senha", "confirmar senha"]},
+    {"id": "password", "label": "Password", "autocomplete": ["current-password"], "password": true, "keywords": ["password", "mot de passe", "mdp", "passwd", "pwd", "passphrase", "passwort", "kennwort", "contrasena", "clave", "senha"]},
+    {"id": "otp", "label": "One-time code", "autocomplete": ["one-time-code"], "keywords": ["otp", "verification code", "code de verification", "code de confirmation", "code recu", "2fa"]},
+    {"id": "email", "label": "Email", "types": ["email"], "autocomplete": ["email", "username email"], "keywords": ["email", "e mail", "mail", "courriel", "adresse electronique", "e mail adresse", "correo", "correo electronico", "posta elettronica", "endereco de email"]},
+    {"id": "phone", "label": "Phone number", "types": ["tel"], "autocomplete": ["tel", "tel-national", "tel-local", "mobile tel"], "keywords": ["phone", "telephone", "tel", "mobile", "portable", "gsm", "cellphone", "numero de telephone", "telefon", "telefonnummer", "handy", "movil", "telefono", "cellulare", "telefone", "celular"]},
+    {"id": "postal-code", "label": "Postal code", "autocomplete": ["postal-code"], "keywords": ["postal code", "code postal", "postcode", "zip", "zipcode", "cp", "plz", "postleitzahl", "codigo postal", "cap", "cep", "eircode"]},
+    {"id": "birth-date", "label": "Date of birth", "autocomplete": ["bday", "bday-day", "bday-month", "bday-year"], "keywords": ["date de naissance", "birth", "birthday", "birthdate", "naissance", "dob", "date of birth", "ne le", "nee le", "geburtsdatum", "fecha de nacimiento", "data di nascita", "data de nascimento"]},
+    {"id": "date", "label": "Date", "types": ["date", "datetime-local", "month", "week"], "keywords": ["date", "start date", "end date", "date de debut", "date de fin", "date d effet", "echeance", "from", "until", "jusqu au", "datum", "fecha", "data"]},
+    {"id": "iban", "label": "IBAN", "keywords": ["iban", "rib", "bank account", "compte bancaire", "coordonnees bancaires"]},
+    {"id": "company-id", "label": "Company registration number", "keywords": ["siret", "siren", "company number", "numero d entreprise", "registration number", "immatriculation", "company registration", "companies house", "handelsregister", "hrb", "ein", "cif", "nif", "cnpj", "kbo", "bce", "partita iva", "codice fiscale"]},
+    {"id": "url", "label": "Web address", "types": ["url"], "autocomplete": ["url"], "keywords": ["url", "website", "site web", "site internet", "web site", "lien", "link", "linkedin"]},
+    {"id": "amount", "label": "Amount", "keywords": ["amount", "montant", "price", "prix", "tarif", "salary", "salaire", "revenu", "revenue", "income", "budget", "cost", "cout", "eur", "euros", "prime", "cotisation", "capital", "betrag", "preis", "importe", "precio", "importo", "prezzo", "valor", "preco"]},
+    {"id": "quantity", "label": "Quantity", "keywords": ["quantity", "quantite", "qty", "qte", "nombre de", "number of", "count", "nb", "anzahl", "menge", "cantidad", "quantita", "quantidade"]},
+    {"id": "number", "label": "Number", "types": ["number", "range"], "keywords": ["age", "percentage", "pourcentage", "taux", "rate", "duration", "duree", "years", "annees"]},
+    {"id": "first-name", "label": "First name", "autocomplete": ["given-name", "additional-name"], "keywords": ["first name", "firstname", "given name", "prenom", "prenoms", "forename", "vorname", "nombre", "nome", "primeiro nome"]},
+    {"id": "last-name", "label": "Last name", "autocomplete": ["family-name"], "keywords": ["last name", "lastname", "surname", "family name", "nom de famille", "nom de naissance", "nom d usage", "nom", "nachname", "familienname", "apellido", "apellidos", "cognome", "sobrenome", "apelido"]},
+    {"id": "company", "label": "Company name", "autocomplete": ["organization"], "keywords": ["company", "societe", "entreprise", "raison sociale", "organisation", "organization", "employeur", "employer", "firma", "unternehmen", "empresa", "azienda", "ragione sociale"]},
+    {"id": "full-name", "label": "Full name", "autocomplete": ["name"], "keywords": ["full name", "fullname", "nom complet", "name", "nom et prenom", "prenom et nom", "titulaire", "holder", "nombre completo", "nome completo", "vollstandiger name"]},
+    {"id": "username", "label": "Username", "autocomplete": ["username"], "keywords": ["username", "user name", "identifiant", "login", "pseudo", "nom d utilisateur", "benutzername", "usuario", "nome utente", "utilizador"]},
+    {"id": "address", "label": "Street address", "autocomplete": ["street-address", "address-line1", "address-line2", "address-line3"], "keywords": ["address", "adresse", "street", "rue", "voie", "complement d adresse", "address line", "strasse", "anschrift", "direccion", "calle", "indirizzo", "via", "endereco", "morada", "rua"]},
+    {"id": "city", "label": "City", "autocomplete": ["address-level2"], "keywords": ["city", "ville", "commune", "town", "localite", "stadt", "ort", "ciudad", "localidad", "citta", "comune", "cidade", "municipio"]},
+    {"id": "country", "label": "Country", "autocomplete": ["country", "country-name"], "keywords": ["country", "pays", "nationality", "nationalite", "land", "pais", "paese"]},
+    {"id": "search", "label": "Search", "types": ["search"], "roles": ["searchbox"], "keywords": ["search", "recherche", "rechercher", "chercher", "filter", "filtrer", "find", "suche", "suchen", "buscar", "busqueda", "cerca", "pesquisar"]},
+    {"id": "file", "label": "File upload", "types": ["file"], "keywords": []},
+    {"id": "free-text", "label": "Free text", "tags": ["textarea"], "keywords": ["comment", "commentaire", "message", "description", "note", "notes", "remarque", "details", "precisions", "bio", "title", "titre", "libelle", "subject", "objet", "nachricht", "kommentar", "beschreibung", "mensaje", "comentario", "descripcion", "messaggio", "commento", "mensagem"]}
+  ],
+  "features": {
+    "login": "A sign-in form: a password field and sign-in wording.",
+    "signup": "Account creation: a new-password field or sign-up wording.",
+    "password-reset": "A forgotten-password or password-reset page.",
+    "logged-in": "A sign-out control is visible, so the page belongs to a signed-in area.",
+    "form": "At least one data-entry control other than search.",
+    "list": "A table, grid or paginated list.",
+    "search": "A search field.",
+    "upload": "A file input.",
+    "delete": "A delete or remove control.",
+    "edit": "An edit control."
+  },
+  "checks": [
+    {
+      "id": "first-name-formats", "theme": "functional", "scope": "safe", "applies": {"kinds": ["first-name", "full-name"]},
+      "title": "Real first names are accepted and shown back intact",
+      "try": "Type each value, save, reload, and read where the name is displayed.",
+      "valid": ["Zoé", "Jean-Pierre", "Anne Marie", "D'Arcy", "José María", "Łukasz", "Søren", "Aðalsteinn", "Siobhán", "Nguyễn Văn", "李", "Мария", "محمد", "Ng"],
+      "invalid": ["   ", "12345", "{{repeat:a:120}}"],
+      "expect": "Letters from any alphabet, diacritics, hyphens, apostrophes and spaces are accepted. A rule such as [A-Za-z] only, or a minimum of three letters, excludes real people. After reload the value is identical: no mojibake ('ZoÃ©'), '&#39;' or '?'. Whitespace-only and digit-only values are refused with a message. A long value is limited before saving, not cut silently.",
+      "proof": "vary on the typed step; assert text-visible of the saved name after reload."
+    },
+    {
+      "id": "last-name-formats", "theme": "functional", "scope": "safe", "applies": {"kinds": ["last-name", "full-name"]},
+      "title": "Real family names are accepted and shown back intact",
+      "try": "Type each value, save, reload, and compare the displayed name.",
+      "valid": ["O'Connor", "N'Diaye", "de La Fontaine", "van der Berg", "García Márquez", "Müller-Lüdenscheidt", "Kowalczyk-Wiśniewska", "Al-Hassan", "Nguyễn", "王", "Иванова", "Ó Súilleabháin", "Ba"],
+      "invalid": ["   ", "Dupont123", "{{repeat:b:120}}"],
+      "expect": "Particles, apostrophes, diacritics, non-Latin scripts and two-letter names are accepted and displayed unchanged, including capitalisation ('van der Berg' stays lowercase). The apostrophe never breaks the save. Invalid values get a field-level message.",
+      "proof": "vary on the typed step; assert text-visible of the saved name."
+    },
+    {
+      "id": "name-structure", "theme": "functional", "scope": "safe", "applies": {"kinds": ["first-name", "last-name", "full-name"]},
+      "title": "Names that do not fit 'first name + last name'",
+      "try": "Register people with a single name, a family name written first, two family names and a very long name. Check every screen that shows or abbreviates the name (greeting, initials, lists).",
+      "valid": ["Björk", "Nguyễn Thị Minh Khai", "María José Carreño Quiñones", "Wolfeschlegelsteinhausenbergerdorff", "Kim Min-jun", "Ó Briain"],
+      "invalid": [],
+      "expect": "A person with one name can complete the form (an optional family name, or a 'no family name' option). Two family names are kept together. Long names are not truncated in lists and greetings. Initials and sorting do not assume Western name order.",
+      "proof": "vary on the name steps; assert text-visible of the full name after reload."
+    },
+    {
+      "id": "email-formats", "theme": "functional", "scope": "safe", "applies": {"kinds": ["email", "username"]},
+      "title": "Email validation accepts real addresses and rejects broken ones",
+      "try": "Type each value and submit. Note which are accepted and what the message says.",
+      "valid": ["prenom.nom+test@example.com", "PRENOM.NOM@EXAMPLE.COM", "a.b@sub.example.co.uk", "o'reilly@example.org", "  espaces@example.com  ", "x@example.museum", "user@xn--bcher-kva.example", "josé@example.com"],
+      "invalid": ["test@", "test@@example.com", "test example@example.com", "test@example..com", "@example.com", "test@example,com", "test@.example.com"],
+      "expect": "Plus addressing, subdomains, apostrophes, long TLDs and punycode domains are accepted. Surrounding spaces are trimmed. Uppercase is stored or compared case-insensitively. An internationalised address (josé@...) is accepted, or refused with a message that says so. Each invalid value gets a clear message next to the field, and other fields keep their values.",
+      "proof": "vary with --accept and --reject assertions."
+    },
+    {
+      "id": "email-case-and-trim", "theme": "functional", "scope": "test-account", "applies": {"features": ["login"]},
+      "title": "Sign-in tolerates email case and surrounding spaces",
+      "try": "Sign in with the test account email typed in UPPERCASE, then with a leading and trailing space. Use the password only if the coordinator signs in for you; otherwise compare the error messages with the lowercase email.",
+      "valid": [],
+      "invalid": [],
+      "expect": "The same account is recognised whatever the case and surrounding spaces. A different error for an uppercase email is a bug.",
+      "proof": "compare two scenarios that differ only by the email case."
+    },
+    {
+      "id": "phone-formats", "theme": "functional", "scope": "safe", "applies": {"kinds": ["phone"]},
+      "title": "Phone numbers from several countries and notations",
+      "try": "Type each value, submit, reload, and check how the saved number is displayed.",
+      "valid": ["+33 6 39 98 12 34", "+44 7700 900123", "+1 202 555 0123", "+49 30 1234567", "+81 3 1234 5678", "+91 98765 43210", "+55 11 91234 5678", "+33639981234"],
+      "invalid": ["abcdefghij", "++33639981234", "123", "+999 1234 5678"],
+      "by_country": {
+        "FR": {"valid": ["06 39 98 12 34", "0639981234", "06.39.98.12.34", "01 99 00 12 34"], "invalid": ["0639", "06 39 98 12 34 56"]},
+        "GB": {"valid": ["07700 900123", "020 7946 0123"], "invalid": ["07700 9001"]},
+        "US": {"valid": ["(202) 555-0123", "202-555-0123", "202.555.0123"], "invalid": ["555-0123"]},
+        "CA": {"valid": ["(613) 555-0199"], "invalid": []},
+        "DE": {"valid": ["030 1234567", "0151 23456789"], "invalid": []},
+        "BE": {"valid": ["0470 12 34 56"], "invalid": []},
+        "CH": {"valid": ["079 123 45 67"], "invalid": []},
+        "JP": {"valid": ["03-1234-5678", "090-1234-5678"], "invalid": []},
+        "IN": {"valid": ["98765 43210"], "invalid": []}
+      },
+      "expect": "International numbers in E.164 form (+country code) are accepted for every country the product serves, and national notations are read according to the selected country. One national pattern (for example ten digits starting with 0) applied to everyone is a finding. Spaces, dots, hyphens and parentheses are tolerated and the number is stored in one normalised form. Invalid numbers get a message. On mobile, the field opens a phone keypad (type=tel). French, British and US values use ranges reserved for fiction. If the form has a country selector, choose the value's country first; without one, every listed format must be accepted or the supported countries must be stated.",
+      "proof": "vary with --accept and --reject, and --countries for the countries the product serves; fields shows type and inputmode."
+    },
+    {
+      "id": "postal-code-formats", "theme": "functional", "scope": "safe", "applies": {"kinds": ["postal-code"]},
+      "title": "Postal codes from several countries, including letters and leading zeros",
+      "try": "Type each value, save, reload, and read the stored value. Check any city or address suggestion.",
+      "valid": [],
+      "invalid": ["   ", "@@@@@"],
+      "by_country": {
+        "FR": {"valid": ["75001", "01000", "20000", "97400"], "invalid": ["7500", "2A000"]},
+        "US": {"valid": ["02134", "02134-1234", "99501"], "invalid": ["1234"]},
+        "GB": {"valid": ["SW1A 1AA", "M1 1AE", "EC1A 1BB", "sw1a1aa"], "invalid": ["SW1A 1A"]},
+        "CA": {"valid": ["K1A 0B1", "h0h 0h0"], "invalid": ["K1A0B"]},
+        "DE": {"valid": ["01067", "80331"], "invalid": ["8033"]},
+        "NL": {"valid": ["1012 AB", "1012AB"], "invalid": []},
+        "PT": {"valid": ["1000-001"], "invalid": []},
+        "IE": {"valid": ["D02 X285"], "invalid": []},
+        "ES": {"valid": ["28001", "08001"], "invalid": []},
+        "IT": {"valid": ["00118", "20121"], "invalid": []},
+        "CH": {"valid": ["8001"], "invalid": []},
+        "BE": {"valid": ["1000"], "invalid": []},
+        "BR": {"valid": ["01310-100"], "invalid": []},
+        "JP": {"valid": ["100-0001"], "invalid": []},
+        "IN": {"valid": ["110001"], "invalid": []}
+      },
+      "expect": "Validation follows the address's country: letters, spaces and hyphens are accepted where that country uses them, and leading zeros are kept (01000 or 02134 never lose their zero, a type=number bug). Countries without postal codes can leave the field empty. A single pattern such as five digits applied to every country is a finding. A suggested city matches the code. If the form has a country selector, choose the value's country first; without one, every listed format must be accepted or the supported countries must be stated.",
+      "proof": "vary with --countries; assert text-visible of the stored code after reload."
+    },
+    {
+      "id": "address-formats", "theme": "functional", "scope": "safe", "applies": {"kinds": ["address", "city"]},
+      "title": "Real addresses and town names from several countries",
+      "try": "Type each address or town, save, reload, and compare the displayed value. If an address autocomplete appears, pick a suggestion with the keyboard only.",
+      "valid": ["12 bis rue de l'Église", "3 allée des Œillets, Bât. B, Apt 12", "Hauptstraße 5a", "Calle Mayor, 3, 2º Izq.", "Flat 4B, 12 Example Road", "東京都千代田区1-1", "ул. Ленина, д. 5, кв. 12", "'s-Hertogenbosch", "São Paulo", "Zürich", "Ağrı", "Llanfairpwllgwyngyll", "Y", "{{repeat:c:100}}"],
+      "invalid": ["   "],
+      "expect": "Apostrophes (including a leading one), ligatures, house numbers with letters, floor and door notations, non-Latin scripts and one-letter towns are accepted and displayed unchanged. Field order and required lines do not assume one country (no mandatory state or county for everyone). Autocomplete suggestions can be chosen with the keyboard and fill every related field.",
+      "proof": "vary on the address step; assert text-visible after reload."
+    },
+    {
+      "id": "birth-date-rules", "theme": "functional", "scope": "safe", "applies": {"kinds": ["birth-date"]},
+      "title": "Dates of birth: impossible dates, future dates and the day after reload",
+      "try": "Enter each date in the field's format (a native date input takes yyyy-mm-dd), save, reload, and compare the displayed date.",
+      "valid": ["29/02/2000", "01/01/1950", "31/12/1999", "2000-02-29", "{{date:-6575}}"],
+      "invalid": ["29/02/2023", "31/04/1990", "32/01/1990", "00/00/0000", "{{date:+1}}", "01/01/1850"],
+      "expect": "Impossible and future dates are refused. The expected format is shown or follows the user's locale: 03/04 is 3 April in most of Europe and March 4 in the US, and an ambiguous entry is never silently swapped. The displayed date after reload is exactly the date entered: an off-by-one day comes from a time zone conversion and is a bug. Minimum-age rules are applied with a clear message.",
+      "proof": "vary; assert text-visible of the entered date after reload. Repeat with the clock fault for time zone issues."
+    },
+    {
+      "id": "date-ranges", "theme": "functional", "scope": "safe", "applies": {"kinds": ["date"]},
+      "title": "Date ranges and calendar edges",
+      "try": "Enter an end date before the start date, the same day twice, a range across 31 December and 1 January, and the daylight-saving days of the tested time zone (EU 2026: 29 March and 25 October; US 2026: 8 March and 1 November). Save and reload.",
+      "valid": ["29/03/2026", "25/10/2026", "31/12/2026", "01/01/2027", "29/02/2028", "2026-03-08", "2026-11-01"],
+      "invalid": ["30/02/2026", "{{repeat:9:12}}"],
+      "expect": "An end date before the start date is refused with a message. Same-day ranges follow the product rule. Dates across the year boundary and daylight-saving changes are stored and displayed unchanged. Durations count the right number of days.",
+      "proof": "vary or a replay with text-visible of the computed duration."
+    },
+    {
+      "id": "amount-formats", "theme": "functional", "scope": "safe", "applies": {"kinds": ["amount", "number", "quantity"]},
+      "title": "Amounts written with each locale's separators",
+      "try": "Type each value, save, reload, and check the stored amount and any computed total.",
+      "valid": ["0", "1000000", "1234.56"],
+      "invalid": ["-5", "abc", "1e5", "999999999999999"],
+      "by_country": {
+        "FR": {"valid": ["1234,56", "1 234,56"], "invalid": []},
+        "DE": {"valid": ["1.234,56", "1234,56"], "invalid": []},
+        "US": {"valid": ["1,234.56"], "invalid": []},
+        "GB": {"valid": ["1,234.56"], "invalid": []},
+        "CH": {"valid": ["1'234.56"], "invalid": []},
+        "IN": {"valid": ["1,23,456.78"], "invalid": []},
+        "JP": {"valid": ["1234"], "invalid": ["1234.5"]}
+      },
+      "expect": "The value is read with the user's locale or one stated format, and is never misread: 1.234,56 must not become 1.234 or 123456, and 1,234.56 must not become 1,234. A separator the app does not support is refused with a message rather than dropped. Amounts round to the currency's precision (none for JPY). Negative values are refused where they make no sense. Very large values hit a stated limit.",
+      "proof": "vary with --countries matching the app's locales; assert text-visible of the formatted amount after reload."
+    },
+    {
+      "id": "quantity-bounds", "theme": "functional", "scope": "safe", "applies": {"kinds": ["quantity"]},
+      "title": "Quantity limits and steppers",
+      "try": "Try 0, -1, 1.5, a huge value and an empty field. Use the + and - buttons past the limits, with the mouse and with the keyboard arrows.",
+      "valid": ["1", "2", "10"],
+      "invalid": ["0", "-1", "1.5", "99999", ""],
+      "expect": "Limits are stated, steppers stop at them, and typed values outside them are refused with a message rather than clamped silently. Totals update immediately.",
+      "proof": "vary with --reject assertions."
+    },
+    {
+      "id": "iban-checksum", "theme": "functional", "scope": "safe", "applies": {"kinds": ["iban"]},
+      "title": "IBAN checksum, spaces and display",
+      "try": "Type each value and submit. These are published documentation sample IBANs, not real accounts.",
+      "valid": ["FR76 3000 6000 0112 3456 7890 189", "FR7630006000011234567890189", "fr76 3000 6000 0112 3456 7890 189", "DE89 3704 0044 0532 0130 00", "GB82 WEST 1234 5698 7654 32", "NL91 ABNA 0417 1643 00", "ES91 2100 0418 4502 0005 1332", "IT60 X054 2811 1010 0000 0123 456", "CH93 0076 2011 6238 5295 7", "BE68 5390 0754 7034"],
+      "invalid": ["FR76 3000 6000 0112 3456 7890 188", "DE89 3704 0044 0532 0130 01", "FR76 3000 6000", "XX00 0000 0000 0000"],
+      "expect": "Spaces and lowercase are accepted. Validation uses the ISO 13616 checksum and each country's length, so IBANs of every supported country pass; a pattern built for one country is a finding. A wrong check digit gets a message. Countries outside the product's scope are refused with an explanation. After saving, the IBAN is partially masked wherever it is displayed again.",
+      "proof": "vary with --accept and --reject."
+    },
+    {
+      "id": "company-id-formats", "theme": "functional", "scope": "safe", "applies": {"kinds": ["company-id"]},
+      "title": "Company registration numbers by country",
+      "try": "Type each value with its country selected, and submit.",
+      "valid": [],
+      "invalid": [],
+      "by_country": {
+        "FR": {"valid": ["123 456 782", "123456782", "12345678200010"], "invalid": ["123456789", "1234567820001"]},
+        "BE": {"valid": ["0123.456.749", "0123456749"], "invalid": ["0123.456.748"]},
+        "GB": {"valid": ["01234567", "SC123456"], "invalid": ["0123456"]},
+        "DE": {"valid": ["HRB 12345"], "invalid": []},
+        "US": {"valid": ["12-3456789"], "invalid": []}
+      },
+      "expect": "Validation depends on the company's country: French SIREN/SIRET and Belgian numbers have checksums, British numbers may start with letters, German registers have a court prefix. A foreign company is never forced into the domestic format. Invalid numbers get a message.",
+      "proof": "vary with --accept and --reject."
+    },
+    {
+      "id": "url-formats", "theme": "functional", "scope": "safe", "applies": {"kinds": ["url"]},
+      "title": "Web addresses with and without a scheme",
+      "try": "Type each value, save, and open the saved link if it is displayed as one.",
+      "valid": ["https://example.com", "example.com", "https://example.com/chemin?x=1#ancre", "https://sous.example.org"],
+      "invalid": ["javascript:void(0)", "ftp://example.com", "http://", "exemple"],
+      "expect": "Addresses without a scheme are completed or refused clearly. Only http and https become clickable links; a javascript: value is never rendered as a link.",
+      "proof": "vary; assert with js that no a[href^='javascript:'] exists."
+    },
+    {
+      "id": "new-password-rules", "theme": "security", "scope": "safe", "applies": {"kinds": ["new-password"]},
+      "title": "Password rules are stated, consistent and not hostile",
+      "try": "Before typing, read the stated rules. Try a 7- and 8-character password, a 64-character passphrase, one with spaces and accents, paste a password, use show/hide, and make the confirmation differ by one character.",
+      "valid": ["Grand voilier vert 2026", "{{repeat:Ab1-:16}}", "Été-à-Brest-1984!"],
+      "invalid": ["abc", "1234567", "password", "azerty123"],
+      "expect": "Rules are visible before the first error and the same rules are enforced by the server. Long passphrases, spaces and accents are accepted. Paste is allowed. Common passwords are refused. A mismatched confirmation is reported on the confirmation field. The password never appears in the URL or the page.",
+      "proof": "vary with --reject; fields reports type, autocomplete and form method."
+    },
+    {
+      "id": "free-text-content", "theme": "functional", "scope": "safe", "applies": {"kinds": ["free-text", "full-name", "first-name", "last-name", "company"]},
+      "title": "Free text keeps exactly what was typed",
+      "try": "Type each value in a comment, title or description field, save, reload, and look at every place the text appears (list, detail, page title).",
+      "valid": ["Réunion 🎉 validée", "Ligne 1\nLigne 2", "Prix : 5 € — 10 %", "مرحبا بكم", "日本語のテキスト", "Straße ẞ ǅ", "<b>cf-gras</b>", "&amp; &lt; cf", "%s %d {0} ${x}", "{{repeat:Long texte. :150}}"],
+      "invalid": ["   ", ""],
+      "expect": "Emoji, line breaks, currency signs, right-to-left and CJK text, rare Latin letters, HTML-looking text and template placeholders are shown literally and unchanged everywhere. <b>cf-gras</b> must never appear in bold. Whitespace-only content is refused when the field is required. A length limit is shown before it is reached.",
+      "proof": "vary; assert text-visible \"<b>cf-gras</b>\" and a js check that no b element contains cf-gras."
+    },
+    {
+      "id": "search-inputs", "theme": "functional", "scope": "safe", "applies": {"kinds": ["search"]},
+      "title": "Search tolerates accents, case, symbols and empty queries",
+      "try": "Search with an empty query, one letter, a known item without its accents or special letters (Muller for Müller, strasse for Straße), in UPPERCASE, with surrounding spaces, and each special value. Then search for something that does not exist.",
+      "valid": ["eleve", "ÉLÈVE", "  dupont  ", "l'église", "Muller", "strasse", "Sao Paulo"],
+      "invalid": ["%", "_", "'", "\"", "\\", "*", "{{repeat:z:200}}"],
+      "expect": "Accent- and case-insensitive matching finds the same items. Special characters are searched literally: % or _ never return everything, ' never causes an error. No-result screens say so and offer a way back. Empty queries behave predictably.",
+      "proof": "vary on the search step; assert count or text-visible of the expected result."
+    },
+    {
+      "id": "file-upload-rules", "theme": "functional", "scope": "safe", "applies": {"features": ["upload"]},
+      "title": "File upload limits and names",
+      "try": "The coordinator places fixtures in uploads/: an empty file, a text file renamed .pdf, a file just over the stated size limit, and a valid file named 'relevé d'identité (2).pdf'. Upload each, then remove and replace one.",
+      "valid": ["relevé d'identité (2).pdf"],
+      "invalid": ["vide.pdf (0 bytes)", "faux.pdf (text content)", "trop-gros.pdf (over the limit)"],
+      "expect": "Accepted types and size are stated before upload. Each invalid file gets a specific message. Names with accents, spaces and parentheses are kept. A file can be removed and replaced, and a failed upload does not erase the rest of the form.",
+      "proof": "Replay with upload steps; assert text-visible of the error message."
+    },
+    {
+      "id": "form-errors-keep-data", "theme": "ux", "scope": "safe", "applies": {"features": ["form"]},
+      "title": "Validation errors are precise and keep what was typed",
+      "try": "Fill the whole form, make exactly one field invalid, and submit. Then submit the form empty.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Every other value is still there. Each error sits next to its field, says what is wrong and how to fix it, in the app's language, without technical wording. Focus moves to the first error. An empty submit lists every required field, and required fields were marked before submitting.",
+      "proof": "Replay; assert text-visible of a preserved value and of the error message."
+    },
+    {
+      "id": "double-submit", "theme": "functional", "scope": "safe", "applies": {"features": ["form"]},
+      "title": "Double click and Enter create only one record",
+      "try": "Double-click the submit button. On another record, press Enter twice quickly. Then open the list.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Exactly one record is created each time. The button is disabled or shows progress while saving.",
+      "proof": "Replay with click --double; assert count equals 1. Compare with a single-click scenario."
+    },
+    {
+      "id": "reload-after-submit", "theme": "functional", "scope": "safe", "applies": {"features": ["form"]},
+      "title": "Reload and Back after a successful submit",
+      "try": "After a successful save, reload the confirmation page, then go back and forward. Open the list.",
+      "valid": [],
+      "invalid": [],
+      "expect": "No duplicate is created, no browser resubmission prompt appears, and Back does not show a form that saves a second time.",
+      "proof": "Replay; assert count equals 1 in the list."
+    },
+    {
+      "id": "persistence-new-tab", "theme": "functional", "scope": "safe", "applies": {"features": ["form", "edit"]},
+      "title": "Saved values survive reload and a new tab",
+      "try": "Save a record with accents and spaces, reload, then open it in a new tab.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Every field shows exactly what was saved. A success message without persistence is a bug.",
+      "proof": "Replay with reload steps; assert text-visible of each saved value."
+    },
+    {
+      "id": "edit-cancel", "theme": "functional", "scope": "safe", "applies": {"features": ["edit"]},
+      "title": "Cancel really discards an edit",
+      "try": "Edit several fields, cancel or close without saving, then reload.",
+      "valid": [],
+      "invalid": [],
+      "expect": "The original values are shown. If leaving with unsaved changes, the app warns or keeps a recoverable draft.",
+      "proof": "Replay; assert text-absent of the edited value after reload."
+    },
+    {
+      "id": "delete-safety", "theme": "functional", "scope": "safe", "applies": {"features": ["delete"]},
+      "title": "Deleting asks first, cancel keeps, and the item really goes",
+      "try": "Delete an item you created, cancel at the confirmation, then delete it for real and reload. Never delete data you did not create in this session.",
+      "valid": [],
+      "invalid": [],
+      "expect": "A confirmation names the item. Cancel keeps it. After confirmation the item disappears and stays gone after reload; an undo, if offered, restores it fully.",
+      "proof": "Replay; assert text-absent after reload."
+    },
+    {
+      "id": "list-edges", "theme": "functional", "scope": "safe", "applies": {"features": ["list"]},
+      "title": "Empty states, last page, sorting and filters",
+      "try": "Filter to no results, clear filters, go to the last page, sort by each column twice, and change a page number in the URL to 0, 999 and abc.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Empty results explain why and offer a reset. Sorting is stable and reversible. Combining sort and filter keeps both. Out-of-range pages show a clean message, never an error page.",
+      "proof": "Replay with goto steps; assert page-not-blank and text-absent of error wording."
+    },
+    {
+      "id": "two-tabs-conflict", "theme": "functional", "scope": "safe", "applies": {"features": ["edit"]},
+      "title": "Editing the same record in two tabs",
+      "try": "Open one record in two tabs. Save a change in the first, then a different change in the second.",
+      "valid": [],
+      "invalid": [],
+      "expect": "The second save warns about the newer version or merges clearly. Silently losing the first change is a bug.",
+      "proof": "Replay with tab steps; assert text-visible of both changes or of a conflict message."
+    },
+    {
+      "id": "deep-link-auth", "theme": "functional", "scope": "test-account", "applies": {"features": ["logged-in"]},
+      "title": "A private link opened while signed out",
+      "try": "Copy the address of a private page, sign out, and open it.",
+      "valid": [],
+      "invalid": [],
+      "expect": "The sign-in page appears, and after signing in the user lands on the requested page, not the home page. No private data shows before sign-in.",
+      "proof": "Replay without the saved state; assert url-contains of the sign-in route."
+    },
+    {
+      "id": "reset-enumeration", "theme": "security", "scope": "test-account", "applies": {"features": ["password-reset"]},
+      "title": "Password reset does not reveal whether an account exists",
+      "try": "Request a reset for the test account email from --data, then for a never-registered address such as nobody-{{seed}}@example.com. Compare the message, the page you land on and the delay.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Both requests show the same neutral message (for example 'If an account exists, we sent an email') on the same page, with a similar delay. 'No account for this email' or a different page reveals which addresses are registered.",
+      "proof": "compare A.json B.json --expect same --ignore the typed email; three identical pairs mean no enumeration in the UI."
+    },
+    {
+      "id": "login-enumeration", "theme": "security", "scope": "test-account", "applies": {"features": ["login"]},
+      "title": "Sign-in errors do not reveal which accounts exist",
+      "try": "Sign in with the test account email and a wrong password, then with an unregistered email and the same wrong password. Compare the messages.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Both attempts show one generic message such as 'Incorrect email or password'. 'Unknown user' versus 'Wrong password' is an enumeration leak.",
+      "proof": "compare two scenarios that differ only by the email."
+    },
+    {
+      "id": "signup-enumeration", "theme": "security", "scope": "test-account", "applies": {"features": ["signup"]},
+      "title": "Sign-up with an email that is already registered",
+      "try": "Start a sign-up with the test account email, then with a new synthetic email. Compare the responses. Do not finish creating accounts beyond what the session allows.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Record what is revealed. The safest pattern answers identically and sends an email to the owner; 'email already used' is a product trade-off for the owner to decide, so report it as an observation unless the product says otherwise.",
+      "proof": "compare; report as an observation with the owner's decision pending."
+    },
+    {
+      "id": "login-throttling", "theme": "security", "scope": "test-account", "applies": {"features": ["login"]},
+      "title": "Repeated wrong passwords are slowed down",
+      "try": "With the test account email, submit six wrong passwords in a row, then note what happens. Stop at six. This may lock the test account: the coordinator must agree first.",
+      "valid": [],
+      "invalid": [],
+      "expect": "After a few failures the app adds a delay, a challenge or a temporary lock, and says so. Unlimited instant retries are a finding. The lock message does not reveal more than the normal error.",
+      "proof": "Replay with --sequential; assert text-visible of the throttling message."
+    },
+    {
+      "id": "password-field-hygiene", "theme": "security", "scope": "safe", "applies": {"kinds": ["password", "new-password"]},
+      "title": "Password fields are masked, paste-friendly and never in a URL",
+      "try": "Check that typed characters are masked, that paste works, that show/hide works with the keyboard, and look at the address bar after submitting.",
+      "valid": [],
+      "invalid": [],
+      "expect": "The field is masked by default, paste is allowed, password managers can fill it, and the password never appears in the URL, the page or an error message.",
+      "proof": "chaosfolk fields reports type, autocomplete and GET forms; replay with url-contains to prove a URL leak."
+    },
+    {
+      "id": "secrets-in-url", "theme": "security", "scope": "safe", "applies": {"features": ["login", "signup", "password-reset", "logged-in"]},
+      "title": "No secrets or personal data in addresses",
+      "try": "After each step of sign-in, reset and profile journeys, read the address shown on screen (look) for tokens, emails or passwords in the query string. The coordinator can also check chaosfolk network.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Passwords, session tokens and personal data never appear in URLs, which end up in history, logs and referrers. A reset token in a link is expected but must be single-use.",
+      "proof": "Replay; js assertion on location.search."
+    },
+    {
+      "id": "logout-session", "theme": "security", "scope": "test-account", "applies": {"features": ["logged-in"]},
+      "title": "Signing out really ends the session",
+      "try": "Sign out, then press Back, reload, and reopen a private address. Also sign out in one tab and act in another.",
+      "valid": [],
+      "invalid": [],
+      "expect": "No private data is visible after sign-out, even from the Back button. Actions in another tab are refused and lead to sign-in.",
+      "proof": "Replay with back and reload steps; assert text-absent of private data."
+    },
+    {
+      "id": "html-escaping", "theme": "security", "scope": "safe", "applies": {"kinds": ["free-text", "first-name", "last-name", "full-name", "company", "search", "address", "city"]},
+      "title": "HTML-looking input is displayed as text, never interpreted",
+      "try": "Type each harmless marker into names, titles, comments and searches. Read every place it appears afterwards, including search result headings and confirmation messages. Never use scripts or event handlers.",
+      "valid": ["<b>cf-gras</b>", "\"><i>cf-italique</i>", "<u>cf-souligne</u>", "{{7*7}}"],
+      "invalid": [],
+      "expect": "Markers appear literally with their angle brackets. Bold, italic or underlined 'cf-' text, or 49 instead of {{7*7}}, means the input is interpreted as HTML or a template, which is a security finding.",
+      "proof": "Replay; js assertion: !document.querySelector('b,i,u') || ![...document.querySelectorAll('b,i,u')].some(e => e.textContent.startsWith('cf-'))."
+    },
+    {
+      "id": "error-leaks", "theme": "security", "scope": "safe", "applies": {},
+      "title": "Error pages do not leak internals",
+      "try": "Open a missing page, an id that does not exist (for example 999999999), a non-numeric id (abc) and a broken query parameter. Read the result.",
+      "valid": [],
+      "invalid": [],
+      "expect": "A clean, translated message with a way back. Stack traces, SQL, file paths, framework debug pages or server versions are a finding.",
+      "proof": "Replay with goto; assert text-absent of Traceback, Exception, SQLSTATE and at /."
+    },
+    {
+      "id": "object-access-control", "theme": "security", "scope": "two-accounts", "applies": {"features": ["logged-in"]},
+      "title": "One account cannot open another account's records",
+      "try": "With account A, create a record and copy its address and id. With account B (a separate saved state), open that address, and try the same id in edit and download links.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Account B gets a refusal or not-found page and sees none of A's data. Seeing or changing A's record is a critical finding.",
+      "proof": "Replay the goto with B's state; assert text-absent of A's record name."
+    },
+    {
+      "id": "reset-token-lifecycle", "theme": "security", "scope": "mailbox", "applies": {"features": ["password-reset"]},
+      "title": "Reset links are single-use and expire",
+      "try": "Request two reset emails. Use the second link, then reopen it, then open the first link. Advance the clock past the stated validity on a fresh link.",
+      "valid": [],
+      "invalid": [],
+      "expect": "A used link cannot be reused, an older link stops working once a newer one exists, expired links are refused with a clear message, and other sessions are signed out after the change.",
+      "proof": "Replay each link; assert text-visible of the expiry message."
+    },
+    {
+      "id": "sensitive-display", "theme": "security", "scope": "test-account", "applies": {"features": ["logged-in"]},
+      "title": "Sensitive data is masked once saved",
+      "try": "After saving an IBAN, phone or email, look at profile, summary and confirmation pages, and at the page title.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Bank details are partially masked when displayed again. Passwords are never displayed. Personal data does not appear in the page title or URL.",
+      "proof": "Replay; assert text-absent of the full IBAN."
+    },
+    {
+      "id": "field-labels-and-errors", "theme": "accessibility", "scope": "safe", "applies": {"features": ["form"]},
+      "title": "Fields have names and errors are announced",
+      "try": "Use chaosfolk fields to list unlabeled controls. Submit an invalid value and check that the field is marked invalid and linked to its message.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Every control has an accessible name that matches its visible label. Invalid fields carry aria-invalid and aria-describedby pointing to the message. Required fields are indicated by text, not only by colour or an asterisk.",
+      "proof": "Replay; js assertion on aria-invalid and aria-describedby.",
+      "wcag": ["1.3.1", "3.3.1", "3.3.2", "4.1.2"]
+    },
+    {
+      "id": "keyboard-form", "theme": "accessibility", "scope": "safe", "applies": {"features": ["form"]},
+      "title": "A whole form completed with the keyboard",
+      "try": "Fill and submit the form with Tab, Shift+Tab, arrows, Space and Enter only. Open and close any dialog, date picker or autocomplete with the keyboard.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Tab order follows the visual order, focus is always visible, no control traps the focus, Escape closes dialogs and focus returns to the control that opened them. Custom selects and date pickers work with the keyboard.",
+      "proof": "Replay with key steps; assert text-visible of the success message.",
+      "wcag": ["2.1.1", "2.1.2", "2.4.3", "2.4.7"]
+    },
+    {
+      "id": "autocomplete-attributes", "theme": "accessibility", "scope": "safe", "applies": {"kinds": ["email", "phone", "first-name", "last-name", "full-name", "address", "city", "postal-code", "birth-date", "country"]},
+      "title": "Personal data fields declare their purpose",
+      "try": "Run chaosfolk fields on each form page and read the autocomplete column.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Fields about the user carry the matching autocomplete token (given-name, family-name, email, tel, postal-code, bday...), so browsers can fill them (WCAG 1.3.5). Phone, email and numeric fields open the right mobile keyboard.",
+      "proof": "Observation from chaosfolk fields; no replay needed.",
+      "wcag": ["1.3.5"]
+    },
+    {
+      "id": "small-screen-reflow", "theme": "compatibility", "scope": "safe", "applies": {},
+      "title": "Usable at 320 pixels wide and 200 percent zoom",
+      "try": "Use the window fault with --size 320x640 on a form and a list page. Scroll and complete one action.",
+      "valid": [],
+      "invalid": [],
+      "expect": "No horizontal scrolling for text, no clipped buttons or labels, sticky bars do not cover fields, and the on-screen keyboard does not hide the submit button.",
+      "proof": "chaosfolk audit <user> --viewports 320x640,768x1024,1280x800 reports horizontal overflow and controls outside the screen.",
+      "wcag": ["1.4.4", "1.4.10", "1.4.12"]
+    },
+    {
+      "id": "slow-submit-feedback", "theme": "resilience", "scope": "safe", "applies": {"features": ["form"]},
+      "title": "Feedback while a save is slow or fails",
+      "try": "With the slow or http-error fault active, submit a form, wait, then retry when the fault ends.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Progress is shown, the button cannot submit twice, an error message explains the failure, typed data is still there, and a retry succeeds once without duplicates.",
+      "proof": "Replay with the fault and its control; assert text-visible of a preserved value."
+    },
+    {
+      "id": "error-message-quality", "theme": "ux", "scope": "safe", "applies": {"features": ["form"]},
+      "title": "Messages a non-expert understands",
+      "try": "Trigger each error you can reach: invalid format, missing field, server refusal. Read each message as a user with no technical knowledge.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Messages say what happened and what to do, in the app's language, with no codes, field names from the code or English fragments in a French interface.",
+      "proof": "Observation with screenshots; replay with text-absent of technical wording when it is reproducible."
+    },
+    {
+      "id": "paste-and-formatting", "theme": "ux", "scope": "safe", "applies": {"kinds": ["phone", "iban", "company-id", "postal-code", "amount", "otp"]},
+      "title": "Pasted and auto-formatted values",
+      "try": "Paste values copied with spaces, dots or a trailing newline. Type in the middle of an auto-formatted value and delete a character there.",
+      "valid": ["06 39 98 12 34", "FR76 3000 6000 0112 3456 7890 189", " 75001 "],
+      "invalid": [],
+      "expect": "Pasted values are cleaned (spaces, dots, trailing newline) instead of refused. Auto-formatting never moves the caret to the end or blocks editing in the middle.",
+      "proof": "vary with pasted variants."
+    },
+    {
+      "id": "text-input-extremes", "theme": "functional", "scope": "safe", "applies": {"kinds": ["text", "free-text", "first-name", "last-name", "full-name", "company", "address", "city", "username"]},
+      "title": "Any text field: empty, spaces only, very long, accents, special characters",
+      "try": "In each text field of the form, submit it empty, with spaces only, with a very long value, with accents and with special characters. Note what is refused, accepted, trimmed or cut.",
+      "valid": ["Élodie Ñúñez-Øster", "a", "Texte avec « guillemets » et ’apostrophes’", "{{repeat:Z:255}}"],
+      "invalid": ["", "   ", "\t", "{{repeat:Z:5000}}"],
+      "expect": "Required fields refuse empty and whitespace-only values with a message. Long values hit a stated limit before saving; nothing is cut silently between the screen and the saved record. Accents, typographic quotes and special characters are stored and shown unchanged.",
+      "proof": "vary on each typed step with --persist reload; assert field-value or text-visible of the stored value."
+    },
+    {
+      "id": "number-extremes", "theme": "functional", "scope": "safe", "applies": {"kinds": ["number", "amount", "quantity"]},
+      "title": "Any numeric field: zero, negative, decimal and the announced limits",
+      "try": "Read the limits the interface announces (min, max, step, help text; chaosfolk fields shows min and max). Try zero, a negative value, a decimal, each limit, one step beyond each limit, and an empty value.",
+      "valid": ["0", "1", "0.5", "0,5"],
+      "invalid": ["-1", "-0", "1e3", "99999999999999999999", "NaN", ""],
+      "expect": "Values at the announced limits are accepted, values beyond are refused with a message that states the limit. Zero and decimals follow the field's meaning. The interface and the server enforce the same limits; a value accepted on screen and changed after saving is a finding.",
+      "proof": "vary with --accept and --reject; add values at min, max and one step beyond from chaosfolk fields."
+    },
+    {
+      "id": "submit-retry-after-error", "theme": "functional", "scope": "safe", "applies": {"features": ["form"]},
+      "title": "Submitting again after an error",
+      "try": "Submit a form with one invalid value, fix it and submit again. Then submit while a request fails (http-error fault) and retry once the fault ends. Open the list afterwards.",
+      "valid": [],
+      "invalid": [],
+      "expect": "The corrected submit succeeds without retyping other fields. A retry after a failed request creates exactly one record, never two, and the first failure did not half-save anything.",
+      "proof": "Replay with --persist retry: the last step runs twice; assert count equals 1 in the list."
+    },
+    {
+      "id": "interrupted-form", "theme": "resilience", "scope": "safe", "applies": {"features": ["form"]},
+      "title": "A form interrupted halfway: reload, back, close and reopen",
+      "try": "Fill half of a form, then reload. Fill it again, press Back and Forward. Fill it again, close the tab, open the address in a new tab. For multi-step forms, interrupt between steps.",
+      "valid": [],
+      "invalid": [],
+      "expect": "The app either keeps the draft or warns before losing it; it never shows a half-saved record as complete. Returning to a later step of a wizard does not skip required steps or lose earlier answers.",
+      "proof": "Replay with reload, back and tab steps; assert field-value of the typed values or text-visible of the warning."
+    },
+    {
+      "id": "search-filter-behavior", "theme": "functional", "scope": "safe", "applies": {"features": ["search", "list"]},
+      "title": "Search and filters: no results, quick changes, reset, kept after navigation",
+      "try": "Filter until nothing matches. Change filters or type several letters quickly in a row. Reset everything. Open a result, then come back with Back and with the app's own link.",
+      "valid": [],
+      "invalid": [],
+      "expect": "No-result states say so and offer a reset. Quick changes always show the results of the last input, never of an earlier slower request. Reset restores the full list. Filters and the search term are kept after visiting a result and coming back, and the URL reflects them when the app supports sharing a filtered view.",
+      "proof": "Replay with the slow fault on the search request; assert count or text-visible of the last query's result."
+    },
+    {
+      "id": "false-success", "theme": "functional", "scope": "safe", "applies": {"features": ["form", "edit"]},
+      "title": "A success message that is not backed by a saved record",
+      "try": "After each 'saved' message, reload, reopen the record from the list, and open it in a new tab. If the app stores drafts locally, clear the site storage and reload.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Every value shown as saved is still there after reload, revisit and a new tab. Data that disappears once local storage is cleared was only kept in the browser while the app claimed it was saved.",
+      "proof": "replay --persist reload,revisit,new-tab,local-only with field-value or text-visible assertions: each recipe is its own series."
+    },
+    {
+      "id": "data-loss-on-edit", "theme": "functional", "scope": "safe", "applies": {"features": ["edit"]},
+      "title": "Editing one field does not erase others",
+      "try": "Create a record with every optional field filled. Edit a single field, save, reload, and compare every other field with its original value.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Only the edited field changes. Optional fields, attachments and hidden values (for example in other tabs of the form) keep their values.",
+      "proof": "replay --persist reload with one field-value assertion per untouched field."
+    },
+    {
+      "id": "ui-desync", "theme": "functional", "scope": "safe", "applies": {"features": ["list", "edit"]},
+      "title": "List, detail, counters and other tabs agree after a change",
+      "try": "Change a record and compare the list, the detail page, counters and badges, and a second tab opened before the change (reload it).",
+      "valid": [],
+      "invalid": [],
+      "expect": "Every view shows the new value once reloaded, and the current view updates without a reload. A counter or list that keeps the old value, or a second tab that saves stale data over the change, is a finding.",
+      "proof": "replay --persist revisit,new-tab with text-visible assertions; two-tabs-conflict covers concurrent saves."
+    },
+    {
+      "id": "responsive-controls", "theme": "compatibility", "scope": "safe", "applies": {},
+      "title": "Every control stays reachable on small screens",
+      "try": "Run chaosfolk audit on each key page with --viewports 320x640,390x844,768x1024,1280x800. On a phone viewport, complete the main action of the page.",
+      "valid": [],
+      "invalid": [],
+      "expect": "No button, link or field is outside the screen, hidden under a fixed bar or cookie banner, or clipped. Menus collapse into a control that works with touch and keyboard.",
+      "proof": "audit reports offscreen and covered controls per viewport, with a screenshot."
+    },
+    {
+      "id": "layout-overflow", "theme": "compatibility", "scope": "safe", "applies": {"features": ["form"]},
+      "title": "Forms and content fit the viewport",
+      "try": "Run chaosfolk audit with small viewports on form pages, then try to submit on the smallest one.",
+      "valid": [],
+      "invalid": [],
+      "expect": "No horizontal scrolling at 320 CSS pixels except for data tables and maps. A form never extends beyond the screen in a way that hides its submit button or error messages.",
+      "proof": "audit: horizontal overflow and the elements that cause it.",
+      "wcag": ["1.4.10"]
+    },
+    {
+      "id": "keyboard-reachability", "theme": "accessibility", "scope": "safe", "applies": {},
+      "title": "Keyboard focus reaches every action and never gets trapped",
+      "try": "Run chaosfolk audit --keyboard on each page, and again with each dialog, menu and drawer open.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Tab reaches every visible control in a logical order, focus is always visible, focus never lands on hidden elements, an open modal keeps focus inside until it closes and returns it afterwards, and no control traps the focus.",
+      "proof": "audit --keyboard lists unreachable controls, invisible focus, hidden focus targets and traps.",
+      "wcag": ["2.1.1", "2.1.2", "2.4.3", "2.4.7", "2.4.11"]
+    },
+    {
+      "id": "accessible-names", "theme": "accessibility", "scope": "safe", "applies": {},
+      "title": "Controls, images and frames have accessible names",
+      "try": "Run chaosfolk audit on each page.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Every field, button, link, icon button and frame has a name; informative images have alt text and decorative ones have alt=\"\". Visible label text is part of the accessible name.",
+      "proof": "audit lists unnamed controls and images without alt.",
+      "wcag": ["1.1.1", "2.4.4", "2.5.3", "4.1.2"]
+    },
+    {
+      "id": "color-contrast", "theme": "accessibility", "scope": "safe", "applies": {},
+      "title": "Text contrast",
+      "try": "Run chaosfolk audit on each page and in each state (error, disabled, hover is not measured).",
+      "valid": [],
+      "invalid": [],
+      "expect": "Normal text reaches 4.5:1 and large text 3:1 against its background. The audit estimates contrast from computed colours and skips text over images: confirm each result visually.",
+      "proof": "audit lists low-contrast text with the measured ratio.",
+      "wcag": ["1.4.3"]
+    },
+    {
+      "id": "target-size", "theme": "accessibility", "scope": "safe", "applies": {},
+      "title": "Pointer targets are large enough",
+      "try": "Run chaosfolk audit with a phone viewport.",
+      "valid": [],
+      "invalid": [],
+      "expect": "Buttons, icons and links outside running text are at least 24 by 24 CSS pixels, or have enough space around them.",
+      "proof": "audit lists small targets with their size.",
+      "wcag": ["2.5.8"]
+    },
+    {
+      "id": "page-structure", "theme": "accessibility", "scope": "safe", "applies": {},
+      "title": "Language, title, headings and zoom",
+      "try": "Run chaosfolk audit on each page.",
+      "valid": [],
+      "invalid": [],
+      "expect": "The page declares its language, has a descriptive title, uses headings without skipped levels, has unique ids, does not use positive tabindex, and does not block browser zoom.",
+      "proof": "audit reports each structural signal.",
+      "wcag": ["1.3.1", "1.4.4", "2.4.2", "2.4.6", "3.1.1"]
+    },
+    {
+      "id": "status-messages", "theme": "accessibility", "scope": "safe", "applies": {"features": ["form", "search"]},
+      "title": "Results and errors are announced without moving focus",
+      "try": "Submit a form and run a search. Check whether the success, error or result-count message is in a live region (role=status, role=alert or aria-live).",
+      "valid": [],
+      "invalid": [],
+      "expect": "Messages that appear without a page change are announced by screen readers through a live region.",
+      "proof": "Replay; js assertion on document.querySelector('[role=status],[role=alert],[aria-live]').",
+      "wcag": ["4.1.3"]
+    },
+    {
+      "id": "time-limits", "theme": "accessibility", "scope": "test-account", "applies": {"features": ["logged-in", "form"]},
+      "title": "Session timeouts warn and keep the work",
+      "try": "Use the clock fault to advance time past the session limit while a form is half filled, then submit.",
+      "valid": [],
+      "invalid": [],
+      "expect": "The user is warned before the limit and can extend it. After a forced sign-in, the typed data is restored or was kept as a draft.",
+      "proof": "Replay with the clock fault; assert field-value after signing in again.",
+      "wcag": ["2.2.1", "2.2.5"]
+    },
+    {
+      "id": "broken-resources", "theme": "functional", "scope": "safe", "applies": {},
+      "title": "Images, styles and scripts all load",
+      "try": "Run chaosfolk audit on each page after it has loaded, and after the main interactions.",
+      "valid": [],
+      "invalid": [],
+      "expect": "No broken image, missing font, stylesheet or script, and no same-site resource answered with a 4xx or 5xx status.",
+      "proof": "audit lists broken images and failed resources; analyze lists failed requests during the session."
+    },
+    {
+      "id": "javascript-errors", "theme": "functional", "scope": "safe", "applies": {},
+      "title": "Interactions do not raise unhandled exceptions",
+      "try": "Watch the engine's error notes while using each control. Run chaosfolk audit --keyboard, which also reports exceptions raised while tabbing.",
+      "valid": [],
+      "invalid": [],
+      "expect": "No uncaught exception or unhandled promise rejection during normal use, and no console error that matches a visible malfunction.",
+      "proof": "Replay with a no-page-error assertion."
+    },
+    {
+      "id": "concurrent-edit-two-users", "theme": "functional", "scope": "coordinated", "applies": {"features": ["edit"]},
+      "title": "Two users change the same record",
+      "try": "The coordinator gives two users the same test record. Both open it; the first saves a change, the second saves a different change a few actions later. Each user then reloads.",
+      "valid": [],
+      "invalid": [],
+      "expect": "The second save is refused with a clear conflict message, or both changes are merged visibly. Silently keeping only the last save is a finding.",
+      "proof": "Two scenarios replayed with --sequential, or one scenario with two tabs and two saved states."
+    },
+    {
+      "id": "role-permissions", "theme": "security", "scope": "coordinated", "applies": {"features": ["logged-in"]},
+      "title": "What one role does, another role sees correctly",
+      "try": "With saved states for two roles (for example an editor and a reader), let the editor create or change a record, then let the reader open it and try the same actions.",
+      "valid": [],
+      "invalid": [],
+      "expect": "The reader sees the change and cannot perform actions reserved to the editor, including through direct URLs. Hidden buttons are not the only protection.",
+      "proof": "Replay the editor's action with the reader's saved state; assert text-visible of the refusal."
+    },
+    {
+      "id": "shared-object-notifications", "theme": "ux", "scope": "coordinated", "applies": {"features": ["list", "edit"]},
+      "title": "Changes made by someone else become visible",
+      "try": "While one user keeps a list or record open, another user changes or deletes it. The first user then acts on the stale screen.",
+      "valid": [],
+      "invalid": [],
+      "expect": "The first user is told the record changed or no longer exists, rather than getting a raw error or overwriting it.",
+      "proof": "Two-user replay; assert text-visible of the update or not-found message."
+    }
+  ]
+}

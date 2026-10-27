@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Profil</title>
+<style>
+  body { font-family: sans-serif; margin: 16px; }
+  .wide { width: 900px; }
+  .faint { color: #bbbbbb; }
+  .tiny { width: 16px; height: 16px; padding: 0; }
+  .card { cursor: pointer; border: 1px solid #ccc; padding: 8px; }
+  button:focus { outline: none; }
+</style>
+</head>
+<body>
+<h1>Profil</h1>
+<h3>Coordonnées</h3>
+<p class="faint">Texte trop pâle pour être lu.</p>
+<img src="/missing.png" alt="Avatar">
+<form class="wide" onsubmit="event.preventDefault(); document.getElementById('done').textContent = 'Enregistré'">
+  <label for="city">Ville</label> <input id="city">
+  <input id="nickname">
+  <button type="submit" style="margin-left: 700px">Enregistrer</button>
+</form>
+<button class="tiny" aria-label="Fermer">x</button><button id="crash" onclick="null.boom()">Exporter</button>
+<div class="card" onclick="this.textContent = 'Ouvert'">Carte cliquable</div>
+<p id="done" role="status"></p>
+</body>
+</html>

@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Créer un compte</title></head>
+<body>
+<h1>Créer un compte</h1>
+<form id="signup" method="get" action="/signup.html">
+  <label for="first">Prénom</label> <input id="first" name="first" maxlength="20" required>
+  <label for="cp">Code postal</label> <input id="cp" name="cp" type="number">
+  <label for="tel">Téléphone</label> <input id="tel" name="tel">
+  <input id="mail" name="mail" placeholder="Email">
+  <label for="pw">Mot de passe</label> <input id="pw" name="pw" type="password" autocomplete="new-password">
+  <button type="submit">Créer mon compte</button>
+</form>
+<p id="result" role="status"></p>
+<script>
+  // Fixture with deliberate defects: the phone rule refuses spaces and the name is rendered as HTML.
+  document.cookie = "sessionid=fixture; path=/";
+  document.getElementById("signup").addEventListener("submit", event => {
+    event.preventDefault();
+    const tel = document.getElementById("tel");
+    const result = document.getElementById("result");
+    tel.setAttribute("aria-invalid", "false");
+    if (!/^0[1-9][0-9]{8}$/.test(tel.value)) {
+      tel.setAttribute("aria-invalid", "true");
+      result.textContent = "Numéro invalide";
+      return;
+    }
+    result.innerHTML = "Bienvenue " + document.getElementById("first").value;
+  });
+</script>
+</body>
+</html>

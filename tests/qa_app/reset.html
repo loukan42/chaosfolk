@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Mot de passe oublié</title></head>
+<body>
+<h1>Mot de passe oublié</h1>
+<form id="reset">
+  <label for="email">Adresse email</label> <input id="email" type="email" autocomplete="email">
+  <button type="submit">Recevoir un lien</button>
+</form>
+<p id="result" role="status"></p>
+<script>
+  // Fixture: the message reveals whether the account exists unless ?safe is in the address.
+  document.getElementById("reset").addEventListener("submit", event => {
+    event.preventDefault();
+    const known = document.getElementById("email").value.trim().toLowerCase() === "test-account@example.com";
+    document.getElementById("result").textContent = location.search.includes("safe") || known
+      ? "Si un compte existe, un lien a été envoyé à " + document.getElementById("email").value
+      : "Aucun compte pour " + document.getElementById("email").value;
+  });
+</script>
+</body>
+</html>

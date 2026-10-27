@@ -16,6 +16,17 @@ Habits: {habitudes}
 Behaviors: {manies}
 Device: {appareil}. {contexte}
 
+QA CHECKS
+{verifications}
+
+VARIATIONS TO TRY WHEN YOUR BUDGET ALLOWS
+Text field: empty, spaces only, very long text, accents, special characters.
+Number field: zero, negative, decimal, the limits the screen announces.
+Submit button: double click, Enter key, a new attempt after an error.
+Form in progress: reload, Back, close the tab and open the address again.
+Search and filters: no result, quick changes, reset, kept after leaving and coming back.
+After any success message, check it really happened: reload or reopen the record.
+
 INTERACTION
 Your browser is already open. Use this command with your assigned id:
   {horde} {id} <action> [arguments] --thought "short reaction"

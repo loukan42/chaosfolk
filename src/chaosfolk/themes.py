@@ -4,13 +4,13 @@ import json
 
 
 THEMES = {
-    "functional": {"label": "Functional journeys", "focus": "Check the expected result, persistence after reload, validation, cancellation and recovery across the supplied goals.", "method": "agent exploration and replay assertions"},
+    "functional": {"label": "Functional journeys", "focus": "Check the expected result, persistence after reload, validation, cancellation and recovery across the supplied goals. Confirm every success message by reloading or reopening the record.", "method": "agent exploration and replay assertions"},
     "ux": {"label": "Usability", "focus": "Look for confusing labels, unclear feedback, discoverability and unexpected interaction outcomes.", "method": "simulated user exploration"},
-    "accessibility": {"label": "Accessibility signals", "focus": "Try keyboard navigation, focus order and accessible names; flag barriers and verify each observation. Do not claim conformance.", "method": "agent keyboard exploration and optional basic probe signals"},
+    "accessibility": {"label": "Accessibility signals", "focus": "Try keyboard navigation, focus order and accessible names; flag barriers and verify each observation. Do not claim conformance.", "method": "agent keyboard exploration, chaosfolk audit WCAG signals and optional basic probe signals"},
     "resilience": {"label": "Resilience", "focus": "Observe whether inputs and state survive authorized fault conditions; compare treatment and control replays.", "method": "authorized fault injection and control replay"},
-    "security": {"label": "Security observations", "focus": "Observe exposed secrets or unsafe UI behavior only within the authorized test account and scope. Do not attempt unauthorized access or destructive payloads.", "method": "passive UI review and optional header observations; dedicated security testing remains separate"},
+    "security": {"label": "Security observations", "focus": "Observe exposed secrets or unsafe UI behavior only within the authorized test account and scope, such as sign-in or reset messages that reveal whether an account exists, or HTML-looking input rendered as markup. Do not attempt unauthorized access or destructive payloads.", "method": "passive UI review and optional header observations; dedicated security testing remains separate"},
     "performance": {"label": "Performance signals", "focus": "Observe delays and responsiveness during journeys. Do not infer capacity from one user.", "method": "agent observations and optional bounded local concurrency probe"},
-    "compatibility": {"label": "Web compatibility", "focus": "Check the assigned viewport and input mode for clipped content or blocked controls; record which device and browser were tested.", "method": "Chromium contexts with desktop, tablet and mobile viewport emulation"},
+    "compatibility": {"label": "Web compatibility", "focus": "Check the assigned viewport and input mode for clipped content or blocked controls; record which device and browser were tested.", "method": "Chromium contexts with desktop, tablet and mobile viewport emulation, and chaosfolk audit viewport sweeps"},
 }
 
 

@@ -40,8 +40,12 @@ def choisir_pondere(rng, options, poids):
     return options[-1]
 
 
-def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, budget=20, fault_types=None, themes=None):
-    """Retourne (personas, tirage) : la fiche des humains et les pannes à programmer."""
+def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, budget=20, fault_types=None, themes=None,
+                checks="auto", detected=None, countries=None, explore=None, sessions="independent", shared=None,
+                roles=None):
+    """Retourne (personas, tirage) : la fiche des humains et les pannes à programmer.
+    `checks` (auto, all, none ou des identifiants) donne à chaque humain sa part du catalogue de vérifications ;
+    `detected` restreint auto aux types de champs et de pages relevés par `fields --save`."""
     if escouade not in ESCOUADES:
         raise ValueError(f"escouade inconnue : {escouade} (connues : {', '.join(ESCOUADES)})")
     if not objectifs:
@@ -57,6 +61,12 @@ def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, 
     cat = lire_catalogue()
     from .themes import THEMES, resolve
     selected_themes = resolve(themes) if themes is not None else ["ux"]
+    from . import checks as catalogue_checks
+    pool = catalogue_checks.select(checks, selected_themes, detected=detected, themes_given=themes is not None)
+    if sessions == "coordinated" and checks == "auto":
+        pool += [c for c in catalogue_checks.load()["checks"] if c["scope"] == "coordinated" and c not in pool]
+    pays = catalogue_checks.countries(countries)
+    parts = catalogue_checks.assign(graine, pool, nombre, budget, pays)
     available_faults = cat["pannes"] + EXTRA_FAULTS
     if fault_types is None:
         fault_options = cat["pannes"]
@@ -99,6 +109,21 @@ def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, 
             intention += f" {profil['regle']}"
         if themes is not None:
             intention += " Focus: " + " ".join(THEMES[name]["focus"] for name in selected_themes)
+        if parts[i]:
+            intention += " Also run the QA checks listed on this sheet when a matching screen appears."
+        if explore:
+            # chaque humain reçoit d'autres routes peu explorées : moins de répétitions d'une campagne à l'autre
+            mine = [explore[(i * 3 + k) % len(explore)] for k in range(min(3, len(explore)))]
+            intention += " Before your goals, visit these less explored areas if you can reach them: " + ", ".join(mine) + "."
+        if sessions == "coordinated":
+            intention += (" Other users work on the same test objects at the same time: " + "; ".join(shared)
+                          + ". Open them, change them, and report when someone else's change is lost, hidden or conflicting.")
+        else:
+            intention += (f" Keep your data separate: add {hid.upper()} to the name of everything you create,"
+                          " and change only records that carry it.")
+        role = roles[i % len(roles)] if roles else None
+        if role:
+            intention += f" Your role in the app is {role[0]}: try what this role should and should not be allowed to do."
         fiche = {
             "id": hid, "nom": nom, "age": rng.randint(22, 64), "metier": rng.choice(metiers),
             "profil": profil["nom"], "escouade": escouade,
@@ -106,8 +131,12 @@ def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, 
             "aisance": rng.choice(profil["aisance"]), "patience": rng.choice(profil["patience"]),
             "appareil": appareil, "intention": intention, "objectifs": ordered_goals, "themes": selected_themes,
             "habitudes": profil["habitudes"], "manies": manies,
-            "histoire": "First visit; no previous experience with this app",
+            "histoire": "First visit; no previous experience with this app", "checks": parts[i],
         }
+        if role:
+            fiche["role"] = role[0]
+            if role[1]:
+                fiche["etat"] = role[1]
         panne = choisir_pondere(rng, fault_options, [p["poids"] for p in fault_options])
         fiche["condition"] = "aucune" if panne["type"] == "aucune" else panne["type"]
         if panne["type"] != "aucune":
@@ -129,6 +158,9 @@ def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, 
     personas = {"application": application, "escouade": escouade, "graine": graine, "budget": budget, "humains": humains}
     tirage = {"escouade": escouade, "graine": graine, "nombre": nombre, "budget": budget, "objectifs": objectifs, "pannes": pannes}
     personas["themes"] = tirage["themes"] = selected_themes
+    tirage["sessions"] = {"mode": sessions, "shared": shared or [], "roles": [r[0] for r in roles or []]}
+    tirage["checks"] = {"selection": checks, "countries": pays or "all", "pool": [check["id"] for check in pool],
+                        "assigned": {h["id"]: [c["id"] for c in h["checks"]] for h in humains}}
     if fault_types is not None:
         tirage["fault_types"] = sorted(selected)
     return personas, tirage

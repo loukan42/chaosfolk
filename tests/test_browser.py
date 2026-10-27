@@ -307,3 +307,151 @@ def test_managed_app_identity_survives_keep_app_and_stops_owned_tree(tmp_path):
         current = engine.lire_json(folder / "serveur.json")
         if current.get("app_pid"):
             engine.stop_owned_process(current["app_identity"])
+
+
+@pytest.fixture
+def qa_app_url():
+    handler = functools.partial(QuietHandler, directory=str(Path(__file__).parent / "qa_app"))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield f"http://127.0.0.1:{server.server_port}/"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def write_scenario(path, url, steps):
+    path.write_text(json.dumps({"url": url, "steps": steps}, ensure_ascii=False), encoding="utf-8")
+    return path
+
+
+def reset_steps(email):
+    return [{"n": 1, "action": "type", "target": {"role": "textbox", "name": "Adresse email"}, "args": {"text": email}},
+            {"n": 2, "action": "click", "target": {"role": "button", "name": "Recevoir un lien"}, "args": {}}]
+
+
+def test_compare_proves_account_enumeration_and_passes_a_neutral_reset(tmp_path, qa_app_url):
+    scenarios = tmp_path / "scenarios"
+    scenarios.mkdir()
+    known = write_scenario(scenarios / "known.json", qa_app_url + "reset.html", reset_steps("test-account@example.com"))
+    unknown = write_scenario(scenarios / "unknown.json", qa_app_url + "reset.html", reset_steps("nobody-1@example.com"))
+    result = cli("compare", known, unknown, "--times", "2", "--fail-on-bug")
+    assert result.returncode == 1, result.stdout + result.stderr
+    proof = json.loads((tmp_path / "reproductions" / "known-vs-unknown.json").read_text(encoding="utf-8"))
+    assert (proof["mode"], proof["fois"], proof["casses"], proof["verdict"]) == ("traitement", 2, 2, "reproduit")
+    assert any("Aucun compte" in reason for reason in proof["essais"][0]["raisons"])
+    safe_known = write_scenario(scenarios / "safe-known.json", qa_app_url + "reset.html?safe", reset_steps("test-account@example.com"))
+    safe_unknown = write_scenario(scenarios / "safe-unknown.json", qa_app_url + "reset.html?safe", reset_steps("nobody-1@example.com"))
+    result = cli("compare", safe_known, safe_unknown, "--times", "2", "--fail-on-bug")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_vary_replays_catalog_values_and_writes_failing_variants(tmp_path, qa_app_url):
+    scenarios = tmp_path / "scenarios"
+    scenarios.mkdir()
+    scenario = write_scenario(scenarios / "signup.json", qa_app_url + "signup.html", [
+        {"n": 1, "action": "type", "target": {"role": "textbox", "name": "Prénom"}, "args": {"text": "Zoé"}},
+        {"n": 2, "action": "type", "target": {"role": "textbox", "name": "Téléphone"}, "args": {"text": "0639981234"}},
+        {"n": 3, "action": "click", "target": {"role": "button", "name": "Créer mon compte"}, "args": {}}])
+    values = json.dumps({"valid": ["0639981234", "06 39 98 12 34"], "invalid": ["0639"]})
+    result = cli("vary", scenario, "--field", "Téléphone", "--values", values, "--fail-on-bug", "--name", "phone",
+                 "--accept", '{"type": "text-visible", "text": "Bienvenue"}',
+                 "--reject", '{"type": "text-visible", "text": "Numéro invalide"}', timeout=180)
+    assert result.returncode == 1, result.stdout + result.stderr
+    report = json.loads((tmp_path / "reproductions" / "phone.json").read_text(encoding="utf-8"))
+    verdicts = {row["value"]: row["verdict"] for row in report["valeurs"]}
+    assert verdicts == {"0639981234": "pass", "06 39 98 12 34": "fail", "0639": "pass"}
+    failing = next(row for row in report["valeurs"] if row["verdict"] == "fail")
+    assert failing["invalid_fields"][0]["field"] == "Téléphone"
+    variant = json.loads(Path(failing["scenario"]).read_text(encoding="utf-8"))
+    assert variant["etapes"][1]["args"]["texte"] == "06 39 98 12 34"
+    replay = cli("replay", failing["scenario"], "--times", "1", "--fail-on-bug")
+    assert replay.returncode == 1, replay.stdout + replay.stderr
+
+
+def test_persistence_recipes_expose_false_success_and_duplicates(tmp_path, qa_app_url):
+    scenarios = tmp_path / "scenarios"
+    scenarios.mkdir()
+    steps = [{"n": 1, "action": "type", "target": {"role": "textbox", "name": "Titre"}, "args": {"text": "Réunion lundi"}},
+             {"n": 2, "action": "click", "target": {"role": "button", "name": "Enregistrer"}, "args": {}}]
+    expect = [{"type": "count", "text": "Réunion lundi", "exact": True, "equals": 1},
+              {"type": "field-value", "field": "Titre", "value": "Réunion lundi"}]
+    for name, query in (("lost", ""), ("kept", "?keep")):
+        (scenarios / f"{name}.json").write_text(json.dumps({"url": qa_app_url + "notes.html" + query, "steps": steps,
+                                                             "expect": expect}, ensure_ascii=False), encoding="utf-8")
+    result = cli("replay", scenarios / "lost.json", scenarios / "kept.json", "--times", "1", "--persist", "reload,local-only,retry",
+                 timeout=180)
+    assert result.returncode == 0, result.stdout + result.stderr
+    verdicts = {path.stem: json.loads(path.read_text(encoding="utf-8"))["casses"] for path in (tmp_path / "reproductions").glob("*.json")}
+    assert verdicts == {"lost-persist-reload-traitement": 1, "lost-persist-local-only-traitement": 1, "lost-persist-retry-traitement": 1,
+                        "kept-persist-reload-traitement": 0, "kept-persist-local-only-traitement": 1, "kept-persist-retry-traitement": 1}
+
+
+def test_coordinated_replay_shows_a_lost_update_between_two_sessions(tmp_path):
+    class SharedNote(QuietHandler):
+        note = "Initial"
+
+        def do_GET(self):
+            body = (b"<!doctype html><html lang=fr><body><label for=n>Note</label><input id=n>"
+                    b"<button onclick=\"fetch('/save',{method:'POST',body:n.value}).then(()=>s.textContent='OK')\">Enregistrer</button>"
+                    b"<p id=s role=status></p><script>fetch('/note').then(r=>r.text()).then(t=>n.value=t)</script></body></html>")
+            if self.path == "/note":
+                body = type(self).note.encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_POST(self):
+            type(self).note = self.rfile.read(int(self.headers["Content-Length"])).decode("utf-8")
+            self.send_response(204)
+            self.end_headers()
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), SharedNote)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        url = f"http://127.0.0.1:{server.server_port}/"
+        write = lambda who, text: [
+            {"n": 1, "session": who, "action": "type", "target": {"role": "textbox", "name": "Note"}, "args": {"text": text}},
+            {"n": 2, "session": who, "action": "click", "target": {"role": "button", "name": "Enregistrer"}, "args": {}}]
+        scenario = tmp_path / "scenarios" / "two-editors.json"
+        scenario.parent.mkdir()
+        scenario.write_text(json.dumps({"url": url, "sessions": {"a": {}, "b": {}},
+            "steps": [{"n": 0, "session": "b", "action": "wait", "args": {"seconds": 0}}] + write("a", "Texte de A") + write("b", "Texte de B")
+                     + [{"n": 3, "session": "a", "action": "reload", "args": {}}],
+            "expect": [{"type": "field-value", "session": "a", "field": "Note", "value": "Texte de A"}]}), encoding="utf-8")
+        result = cli("replay", scenario, "--times", "1", "--fail-on-bug", timeout=180)
+        assert result.returncode == 1, result.stdout + result.stderr
+        proof = json.loads((tmp_path / "reproductions" / "two-editors-traitement.json").read_text(encoding="utf-8"))
+        assert "Texte de B" in proof["essais"][0]["raisons"][0]
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
+
+
+def test_audit_measures_layout_accessibility_resources_and_keyboard(tmp_path, qa_app_url):
+    env = dict(os.environ, CHAOSFOLK_HOME=str(tmp_path / "state"))
+    folder = tmp_path / "session"
+    assert cli("launch", "--url", qa_app_url + "ui.html", "--folder", folder, "--budget", "5", env=env).returncode == 0
+    env["CHAOSFOLK_LEADER_TOKEN"] = json.loads((folder / "serveur.json").read_text(encoding="utf-8"))["jeton_chef"]
+    try:
+        (tmp_path / "scout.json").write_text('{"humains":[{"id":"e0","nom":"Scout"}]}', encoding="utf-8")
+        assert cli("humans", tmp_path / "scout.json", env=env).returncode == 0
+        result = cli("audit", "e0", "--viewports", "320x640,1440x900", "--keyboard", env=env, timeout=180)
+        assert result.returncode == 0, result.stdout + result.stderr
+        for signal in ("[layout-overflow] horizontal scrolling", "submit buttons outside the screen", "[target-size] 1 targets",
+                       "controls without an accessible name", "low-contrast text", "broken images", "skipped heading levels",
+                       "clickable-looking elements", "does not declare its language", "browser zoom is limited",
+                       "no outline or shadow on focus"):
+            assert signal in result.stdout, signal
+        audit = json.loads((folder / "audits" / "ui-html.json").read_text(encoding="utf-8"))
+        assert [v["viewport"] for v in audit["viewports"]] == ["320x640", "1440x900"]
+        assert not audit["viewports"][1].get("horizontal_overflow")
+        assert all(Path(v["screenshot"]).is_file() for v in audit["viewports"])
+    finally:
+        cli("stop", env=env)

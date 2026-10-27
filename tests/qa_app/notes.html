@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+<head><meta charset="utf-8"><title>Notes</title></head>
+<body>
+<h1>Notes</h1>
+<form id="note">
+  <label for="title">Titre</label> <input id="title">
+  <button type="submit">Enregistrer</button>
+</form>
+<p id="status" role="status"></p>
+<ul id="list"></ul>
+<script>
+  // Fixture: with ?keep the notes survive a reload; without it the success message is false.
+  // Each submit appends a note, so submitting twice creates a duplicate.
+  const keep = location.search.includes("keep");
+  const notes = keep ? JSON.parse(localStorage.getItem("notes") || "[]") : [];
+  const list = document.getElementById("list");
+  const show = () => { list.replaceChildren(...notes.map(n => Object.assign(document.createElement("li"), {textContent: n}))); };
+  show();
+  if (notes.length) document.getElementById("title").value = notes[notes.length - 1];
+  document.getElementById("note").addEventListener("submit", event => {
+    event.preventDefault();
+    notes.push(document.getElementById("title").value);
+    if (keep) localStorage.setItem("notes", JSON.stringify(notes));
+    show();
+    document.getElementById("status").textContent = "Note enregistrée";
+  });
+</script>
+</body>
+</html>

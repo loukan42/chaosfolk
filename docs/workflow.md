@@ -44,6 +44,16 @@ For reconnaissance, create a `scout.json` file containing
 `chaosfolk e0 look` and `chaosfolk network`. A scout has no default action cap;
 the coordinator should keep this pass short and end it with `e0 done "..."`.
 
+On each key page the scout reaches (forms, sign-in, password reset, lists), run
+`chaosfolk fields e0 --save .horde/run/fields.json` to classify its fields, list
+the QA checks that apply and note structural problems, and
+`chaosfolk audit e0 --keyboard` for responsive, keyboard and accessibility
+signals. See the [QA checks guide](checks.md).
+
+Add `--project NAME` to `launch` so the session belongs to an explicitly named
+project rather than to an address several apps may share. See
+[campaigns.md](campaigns.md).
+
 ## Authenticated test session
 
 If the test app requires login, start the engine with `--visible`. Create the
@@ -69,6 +79,11 @@ chaosfolk humans .horde/run/personas.json
 chaosfolk drawn-faults .horde/run/tirage.json
 chaosfolk sheets --folder .horde/run --level medium --data "Synthetic project names only" --forbidden "Messages, purchases, real accounts"
 ```
+
+`draw` hands each user a seeded share of the QA check catalog (`--checks`, with
+`--countries` for test values) and, with `--project`, routes that earlier
+campaigns explored least. `--sessions coordinated --shared "..."` makes users
+work on the same test objects; `--roles` gives them saved states for each role.
 
 The output includes each sheet path in `fiches/`. Delegate one sheet per subagent,
 with at most three active users. Use `--shell posix` for Bash or `--shell powershell`
@@ -127,7 +142,10 @@ Create `expectation.json` first, for example:
 ```
 
 The assertion must match the product's expected behavior. A success message alone
-does not establish persistence: reload or check storage when that matters.
+does not establish persistence: replay with `--persist reload,revisit,local-only`
+and a `field-value` or `text-visible` assertion. Use `--persist retry` with a
+`count` assertion for duplicates. For a field, `vary` replays every catalog value;
+for sign-in and reset pages, `compare` proves account enumeration.
 See [replay.md](replay.md) for more assertions and the report contract.
 
 ## Write and inspect the report
@@ -165,6 +183,11 @@ The coordinator asks the user whether the report should open in English or
 French when no preference was given. Pass `--lang en` or `--lang fr`. An
 interactive terminal prompts if it is omitted; automated calls must specify it.
 Both language files are written, and the user can switch language in the report.
+
+To keep the campaign in the project's memory and compare it with the previous
+one, run `chaosfolk campaign record --folder .horde/run --project NAME`, then
+`chaosfolk campaign compare --project NAME`. `campaign select --replay` replays
+the open findings of earlier campaigns to check fixes without exploring again.
 
 Always clean up after an interrupted run: `chaosfolk stop`, then
 `chaosfolk stop-app --folder .horde/run`. Preserve evidence on failure. Never

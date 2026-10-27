@@ -20,16 +20,21 @@ def aliases(data, mapping):
 
 
 def normalize_assertion(rule):
-    return aliases(rule, {"text": "texte", "key": "cle", "contains": "contient", "equals": "egal"})
+    return aliases(rule, {"text": "texte", "key": "cle", "contains": "contient", "equals": "egal",
+                          "field": "champ", "value": "valeur"})
 
 
 def normalize_scenario(scenario):
     result = aliases(scenario, {"steps": "etapes", "expect": "attendu", "faults": "pannes",
                                "device": "appareil", "start": "depart", "state": "etat",
-                               "session_dir": "dossier_horde", "clock": "horloge"})
+                               "session_dir": "dossier_horde", "clock": "horloge", "recipe": "recette"})
     url = result.get("url")
     if not isinstance(url, str) or urlsplit(url).scheme not in ("http", "https") or not urlsplit(url).hostname:
         raise ValueError("Scenario url must be an absolute HTTP(S) address")
+    sessions = result.get("sessions") or {}
+    if not isinstance(sessions, dict) or any(not isinstance(v, dict) for v in sessions.values()):
+        raise ValueError("Scenario sessions must map a name to its settings")
+    result["sessions"] = {name: aliases(v, {"state": "etat", "device": "appareil", "start": "depart"}) for name, v in sessions.items()}
     steps = result.get("etapes")
     if not isinstance(steps, list):
         raise ValueError("Scenario steps must be a list")

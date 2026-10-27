@@ -41,7 +41,10 @@ and input capabilities in Chromium, not a physical device.
 | `page-not-blank` | none | Body has visible text content |
 | `storage` | `key`, optional `contains`, `json` | localStorage value exists and matches the checks |
 | `url-contains` | `text` | Current URL contains the supplied text |
+| `field-value` | `field`, and `value` (exact) or `contains` | The input labelled `field` holds this value; a missing field makes the trial invalid |
 | `js` | `expression`, optional `description` | Trusted JavaScript expression evaluates truthy |
+
+Any assertion can take `session` in a scenario with several sessions (see below).
 
 Run:
 
@@ -53,6 +56,49 @@ chaosfolk replay scenario.json --times 3 --fail-on-bug
 `--control` runs only the no-fault series. `--with-control` adds a no-fault series
 to the treatment. It cannot control a user gesture such as double-clicking:
 write a separate single-click scenario for that comparison.
+
+## Persistence recipes
+
+A success message does not prove persistence. `--persist` verifies the scenario's
+assertions after a recipe, with one series per recipe:
+
+```bash
+chaosfolk replay scenario.json --times 3 --persist reload,revisit,new-tab,local-only,back,retry
+```
+
+`reload` reloads, `revisit` opens the start address again, `new-tab` opens the
+current address in a new tab, `local-only` clears local and session storage then
+reloads, `back` presses Back and `retry` replays the last successful step. Series
+are named `<scenario>-persist-<recipe>`. A scenario can also set `"recipe"`
+itself. The [QA checks guide](checks.md) maps each recipe to the problem it
+exposes: false success, data loss, duplicates after a retry, out-of-sync views.
+
+## Several sessions in one trial
+
+```json
+{
+  "url": "http://localhost:3000/plan",
+  "sessions": {"editor": {"state": "etats/editor.json"}, "reader": {"state": "etats/reader.json", "device": "mobile"}},
+  "steps": [
+    {"n": 1, "session": "editor", "action": "type", "target": {"role": "textbox", "name": "Title"}, "args": {"text": "Plan B"}},
+    {"n": 2, "session": "editor", "action": "click", "target": {"role": "button", "name": "Save"}, "args": {}},
+    {"n": 3, "session": "reader", "action": "reload", "args": {}}
+  ],
+  "expect": [{"type": "text-visible", "session": "reader", "text": "Plan B"}]
+}
+```
+
+Each session opens its own isolated context at its first step. Assertions without
+`session` are checked in the last session that acted. Faults apply to the first
+session only. `extract h01,h02` builds such a scenario from a coordinated run;
+see [campaigns.md](campaigns.md).
+
+## Data variations and differential replays
+
+`vary` replays one scenario once per test value of a field, and `compare`
+replays two scenarios in pairs to check whether their outcomes match, which is
+how account enumeration is proven. Both use this replay engine and write result
+files in the same format. See the [QA checks guide](checks.md).
 
 ## Evidence states
 
