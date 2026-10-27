@@ -7,6 +7,22 @@ software: until 1.0, a minor version can change commands and file formats.
 
 ## [Unreleased]
 
+### Added
+
+- One-command installers for macOS and Linux (`install.sh`) and Windows
+  (`install.ps1`). Python, Node.js and Git are no longer needed first: uv
+  provides Python when it is missing.
+- `chaosfolk setup` makes sure a browser is available, copies the skill into
+  every coding agent found and adds Claude Code's simulated user definition.
+  Run it again after an update.
+
+### Changed
+
+- The wheel bundles the skill (`SKILL.md` and its guides), so the skill always
+  matches the installed engine.
+- The README install section is down to one command. pipx, uv and the Skills
+  CLI remain documented as alternatives.
+
 ## [0.5.0] - 2026-10-27
 
 Random exploration now comes with the checks a QA team would run, and replays

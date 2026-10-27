@@ -25,6 +25,9 @@ def main(argv=None):
     if args and args[0] == "checks":
         from .checks import main as list_checks
         return list_checks(args[1:])
+    if args and args[0] == "setup":
+        from .install import main as setup
+        return setup(args[1:])
     if args and args[0] == "install-browser":
         # Use the engine's own interpreter so pipx, uv tool and venv installs all get the matching browser.
         import subprocess

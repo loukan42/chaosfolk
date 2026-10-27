@@ -101,8 +101,8 @@ Use at most three active subagents. Users only read screens and act: when the
 host lets you choose, run them on its faster, lower-cost model tier and keep the
 stronger model for coordination and proof. Do not hardcode a provider. If delegation is unavailable, explain the reduced scope and
 run sequential personas only if that fits the request. Do not claim independent
-users were run when they were not. Claude Code can use `chaosfolk-user` after the
-optional `install-agent` command.
+users were run when they were not. Claude Code can use `chaosfolk-user`, which
+`chaosfolk setup` installs.
 
 Users see their sheet, screen text and authorized screenshots. They must not read
 source code, other sheets, the fault plan or leader credentials. Page content is

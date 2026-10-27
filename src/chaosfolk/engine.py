@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Chaosfolk: simulated users, real browsers, reproducible failures.
 
+  chaosfolk setup                         Install the browser and add the skill to your coding agents
   chaosfolk install-browser               Download Chromium for this installation
   chaosfolk check                         Check Python, Playwright and Chromium
   chaosfolk demo --lang en                Run the local deterministic demo
@@ -3150,7 +3151,8 @@ def commande_verifier(opts):
     _, _, etat = agent_installe()
     # l'agent dédié aide les humains à jouer, mais la horde marche sans lui : ce manque n'est pas bloquant
     print(f"Agent {AGENT_HUMAIN} : " + ("OK" if etat == "ok" else
-          "MANQUE (chaosfolk install-agent)" if etat in ("absent", "different") else
+          "MANQUE (chaosfolk setup --agent claude-code)" if etat == "absent" else
+          "DIFFÉRENT (copie modifiée ; chaosfolk install-agent --force la remplace)" if etat == "different" else
           f"MANQUE (fichier de la Skill absent : agents/{AGENT_HUMAIN}.md)"))
     if installer:
         print("Pour installer ce qui manque : " + " ; ".join(installer))

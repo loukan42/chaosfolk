@@ -105,121 +105,80 @@ not a measure of total coverage.
 
 ## Install
 
-Chaosfolk has two parts: the **engine**, a Python program that drives the
-browsers, and the **skill**, which teaches your coding agent how to use it.
-Install both once; they work in every project.
+One command installs everything: the engine, its browser, and the skill for
+each coding agent found on your computer (Claude Code, Codex, Cursor, GitHub
+Copilot, Gemini CLI, OpenCode and Windsurf). You don't need Python, Node.js or
+Git first.
 
-Quick install of the skill, with [npx](https://nodejs.org/) and the
-[Skills CLI](https://github.com/vercel-labs/skills):
-
-```bash
-npx skills add loukan42/chaosfolk --skill chaosfolk -g
-```
-
-The engine is installed separately in step 1. Step 2 below explains how to
-pick your agent.
-
-### Before you start
-
-Open a terminal and check these three commands. Each one should print a version.
+**macOS and Linux**
 
 ```bash
-python --version
-node --version
-git --version
+curl -LsSf https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.sh | sh
 ```
 
-| You need | Version | If it is missing |
-| --- | --- | --- |
-| Python | 3.12 or newer | [python.org/downloads](https://www.python.org/downloads/). On Windows, tick "Add python.exe to PATH". |
-| Node.js | 22.20 or newer | [nodejs.org](https://nodejs.org/), LTS version |
-| Git | any | [git-scm.com/downloads](https://git-scm.com/downloads) |
+**Windows**, in PowerShell
 
-On macOS and Linux, type `python3` wherever this guide says `python`.
-
-### Step 1: install the engine
-
-Install `pipx`, a tool that installs Python programs so they work from any folder:
-
-```bash
-python -m pip install --user pipx
-python -m pipx ensurepath
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.ps1 | iex"
 ```
 
-**Close your terminal and open a new one**, then install Chaosfolk and its
-browser:
-
-```bash
-pipx install git+https://github.com/loukan42/chaosfolk.git
-chaosfolk install-browser
-chaosfolk check
-```
-
-`check` prints one line per requirement. Every line should end with `OK`,
-except the `chaosfolk-user` line, which only matters for Claude Code (step 3).
-
-### Step 2: add the skill to your coding agent
-
-Run the line for your agent. `-g` installs the skill for all your projects.
-
-| Agent | Command |
-| --- | --- |
-| Claude Code | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a claude-code` |
-| Codex | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a codex` |
-| Cursor | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a cursor` |
-| GitHub Copilot | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a github-copilot` |
-| Gemini CLI | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a gemini-cli` |
-| OpenCode | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a opencode` |
-| Windsurf | `npx skills add loukan42/chaosfolk --skill chaosfolk -g -a windsurf` |
-| Another agent | `npx skills add loukan42/chaosfolk --skill chaosfolk -g`, then pick it from the list |
-
-The installer is the [Skills CLI](https://github.com/vercel-labs/skills), which
-supports [over 70 agents](https://github.com/vercel-labs/skills/blob/main/docs/agents.md).
-Answer `y` if `npx` asks to download it. Then **restart your agent** or open a
-new session so it finds the skill.
-
-### Step 3: Claude Code only
-
-```bash
-chaosfolk install-agent
-```
-
-This adds the simulated user definition, which runs testers on a cheaper model
-and limits their tools. Restart Claude Code afterwards.
-
-### Check that it works
-
-Ask your agent: `Run chaosfolk check and tell me if anything is missing.` If it
-answers with the same `OK` lines, you are ready.
+Then **restart your coding agent** and ask it: `Run chaosfolk check and tell me
+if anything is missing.` To update later, run the same command again.
 
 Chaosfolk works best when your agent can start subagents, so testers run in
 parallel. Without subagents, the agent plays them one after another: the run
 takes longer and the testers are less independent.
 
 <details>
-<summary>Something went wrong?</summary>
+<summary>What the installer does</summary>
 
-- **`chaosfolk: command not found`**: open a new terminal. If it still fails,
-  run `python -m pipx ensurepath` again, then open another new terminal.
-- **`pip` refuses with "externally managed environment"** (some Linux and
-  Homebrew setups): install pipx with your package manager instead, for example
-  `brew install pipx` or `sudo apt install pipx`.
-- **`npx: command not found`** or a Node.js version error: install the LTS
-  version from [nodejs.org](https://nodejs.org/), then open a new terminal.
-- **`chaosfolk check` shows a missing browser**: run `chaosfolk install-browser`
-  again. On Linux, `chaosfolk install-browser --with-deps` also installs the
-  system libraries Chromium needs.
-- **Your agent does not know Chaosfolk**: restart it, or check that you used
-  the `-a` value of the agent you actually use. `npx skills list -g` shows what
-  is installed.
-- **You prefer [uv](https://docs.astral.sh/uv/)**: `uv tool install git+https://github.com/loukan42/chaosfolk.git`
-  replaces the `pipx` steps.
-- **Manual installation**, or details for each agent: see the
+1. Installs [uv](https://docs.astral.sh/uv/) if it is missing. uv downloads
+   Python 3.12 or newer into its own folder when your computer has none.
+2. Installs the Chaosfolk engine as a command-line tool, isolated from your other
+   Python packages, and adds it to your PATH.
+3. Runs `chaosfolk setup`, which downloads Chromium when no usable browser is
+   found, copies the skill into each agent's skills folder and, for Claude Code,
+   adds the simulated user definition. That definition runs testers on Sonnet
+   with only the shell and file reading.
+
+You can read [install.sh](install.sh) and [install.ps1](install.ps1) before
+running them. Set `CHAOSFOLK_NO_MODIFY_PATH=1` to keep your PATH unchanged.
+
+</details>
+
+<details>
+<summary>Other ways to install</summary>
+
+- **Your agent was not detected**, or you want one agent only: run
+  `chaosfolk setup --agent claude-code`. The other ids are `codex`, `cursor`,
+  `github-copilot`, `gemini-cli`, `opencode`, `windsurf`, and `universal` for the
+  shared `~/.agents/skills` folder.
+- **With pipx or uv** you already use:
+  `pipx install git+https://github.com/loukan42/chaosfolk.git`, or
+  `uv tool install git+https://github.com/loukan42/chaosfolk.git`, then
+  `chaosfolk setup`.
+- **With the [Skills CLI](https://github.com/vercel-labs/skills)** for the skill:
+  `npx skills add loukan42/chaosfolk --skill chaosfolk -g`. It does not install
+  the engine: use one of the commands above for that.
+- **Manual installation** and details for each agent: see the
   [agent guide](docs/agents.md).
 
 </details>
 
-To update later, run `pipx upgrade chaosfolk` and `npx skills update -g`.
+<details>
+<summary>Something went wrong?</summary>
+
+- **`chaosfolk: command not found`**: open a new terminal; the installer added
+  Chaosfolk to your PATH for new terminals only.
+- **`chaosfolk check` shows a missing browser**: run `chaosfolk install-browser`.
+  On Linux, `chaosfolk install-browser --with-deps` also installs the system
+  libraries Chromium needs.
+- **Your agent does not know Chaosfolk**: restart it, or run
+  `chaosfolk setup --agent <id>` for the agent you actually use.
+- **To uninstall**: run `uv tool uninstall chaosfolk`, then delete the
+  `chaosfolk` folder from your agent's skills folder.
+
+</details>
 
 ## Try the demo
 

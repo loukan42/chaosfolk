@@ -40,5 +40,7 @@ jobs:
               subprocess.run([str(python), '-m', 'pip', 'install', str(wheel)], check=True)
               subprocess.run([str(python), '-m', 'chaosfolk', '--version'], cwd=root, check=True)
               subprocess.run([str(python), '-m', 'chaosfolk', 'check'], cwd=root, check=True)
+              subprocess.run([str(python), '-m', 'chaosfolk', 'setup', '--skip-browser', '--agent', 'claude-code', '--home', str(root / 'home')], cwd=root, check=True)
+              assert (root / 'home' / '.claude' / 'skills' / 'chaosfolk' / 'docs' / 'workflow.md').is_file()
               subprocess.run([str(python), '-m', 'chaosfolk', 'draw', '--count', '1', '--seed', '42', '--objectives', 'Create a project', '--folder', str(root / 'session')], cwd=root, check=True)
               subprocess.run([str(python), '-m', 'chaosfolk', 'sheets', '--folder', str(root / 'session'), '--data', 'Synthetic names', '--forbidden', 'External actions'], cwd=root, check=True)
