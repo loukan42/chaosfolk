@@ -18,8 +18,18 @@ tracks check coverage and groups findings; [docs/integrations.md](docs/integrati
 covers report sanitizing, host-reported cost limits, test mailbox, files, axe-core,
 k6, Appium and the read-only MCP server; [docs/benchmark.md](docs/benchmark.md)
 measures the harness and an exploration on apps with known defects.
+[docs/chaos.md](docs/chaos.md) covers optional injection policies, simulation,
+live controls, shared-environment limits, hooks and finite recurring jobs.
 
 ## Choose the work the user requested
+
+Keep optional chaos controls out of ordinary runs unless the project already
+has a policy or the user requests them. A policy never calls for extra users,
+model calls, scouting, replays or retries. Honor the chosen run budget. Do not
+wait for skipped injections or rerun users to fill an injection quota. Use
+deterministic regression commands for recurring fix checks; register a recurring
+job only when requested. Do not enable health/tracker/secret hooks, install an
+OS schedule or run every fault merely because these options exist.
 
 - Existing report: open it. Regenerate with `report` if needed; no new exploration.
 - Verify a fix: replay the affected scenario and its control. When the project

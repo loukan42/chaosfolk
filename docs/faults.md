@@ -3,6 +3,10 @@
 Apply faults only inside an authorized test session. `fault` and `fault-end`
 require the coordinator's `CHAOSFOLK_LEADER_TOKEN`.
 
+For optional simulation, injection budgets, exclusions, incident hooks and shared
+coordination, see [chaos policies](chaos.md). These controls do not add model
+calls or change ordinary run budgets.
+
 ```bash
 chaosfolk fault offline --humans h01 --after-actions 6 --duration 20
 chaosfolk fault http-error --humans h02 --pattern "*/api/*" --method POST --status 503 --after-actions 5 --duration 15

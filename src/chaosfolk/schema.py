@@ -64,6 +64,13 @@ def normalize_scenario(scenario):
         raise ValueError("Scenario faults must be a list of objects")
     result["pannes"] = [aliases(f, {"start_action": "debut_n", "end_action": "fin_n"}) for f in faults]
     for fault in result["pannes"]:
+        if "chaos_exclude" in fault:
+            exclusions = fault["chaos_exclude"]
+            if not isinstance(exclusions, dict) or exclusions.keys() - {"routes", "methods"} or any(
+                not isinstance(values, list) or any(not isinstance(value, str) or not value for value in values)
+                for values in exclusions.values()
+            ):
+                raise ValueError("Fault chaos_exclude supports lists of route and method patterns")
         if ALIAS_PANNES.get(fault.get("type"), fault.get("type")) not in PANNES:
             raise ValueError(f"Unknown fault: {fault.get('type')!r}")
         for field in ("debut_n", "fin_n", "debut_etape", "fin_etape"):

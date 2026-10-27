@@ -7,6 +7,20 @@ software: until 1.0, a minor version can change commands and file formats.
 
 ## [Unreleased]
 
+### Added
+
+- Optional JSON/TOML chaos policies for injection probability, cooldowns,
+  simultaneous/total/affected-user budgets, duration caps, groups, exclusions,
+  forbidden fault combinations and timezone-aware windows. Existing runs keep
+  their budgets and fault behavior; policies add no model calls or automatic retries.
+- `launch --dry-run`, `chaos pause|resume|simulate|live|enable|disable`, separate
+  scheduling controls, and recorded injection plans/metrics. Simulated faults do
+  not produce real fault-start evidence. Request exclusions survive extraction/replay.
+- Opt-in SQLite coordination between sessions, dynamic policy reload, bounded
+  incident/tracking/error hooks and environment/command credential providers.
+- `chaos schedule` registers finite, disabled-by-default recurring foreground
+  commands. An external scheduler calls `run-due`; no OS tasks are installed.
+
 ## [0.6.0] - 2026-10-27
 
 Confirmed findings can now be kept as tests and replayed in CI.

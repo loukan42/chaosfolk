@@ -455,3 +455,40 @@ def test_audit_measures_layout_accessibility_resources_and_keyboard(tmp_path, qa
         assert all(Path(v["screenshot"]).is_file() for v in audit["viewports"])
     finally:
         cli("stop", env=env)
+
+
+def test_chaos_simulation_controls_and_request_exclusions(tmp_path, fixture_url):
+    env = dict(os.environ, CHAOSFOLK_HOME=str(tmp_path / "state"))
+    env.pop("CHAOSFOLK_LEADER_TOKEN", None)
+    folder = tmp_path / "session"
+    policy = tmp_path / "policy.json"
+    policy.write_text(json.dumps({"dry_run": True, "max_active": 1, "exclude": {"routes": ["/index.html"]}}))
+    launch = cli("launch", "--url", fixture_url, "--folder", folder, "--chaos-policy", policy, env=env)
+    assert launch.returncode == 0, launch.stdout + launch.stderr
+    leader = dict(env, CHAOSFOLK_LEADER_TOKEN=json.loads((folder / "serveur.json").read_text())["jeton_chef"])
+    try:
+        assert cli("chaos", "pause", env=env).returncode == 1
+        personas = folder / "personas.json"
+        personas.write_text('{"humains":[{"id":"h01","nom":"Alex"},{"id":"h02","nom":"Sam"}]}')
+        assert cli("humans", personas, env=leader).returncode == 0
+        # Simulation records intent without intercepting requests or producing real fault evidence.
+        assert cli("fault", "http-error", "--humans", "h01", "--status", "503", env=leader).returncode == 0
+        assert cli("inspect", "h01", "fetch('/index.html').then(r=>r.status)", env=leader).stdout.strip() == "200"
+        events = [json.loads(line) for line in (folder / "journal.jsonl").read_text(encoding="utf-8").splitlines()]
+        assert any(e["type"] == "chaos-simulated" for e in events)
+        assert not any(e["type"] == "panne-debut" for e in events)
+        assert cli("chaos", "live", env=leader).returncode == 0
+        assert cli("fault", "http-error", "--humans", "h01", "--status", "503", env=leader).returncode == 0
+        assert cli("inspect", "h01", "fetch('/api/order').then(r=>r.status)", env=leader).stdout.strip() == "503"
+        assert cli("inspect", "h01", "fetch('/index.html').then(r=>r.status)", env=leader).stdout.strip() == "200"
+        assert cli("fault", "http-error", "--humans", "h02", "--status", "503", env=leader).returncode == 0
+        plan = json.loads((folder / "chaos-plan.json").read_text())
+        assert plan["faults"][-1]["reason"] == "max-active"
+        assert cli("chaos", "pause", "--end-active", env=leader).returncode == 0
+        assert cli("inspect", "h01", "fetch('/api/order').then(r=>r.status)", env=leader).stdout.strip() == "404"
+        assert cli("fault", "http-error", "--humans", "h02", env=leader).returncode == 0
+        plan = json.loads((folder / "chaos-plan.json").read_text())
+        assert plan["faults"][-1]["reason"] == "injections-paused"
+        assert cli("chaos", "inspect", "--folder", folder, env=env).returncode == 0
+    finally:
+        cli("stop", env=leader)

@@ -19,6 +19,7 @@ classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Pytho
 dev = ["pytest>=8,<10", "build>=1,<2", "ruff>=0.11,<1"]
 visual = ["Pillow>=10,<13"]
 pdf = ["pypdf>=5,<7"]
+chaos = ["tzdata>=2025.2"]
 
 [project.scripts]
 chaosfolk = "chaosfolk.cli:main"

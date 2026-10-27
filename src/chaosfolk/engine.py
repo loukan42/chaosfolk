@@ -21,6 +21,7 @@
   chaosfolk compare known.json unknown.json   Same outcome expected (enumeration)
   chaosfolk map --folder DIR --project NAME   Journey map and routes to explore
   chaosfolk campaign record|compare|select|status --project NAME
+  chaosfolk chaos --help                 Optional injection controls and finite recurring jobs
   chaosfolk report --folder DIR --lang en|fr
   chaosfolk stop                          Close browsers and the managed app
 
@@ -74,12 +75,12 @@ def charger_moteur():
 COMMANDES_CHEF = {
     "check", "launch", "start", "serve", "humans", "fault", "faults", "fault-end", "status",
     "network", "stop", "stop-app", "save-state", "inspect", "analyze", "trace", "extract", "replay", "report",
-    "draw", "drawn-faults", "sheets", "install-agent", "fields", "vary", "compare", "audit",
+    "draw", "drawn-faults", "sheets", "install-agent", "fields", "vary", "compare", "audit", "chaos-control",
 }
 # commandes qui exigent le jeton du chef (un humain n'en a pas besoin et ne doit pas pouvoir les lancer).
 # Le client ne l'envoie que si la variable d'environnement CHAOSFOLK_LEADER_TOKEN le porte : un humain qui lirait
 # serveur.json n'obtient rien en lançant la commande sans elle
-COMMANDES_RESERVEES = {"stop", "fault", "fault-end", "inspect", "save-state", "humans", "audit"}
+COMMANDES_RESERVEES = {"stop", "fault", "fault-end", "inspect", "save-state", "humans", "audit", "chaos-control"}
 COMMANDES_LOURDES = {"check", "launch", "start", "serve", "stop-app", "analyze", "trace", "extract", "replay", "report",
                      "vary", "compare"}
 # "draw" ne charge que tirage.py ; "drawn-faults" et "sheets" n'ont besoin que du client
@@ -887,6 +888,11 @@ class Monde:
         try:
             requete = route.request
             for panne in list(self.pannes):
+                exclusions = panne.get("chaos_exclude", {})
+                if exclusions:
+                    from .chaos import matches
+                    if matches(exclusions.get("routes", []), urlparse(requete.url).path) or matches(exclusions.get("methods", []), requete.method):
+                        continue
                 if not panne_vise(panne, requete, self.origine):
                     continue
                 type_panne = panne["type"]
@@ -1389,6 +1395,11 @@ class Horde:
                 self.n_panne = max(self.n_panne, int(m.group(1)))
         self.origine_journal -= dernier_t / 1000 + 1
         self.journal_f = open(self.dossier / "journal.jsonl", "a", encoding="utf-8")
+        from .chaos import Controller, policy_path
+        source = policy_path(getattr(opts, "chaos_policy", None), getattr(opts, "project", None))
+        self.chaos = Controller(self.dossier, self.jeton, source, getattr(opts, "dry_run", False)) if source or getattr(opts, "dry_run", False) else None
+        if self.chaos:
+            self.chaos.snapshot(self.pannes)
 
     def horodatage(self):
         """Millisecondes écoulées depuis l'origine du journal."""
@@ -1398,6 +1409,10 @@ class Horde:
         evenement = {"t": self.horodatage(), **evenement}
         self.journal_f.write(json.dumps(evenement, ensure_ascii=False) + "\n")
         self.journal_f.flush()
+        if getattr(self, "chaos", None):
+            self.chaos.event(evenement)
+            if evenement["type"] in {"chaos-planned", "chaos-skipped", "chaos-simulated", "chaos-cancelled", "chaos-control", "panne-debut", "panne-fin"}:
+                self.chaos.snapshot(self.pannes)
 
     def lancer(self, coroutine):
         """Lance une tâche de fond en la gardant."""
@@ -1496,6 +1511,8 @@ class Horde:
             config = lire_json(self.dossier / "config.json", {})
             config.update({"url": self.url, "debut": info["debut"], "navigateur": self.canal,
                            "app_commande": self.opts.app_commande, "projet": getattr(self.opts, "project", None)})
+            if self.chaos:
+                config["chaos"] = self.chaos.status()
             ecrire_json(self.dossier / "config.json", config)
             self.journal({"type": "debut", "url": self.url, "navigateur": self.canal})
             print(f"horde prête sur le port {port} ({self.canal})", flush=True)
@@ -1511,6 +1528,8 @@ class Horde:
         self.journal({"type": "fin-horde", "garder_app": self.garder_app or None})
         for tache in list(self.taches):
             tache.cancel()
+        if self.taches:
+            await asyncio.gather(*list(self.taches), return_exceptions=True)
         for m in self.humains.values():
             for tache in list(m.taches):
                 tache.cancel()
@@ -1525,6 +1544,8 @@ class Horde:
                 await self.app_arreter()
         elif self.app_log:
             self.app_log.close()
+        if self.chaos:
+            await self.chaos.close()
         self.journal_f.close()
         with suppress(Exception):
             if lire_json(FICHIER_ACTIF, {}).get("pid") == os.getpid():
@@ -1535,6 +1556,8 @@ class Horde:
         while not self.arret.is_set():
             await asyncio.sleep(0.25)
             try:
+                if self.chaos:
+                    await self.chaos.refresh()
                 self.verifier_pannes()
             except Exception as e:
                 self.journal({"type": "erreur-moteur", "message": premiere_ligne(e)})
@@ -1584,10 +1607,37 @@ class Horde:
         commandes = {"humans": self.creer_humains, "action": self.action, "fault": self.programmer_panne,
                      "fault-end": self.terminer_panne, "save-state": self.sauver_etat,
                      "inspect": self.inspecter, "stop": self.demander_arret, "erreur_commande": self.noter_erreur_commande,
-                     "audit": self.auditer}
+                     "audit": self.auditer, "chaos-control": self.controler_chaos}
         if cmd not in commandes:
             return {"ok": False, "texte": f"commande inconnue : {cmd}"}
         return await commandes[cmd](req)
+
+    async def controler_chaos(self, req):
+        action = req.get("action")
+        allowed = {"status", "pause", "resume", "simulate", "live", "enable", "disable", "schedule-on", "schedule-off"}
+        if action not in allowed:
+            raise ValueError("Unknown chaos control")
+        if self.chaos is None:
+            if action == "status":
+                return {"ok": True, "texte": json.dumps({"policy": None, "enabled": True, "dry_run": False})}
+            from .chaos import Controller
+            self.chaos = Controller(self.dossier, self.jeton)
+        if action in ("pause", "resume"):
+            self.chaos.paused = action == "pause"
+        elif action in ("enable", "disable"):
+            self.chaos.override["enabled"] = action == "enable"
+        elif action in ("schedule-on", "schedule-off"):
+            self.chaos.override["schedule_enabled"] = action == "schedule-on"
+        elif action in ("simulate", "live"):
+            self.chaos.override["dry_run"] = action == "simulate"
+        if req.get("end_active"):
+            for fault in self.pannes:
+                if fault["phase"] == "active" and fault["type"] not in PANNES_INSTANT:
+                    fault["fin_prevue"] = self.horodatage()
+            self.verifier_pannes()
+        if action != "status":
+            self.journal({"type": "chaos-control", "action": action})
+        return {"ok": True, "texte": json.dumps(self.chaos.status())}
 
     async def demander_arret(self, req):
         self.garder_app = bool(req.get("garder_app"))
@@ -2060,7 +2110,11 @@ class Horde:
         if commun["a"] is None and commun["apres"] is None:
             commun["a"] = self.horodatage()
         for hid in ids:
-            self.pannes.append({"id": f"{lot}-{hid}" if hid else lot, "h": hid, **commun})
+            fault = {"id": f"{lot}-{hid}" if hid else lot, "h": hid, **commun}
+            fault["scheduled"] = bool(req.get("scheduled") or quand_a is not None or apres is not None)
+            self.pannes.append(fault)
+            if self.chaos:
+                self.journal({"type": "chaos-planned", "id": fault["id"], "h": hid, "panne": t})
         self.verifier_pannes()
         return {"ok": True, "texte": f"panne {lot} ({t}) programmée"}
 
@@ -2072,6 +2126,11 @@ class Horde:
         for p in trouvees:
             if p["phase"] == "programmee":
                 p["phase"] = "annulee"
+                if self.chaos:
+                    self.journal({"type": "chaos-cancelled", "id": p["id"], "h": p["h"], "panne": p["type"]})
+            elif p["phase"] == "admission":
+                p["phase"] = "annulee"
+                self.journal({"type": "chaos-cancelled", "id": p["id"], "h": p["h"], "panne": p["type"]})
             elif p["phase"] == "active" and p["type"] not in PANNES_INSTANT:
                 p["fin_prevue"] = self.horodatage()
         self.verifier_pannes()
@@ -2087,10 +2146,10 @@ class Horde:
                 prete = (p["a"] is not None and maintenant >= p["a"]) or \
                         (p["apres"] is not None and m is not None and m.n_gestes >= p["apres"])
                 if prete:
-                    p["phase"] = "active"   # d'un coup : une panne ne s'active jamais deux fois
+                    p["phase"] = "admission" if self.chaos else "active"
                     self.lancer(self._tache_panne(self.activer, p, maintenant))
             elif p["phase"] == "active" and p.get("fin_prevue") is not None and maintenant >= p["fin_prevue"]:
-                p["phase"] = "redemarrage" if p["type"] in PANNES_GLOBALES else "terminee"
+                p["phase"] = "redemarrage" if self.chaos or p["type"] in PANNES_GLOBALES else "terminee"
                 self.lancer(self._tache_panne(self.desactiver, p, maintenant))
 
     async def _tache_panne(self, fonction, p, maintenant):
@@ -2105,12 +2164,31 @@ class Horde:
             await fonction(p, maintenant)
         except Exception as e:
             p["erreur"] = premiere_ligne(e, 200)
+            if self.chaos and p["phase"] == "admission":
+                p["phase"], p["reason"] = "ignoree", "engine-admission-error"
+                await self.chaos.release(p)
+                self.journal({"type": "chaos-skipped", "id": p["id"], "h": p["h"], "panne": p["type"], "reason": p["reason"]})
             self.journal({"type": "erreur-moteur", "message": f"{p['id']} : {p['erreur']}"})
         finally:
             if pris:
                 verrou.release()
 
     async def activer(self, p, maintenant):
+        if self.chaos:
+            if p["phase"] == "annulee":
+                return
+            reason = await self.chaos.admit(p, self)
+            if p["phase"] == "annulee":
+                await self.chaos.release(p)
+                return
+            if reason or self.chaos.dry_run():
+                p["phase"] = "ignoree" if reason else "simulee"
+                p["reason"] = reason or "dry-run"
+                self.journal({"type": "chaos-skipped" if reason else "chaos-simulated", "id": p["id"],
+                              "h": p["h"], "panne": p["type"], "reason": p["reason"], "group": p.get("chaos_group")})
+                return
+            p["phase"] = "active"
+            maintenant = self.horodatage()
         p["debut"] = maintenant
         if p.get("duree") and "fin_prevue" not in p:
             p["fin_prevue"] = maintenant + p["duree"]
@@ -2123,12 +2201,20 @@ class Horde:
         except Exception as e:
             p["erreur"] = premiere_ligne(e, 200)
         params = {k: p[k] for k in PARAMS_PANNE + ("note",) if p.get(k) not in (None, "")}
+        exclusions = p.get("chaos_exclude", {})
+        if exclusions.get("routes") or exclusions.get("methods"):
+            params["chaos_exclude"] = {key: exclusions.get(key, []) for key in ("routes", "methods")}
         self.journal({"type": "panne-debut", "id": p["id"], "lot": p["lot"], "h": p["h"], "panne": p["type"],
                       "params": params, "erreur": p.get("erreur")})
         if p["type"] in PANNES_INSTANT:
             p["phase"] = "terminee"
             p["fin"] = maintenant
             self.journal({"type": "panne-fin", "id": p["id"], "lot": p["lot"], "h": p["h"], "panne": p["type"]})
+            if self.chaos:
+                await self.chaos.release(p)
+        elif p.get("erreur") and self.chaos:
+            # Partially installed reversible faults are removed immediately.
+            await self.desactiver(p, self.horodatage())
 
     async def desactiver(self, p, maintenant):
         p["fin"] = maintenant
@@ -2145,6 +2231,8 @@ class Horde:
             if p in self.globales_actives:
                 self.globales_actives.remove(p)
             p["phase"] = "terminee"
+            if self.chaos:
+                await self.chaos.release(p)
         self.journal({"type": "panne-fin", "id": p["id"], "lot": p["lot"], "h": p["h"], "panne": p["type"],
                       "erreur": p.get("erreur"), **extra})
 
@@ -2162,6 +2250,8 @@ class Horde:
                 ligne += f", méthodes : {methodes_visees(p)}"
             if p.get("erreur"):
                 ligne += f" ERREUR {p['erreur']}"
+            if p.get("reason"):
+                ligne += f" ({p['reason']})"
             lignes.append(ligne)
         return "\n".join(lignes)
 
@@ -3463,7 +3553,7 @@ def commande_pannes_tirees(opts):
         print(f"{p['type']} pour {p['humains']} : ", end="")
         code |= relayer({"cmd": "fault", "type": alias(p["type"], ALIAS_PANNES), "humains": p["humains"], "a": None,
                          "apres_actions": p.get("apres_actions"), "duree": p.get("duree"), "params": params,
-                         "note": f"tirage {plan.get('graine')}"})
+                         "note": f"tirage {plan.get('graine')}", "scheduled": True})
     return code
 
 
@@ -3546,7 +3636,7 @@ def positive_int(value):
 def construire_parseur():
     """Analyse des commandes du chef d'orchestre : une sous-commande par commande."""
     parseur = argparse.ArgumentParser(prog="chaosfolk", epilog=
-        "Additional commands (COMMAND --help): regression, planning, visual, privacy, usage, benchmark, integrations, mcp.")
+        "Additional commands (COMMAND --help): chaos, regression, planning, visual, privacy, usage, benchmark, integrations, mcp.")
     sous = parseur.add_subparsers(dest="commande", required=True)
 
     def commande(nom, fonction, parents=()):
@@ -3563,6 +3653,8 @@ def construire_parseur():
     lancement.add_argument("--channel", dest="canal")
     lancement.add_argument("--port", type=int)
     lancement.add_argument("--project", help="explicit project name kept with the session and its history, such as shop-front")
+    lancement.add_argument("--chaos-policy", help="optional JSON/TOML injection policy; no additional model calls")
+    lancement.add_argument("--dry-run", action="store_true", help="simulate injections; browser exploration still runs")
     lancement.add_argument("--visible", action="store_true")
     lancement.add_argument("--idle", dest="inactivite", type=positive_int, default=3600, help="arrêt automatique après N s sans commande")
     lancement.add_argument("--budget", type=positive_int, default=20, help="gestes par humain (sa fiche peut en donner un autre)")
@@ -3577,6 +3669,8 @@ def construire_parseur():
     commande("check", commande_verifier)
     commande("install-agent", commande_installer_agent).add_argument("--force", action="store_true", help="back up and replace an existing custom agent")
     commande("humans", commande_humains).add_argument("fichier")
+    p = commande("chaos-control", lambda a: relayer({"cmd": "chaos-control", "action": a.action}))
+    p.add_argument("action", choices=("status", "pause", "resume", "simulate", "live", "enable", "disable", "schedule-on", "schedule-off"))
     p = commande("sheets", commande_fiches)
     p.add_argument("--folder", dest="dossier", required=True)
     p.add_argument("--data", dest="donnees", required=True, help="données fictives permises (rangées dans la règle des données)")
