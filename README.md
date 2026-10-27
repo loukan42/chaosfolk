@@ -8,7 +8,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![MIT license](https://img.shields.io/badge/license-MIT-dcf78b)](LICENSE)
 
-[Test checklist](#test-checklist) · [Why](#why) · [How](#how) · [What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Try the demo](#try-the-demo) · [Use it on your app](#use-it-on-your-app) · [Control fault injection](#control-fault-injection) · [Keep what you found](#keep-what-you-found) · [Changelog](CHANGELOG.md)
+[What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Demo](#try-the-demo) · [Changelog](CHANGELOG.md)
 
 </div>
 
