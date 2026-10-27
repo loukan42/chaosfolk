@@ -15,7 +15,7 @@ def main(argv=None):
         args = args[2:]
     extensions = {"regression": "regression", "planning": "planning", "integrations": "integrations",
                   "mcp": "mcp_server", "visual": "visual", "privacy": "privacy", "usage": "usage",
-                  "benchmark": "benchmark"}
+                  "benchmark": "benchmark", "chaos": "chaos"}
     if args and args[0] in extensions:
         import importlib
         try:

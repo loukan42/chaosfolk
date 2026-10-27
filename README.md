@@ -8,7 +8,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![MIT license](https://img.shields.io/badge/license-MIT-dcf78b)](LICENSE)
 
-[Why](#why) · [How](#how) · [What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Try the demo](#try-the-demo) · [Use it on your app](#use-it-on-your-app) · [Keep what you found](#keep-what-you-found) · [Changelog](CHANGELOG.md)
+[Why](#why) · [How](#how) · [What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Try the demo](#try-the-demo) · [Use it on your app](#use-it-on-your-app) · [Control fault injection](#control-fault-injection) · [Keep what you found](#keep-what-you-found) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -236,6 +236,54 @@ These numbers cap browser actions, not tokens. Model cost depends on your agent
 host, your pages and the analysis. If the host exports its usage,
 `chaosfolk usage` stops the next batch at a token or cost limit.
 
+## Control fault injection
+
+Existing runs keep their users, action budgets and fault pool. Optional chaos
+policies let you limit simultaneous faults, the fraction of affected users,
+injection probability, frequency and duration. You can group users by role or
+journey, exclude targets and prevent certain faults from overlapping.
+
+The engine applies these rules without a model. A blocked injection is skipped
+with a recorded reason; it never waits for a slot or retries to fill a quota.
+Policies add no simulated users, exploration steps or automatic replays.
+
+To create a policy and use it for a short run:
+
+```bash
+chaosfolk chaos init --file qa/chaos.json
+chaosfolk chaos check qa/chaos.json
+chaosfolk launch --url http://localhost:3000 --project shop-front --folder .horde/run --level low --chaos-policy qa/chaos.json
+```
+
+Continue with the usual exploration workflow. The generated policy allows at
+most one active injection, four admissions per session and 20 seconds per fault,
+with at least 10 seconds between admissions. These are caps, not targets.
+Edit the JSON or use TOML for your own rules. `chaos init --project shop-front`
+saves a policy that future sessions of that named project load automatically.
+
+Add `--dry-run` to `launch` to record injections without applying them. Simulated
+injections never count as real fault evidence. Browser exploration still runs,
+and ordinary user actions can still change test data.
+
+During a session, the coordinator can run:
+
+```bash
+chaosfolk chaos pause --end-active
+chaosfolk chaos resume
+chaosfolk chaos inspect --folder .horde/run
+```
+
+Pause and resume require `CHAOSFOLK_LEADER_TOKEN`. `--end-active` removes reversible
+faults; it cannot restore cleared cookies or storage. `inspect` reads the saved
+injection plan, its statuses and skip reasons, including after the session ends.
+
+Time windows, coordination between runs sharing a test environment, and incident,
+tracking and credential hooks are opt-in. Recurring jobs start disabled unless
+explicitly enabled, require a finite attempt budget and timeout, and run through
+an external scheduler. Prefer saved scenario replays for recurring fix checks.
+Commands or hooks you configure can add runtime and model costs of their own.
+See [chaos policies and recurring jobs](docs/chaos.md) for configuration and limits.
+
 ## Keep what you found
 
 Once a finding is proven, you can keep it as a test that runs without a model:
@@ -274,5 +322,5 @@ sharing. See [SECURITY.md](SECURITY.md).
 ---
 
 [Workflow and coverage](docs/workflow.md) · [QA checks](docs/checks.md) · [Campaigns and sessions](docs/campaigns.md) ·
-[Fault injection](docs/faults.md) · [Replay format](docs/replay.md) · [Regressions and CI](docs/regression.md) ·
+[Fault injection](docs/faults.md) · [Chaos policies](docs/chaos.md) · [Replay format](docs/replay.md) · [Regressions and CI](docs/regression.md) ·
 [Planning](docs/planning.md) · [Integrations](docs/integrations.md) · [Benchmark](docs/benchmark.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
