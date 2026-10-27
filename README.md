@@ -290,7 +290,7 @@ sharing. See [SECURITY.md](SECURITY.md).
 
 ## Changelog
 
-### Unreleased
+### 0.5.0 · 2026-10-27
 
 - A catalog of 69 QA checks, with international test values for 15 countries,
   handed to each simulated user. See them with `chaosfolk checks`.
