@@ -7,6 +7,8 @@ software: until 1.0, a minor version can change commands and file formats.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-27
+
 Confirmed findings can now be kept as tests and replayed in CI.
 
 ### Added
@@ -130,7 +132,8 @@ First public alpha.
 - A local demo with 12 real Chromium trials and no model or API key.
 - The Python engine and a separate agent skill.
 
-[Unreleased]: https://github.com/loukan42/chaosfolk/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/loukan42/chaosfolk/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/loukan42/chaosfolk/compare/v0.5.1...v0.6.0
 [0.5.1]: https://github.com/loukan42/chaosfolk/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/loukan42/chaosfolk/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/loukan42/chaosfolk/compare/v0.3.0...v0.4.0
