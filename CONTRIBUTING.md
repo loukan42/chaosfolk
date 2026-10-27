@@ -23,3 +23,17 @@ the fix and passes after it.
 Internal function names and stored trace keys retain some French terminology.
 New public APIs and documentation use English. Translate interfaces incrementally
 with compatibility tests rather than renaming arbitrary strings in saved evidence.
+
+Add user-visible changes under `Unreleased` in [CHANGELOG.md](CHANGELOG.md), in
+the matching `Added`, `Changed`, `Fixed` or `Removed` group.
+
+## Releasing
+
+1. Move the `Unreleased` entries to a new dated version section in
+   `CHANGELOG.md` and update the comparison links at the bottom.
+2. Set the same version in `pyproject.toml` and `src/chaosfolk/__init__.py`.
+3. Run the tests, ruff and `python -m build`, then commit `Release X.Y.Z`.
+4. Tag that commit `vX.Y.Z` and push the branch and the tag.
+5. Create the GitHub release from the tag, with the version's changelog section
+   as notes and the wheel and source archive from `dist/` attached. Mark it as a
+   pre-release while Chaosfolk is alpha.

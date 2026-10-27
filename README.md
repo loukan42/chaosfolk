@@ -8,7 +8,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![MIT license](https://img.shields.io/badge/license-MIT-dcf78b)](LICENSE)
 
-[Why](#why) · [How](#how) · [What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Try the demo](#try-the-demo) · [Use it on your app](#use-it-on-your-app) · [Changelog](#changelog)
+[Why](#why) · [How](#how) · [What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Try the demo](#try-the-demo) · [Use it on your app](#use-it-on-your-app) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -288,53 +288,7 @@ Run it only on local apps or test environments you are allowed to test, with
 synthetic data. Screenshots can contain sensitive content, so review them before
 sharing. See [SECURITY.md](SECURITY.md).
 
-## Changelog
-
-### 0.5.0 · 2026-10-27
-
-- A catalog of 69 QA checks, with international test values for 15 countries,
-  handed to each simulated user. See them with `chaosfolk checks`.
-- New commands: `fields` classifies a page's fields, `vary` replays a form once
-  per test value, `compare` proves account enumeration, and `audit` measures
-  responsive, keyboard and WCAG signals.
-- `replay --persist` and the `field-value` assertion catch false success, data
-  loss, duplicates after a retry and out-of-sync views.
-- Apps are identified by a project name. `map` and `campaign` keep a journey
-  map and the findings of each campaign, and replay the open ones to check fixes.
-- Independent or coordinated sessions with roles, and scenarios that replay
-  several users in one trial.
-- Simulated users run on Sonnet in Claude Code and can chain up to four obvious
-  actions per call, which cuts token use.
-- `chaosfolk install-browser`, a step-by-step install guide for seven coding
-  agents, and the trailer video.
-
-<details>
-<summary><b>0.4.0</b> · 2026-10-26</summary>
-
-- Test themes: functional, ux, accessibility, resilience, security,
-  performance and compatibility, with the coverage of each one documented.
-- Low, medium and high run sizes, with `chaosfolk plan`.
-- More drawable faults and a local concurrency probe.
-- Report: synchronized session replay, logo header, English or French.
-- README rewritten around why, how and what, with audit recordings.
-
-</details>
-
-<details>
-<summary><b>0.3.0</b> · 2026-10-26 · first public alpha</summary>
-
-- Simulated users with their own browser, goal and habits, coordinated by your
-  coding agent.
-- Fault injection: offline, slow or failing requests, lost responses, full,
-  empty or corrupted storage, clock jumps and viewport changes.
-- Scenario extraction and replay without a model, with control series.
-- HTML report with findings, evidence counts, copyable fix prompts and a
-  session timeline.
-- A local demo app with a planted bug, run by `chaosfolk demo`.
-
-</details>
-
 ---
 
 [Workflow and coverage](docs/workflow.md) · [QA checks](docs/checks.md) · [Campaigns and sessions](docs/campaigns.md) ·
-[Fault injection](docs/faults.md) · [Replay format](docs/replay.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
+[Fault injection](docs/faults.md) · [Replay format](docs/replay.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)
