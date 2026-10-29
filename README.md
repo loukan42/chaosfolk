@@ -8,11 +8,49 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![MIT license](https://img.shields.io/badge/license-MIT-dcf78b)](LICENSE)
 
-[What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Demo](#try-the-demo) · [Changelog](CHANGELOG.md)
+[Choose a scan](#choose-a-scan) · [What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Demo](#try-the-demo) · [Changelog](CHANGELOG.md)
 
 </div>
 
+## Choose a scan
+
+Ask your coding agent to audit your product with Chaosfolk. Choose a depth in the
+local dashboard, then uncheck any tests you want to leave out. Every level covers
+the product as a whole; the deeper levels include more checks.
+
+| Scan | What it selects | Tests before application discovery |
+| --- | --- | ---: |
+| Quick (Rapide) | The highest-priority checks | 41, including 27 QA checks |
+| Standard | Priority checks and more cases around each journey | 96, including 57 QA checks |
+| Deep (Approfondi) | Every test in the catalog | 116, including all 69 QA checks |
+
+Chaosfolk adapts the selection to the features it finds in your app. A test that
+needs a missing account or tool stays marked as blocked. Your exclusions remain
+saved when you change depth or reopen the dashboard.
+
+![Choosing a scan depth, removing an email-validation test and setting a 15-minute limit in the real Chaosfolk dashboard.](assets/audit-scan.gif)
+
+[View a still image](assets/audit-scan.png). This recording shows the dashboard
+before a scan starts. It contains no test results or estimated AI usage.
+
+During the scan, follow the tests and elapsed time, set limits and stop new work
+from the same screen. AI usage appears when your coding tool supplies measurements;
+otherwise it is shown as unavailable. An AI request already in progress may finish
+and keep consuming usage after you press Stop.
+
+The report records what ran, what you removed and what remains unfinished. Deep
+counts as complete only when all selected, applicable tests have a recorded result.
+If access or the budget prevents that, the audit stays partial.
+
+Read the [setup and execution guide](docs/audit-runs.md) or the upcoming release
+notes in [English](docs/release-notes/product-audit-scans.md) and
+[French](docs/release-notes/product-audit-scans.fr.md).
+
 ## Test checklist
+
+The checklist includes test definitions, exploration methods, behavior profiles
+and execution controls. Its 116 selectable tests include the 69 QA checks below;
+the other 62 entries describe ways to run tests and collect evidence.
 
 <details>
 <summary><strong>Full test checklist: exploration, chaos experiments and 69 QA checks</strong></summary>
@@ -256,11 +294,12 @@ While they work, the engine injects the conditions real users meet: offline,
 slow or failing requests, lost responses, full or corrupted storage, cleared
 cookies, clock jumps and viewport changes.
 
-Each tester also gets part of a catalog of 69 checks, each with test values and
-the expected behavior, among them names in any script, phone numbers and postal
-codes from 15 countries, extreme input, double submits, interrupted forms,
-account enumeration and keyboard access. The engine reads each page's fields first, so
-testers only get the checks that apply.
+For a product audit, each tester receives a small batch from the saved selection,
+with test values and expected behavior. Those checks cover names in any script,
+phone numbers and postal codes from 15 countries, extreme input, double submits,
+interrupted forms, account enumeration and keyboard access. Chaosfolk reads the
+page's fields before assigning the relevant checks. Work that does not fit in one
+batch stays queued for the next, within the scan's limits.
 
 The agent turns each promising observation into a scenario with an explicit
 assertion, and the engine replays it without a model. A finding is reproduced

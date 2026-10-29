@@ -1,5 +1,10 @@
 # Run an exploration
 
+For a full product audit, start with [audit-runs.md](audit-runs.md). It adds depth,
+test selection, a durable queue, shared limits and live progress to this workflow.
+The `low`/`medium`/`high` presets below remain batch sizes for free exploration;
+they do not replace the `quick`/`standard`/`deep` audit depths.
+
 Use a local app or an explicitly authorized test target. These commands assume
 the virtual environment is active and the application is already running on port
 3000. Exclude `.horde/` from the application's git repository before collecting data.

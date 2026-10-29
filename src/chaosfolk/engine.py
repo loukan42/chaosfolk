@@ -33,6 +33,7 @@ Only run against local or explicitly authorized test environments.
 import argparse
 import fnmatch
 import json
+import hashlib
 import os
 import re
 import socket
@@ -88,7 +89,7 @@ GESTES = {
     "goto", "click", "type", "select", "tick", "key", "hover", "scroll",
     "back", "forward", "reload", "tab", "wait", "accept", "dismiss", "upload",
 }
-PAROLES = {"think", "flag", "giveup", "done"}
+PAROLES = {"think", "flag", "giveup", "done", "check-start", "check-result"}
 FINS = {"giveup", "done"}
 BOITE = {"accept", "dismiss"}
 GESTES_COMPTES = GESTES - {"wait"}
@@ -1447,6 +1448,8 @@ class Horde:
         self.opts = opts
         self.dossier = Path(opts.dossier).resolve()
         self.dossier.mkdir(parents=True, exist_ok=True)
+        from .audit_session import existing as existing_audit
+        self.audit_session = existing_audit(self.dossier)
         (self.dossier / "captures").mkdir(exist_ok=True)
         self.url = opts.url
         self.origine_journal = time.time()   # le temps du journal continue d'un lancement à l'autre
@@ -1648,10 +1651,21 @@ class Horde:
             try:
                 if self.chaos:
                     await self.chaos.refresh()
+                audit_due = self.audit_session and time.monotonic() - getattr(self, "audit_last_gate", 0) >= 1
+                if audit_due and self.audit_session.gate():
+                    # Stop admission of new work. Keep the engine available for
+                    # final results and explicit cleanup; never kill the host.
+                    for fault in self.pannes:
+                        if fault["phase"] == "programmee":
+                            fault["phase"] = "annulee"
+                        elif fault["phase"] == "active" and fault["type"] not in PANNES_INSTANT:
+                            fault["fin_prevue"] = self.horodatage()
+                if audit_due:
+                    self.audit_last_gate = time.monotonic()
                 self.verifier_pannes()
             except Exception as e:
                 self.journal({"type": "erreur-moteur", "message": premiere_ligne(e)})
-            if self.lance_a and time.time() - self.lance_a > self.duree_max + MARGE_ARRET:
+            if not self.audit_session and self.lance_a and time.time() - self.lance_a > self.duree_max + MARGE_ARRET:
                 self.journal({"type": "arret-duree-max"})
                 self.arret.set()
             if time.time() - self.dernier_contact > self.opts.inactivite:
@@ -1691,6 +1705,10 @@ class Horde:
 
     async def traiter(self, req):
         cmd = req["cmd"]
+        if cmd == "inspect" and getattr(self, "audit_session", None):
+            refusal = self.audit_session.gate(consume=True)
+            if refusal:
+                return {"ok": False, "texte": refusal}
         simples = {"faults": self.texte_pannes, "status": self.texte_bilan, "network": self.texte_reseau}
         if cmd in simples:
             return {"ok": True, "texte": simples[cmd]()}
@@ -1837,6 +1855,10 @@ class Horde:
 
     async def auditer(self, req):
         """Contrôles UI, responsive et accessibilité de l'onglet courant d'un humain (voir qa.audit_world)."""
+        if getattr(self, "audit_session", None):
+            refusal = self.audit_session.gate(consume=True)
+            if refusal:
+                return {"ok": False, "texte": refusal}
         m = self.humains.get(req["h"])
         if m is None:
             return {"ok": False, "texte": f"humain inconnu : {req['h']}"}
@@ -1862,6 +1884,10 @@ class Horde:
     # -- humains --
     async def creer_humains(self, req):
         """Crée les navigateurs des humains d'un fichier de personas. Un humain en erreur n'empêche pas les autres."""
+        if getattr(self, "audit_session", None):
+            refusal = self.audit_session.gate()
+            if refusal:
+                return {"ok": False, "texte": refusal}
         fichier = Path(req["fichier"])
         donnees = lire_json(fichier)
         if not donnees:
@@ -1951,8 +1977,16 @@ class Horde:
             return "ta session est terminée, plus aucun geste n'est possible."
         if verbe in PAROLES - {"think"}:
             return None
+        if getattr(self, "audit_session", None):
+            refusal = self.audit_session.gate(consume=verbe in GESTES or verbe == "look")
+            if refusal:
+                return "Audit stopped: " + refusal + '. Finish with done; do not retry or create another run.'
+            tasks = self.fiches.get(m.id, {}).get("audit_tasks", [])
+            active = getattr(m, "audit_task", None)
+            if tasks and (not active or not self.audit_session.task_allowed(active)):
+                return 'Choose an enabled assigned task with check-start before acting. If none remain, finish with done.'
         maintenant = time.time()
-        if self.lance_a and maintenant - self.lance_a > self.duree_max:
+        if not getattr(self, "audit_session", None) and self.lance_a and maintenant - self.lance_a > self.duree_max:
             return 'la horde est terminée (durée maximale atteinte). Termine maintenant : done "<ton bilan>".'
         if m.duree and m.debut_reel and maintenant - m.debut_reel > m.duree:
             return 'ton temps est écoulé. Termine maintenant : done "<ton bilan>".'
@@ -2160,11 +2194,37 @@ class Horde:
         resultat, message, description = "ok", "", None
         t0 = time.perf_counter()
         if verbe in PAROLES:
+            if verbe == "check-start":
+                if not self.audit_session:
+                    raise ValueError("No audit session is attached")
+                assigned = next((t for t in self.fiches[hid].get("audit_tasks", []) if t["task_id"] == args["task"]), None)
+                if assigned is None or not self.audit_session.task_allowed(args["task"]):
+                    raise ValueError("This audit task is not assigned, active and enabled")
+                refusal = self.audit_session.gate()
+                if refusal:
+                    raise ValueError(refusal)
+                m.audit_task, m.audit_start_action = args["task"], m.n + 1
+            if verbe == "check-result":
+                if not self.audit_session:
+                    raise ValueError("No audit session is attached")
+                assigned = next((t for t in self.fiches[hid].get("audit_tasks", []) if t["task_id"] == args["task"]), None)
+                if assigned is None:
+                    raise ValueError("This audit task is not assigned to this user")
+                if getattr(m, "audit_task", None) != args["task"] or m.n <= getattr(m, "audit_start_action", 0):
+                    raise ValueError("Read and exercise the page before reporting a result")
+                relative = f"audit-evidence/{hid}-{m.n}-{hashlib.sha256(args['task'].encode()).hexdigest()[:12]}.json"
+                ecrire_json(self.dossier / relative, {"user": hid, "action": m.n, "url": url_avant,
+                    "screen": m.ecrans.get(m.page, []), "capture": chemin_relatif(m.derniere_capture, self.dossier) if m.derniere_capture else None,
+                    "expected": assigned["expect"], "reported": args["texte"]})
+                self.audit_session.record(args["task"], args["status"], args["texte"], [relative], hid, assigned["claim"])
+                m.audit_task = None
             if verbe == "flag":
                 m.signalements += 1
                 evt["gravite"] = args.get("gravite") or "annoying"
             if verbe in FINS:
                 m.statut = "abandon" if verbe == "giveup" else "fini"
+                if getattr(self, "audit_session", None):
+                    self.audit_session.release(hid)
         elif verbe in GESTES:
             resultat, message, description, args = await self._jouer(m, verbe, args)
             if verbe != "wait":
@@ -2218,6 +2278,12 @@ class Horde:
 
     # -- pannes --
     async def programmer_panne(self, req):
+        if getattr(self, "audit_session", None):
+            refusal = self.audit_session.gate()
+            if refusal:
+                raise ValueError(refusal)
+            if not self.audit_session.fault_allowed(req["type"]):
+                raise ValueError("This fault is excluded or missing a prerequisite in the audit selection")
         t = req["type"]
         if t not in PANNES:
             raise ValueError(f"panne inconnue : {t} (connues : {', '.join(sorted(PANNES))})")
@@ -2290,7 +2356,16 @@ class Horde:
         """Programme l'activation et l'arrêt des pannes dues. Ne fait aucun appel à un navigateur :
         chaque panne s'applique dans sa propre tâche, avec un délai maximal."""
         maintenant = self.horodatage()
+        audit_run = getattr(self, "audit_session", None)
+        allowed_faults = audit_run.fault_selection() if audit_run and any(
+            p["phase"] in {"programmee", "admission", "active"} for p in self.pannes) else None
         for p in self.pannes:
+            if (allowed_faults is not None and p["phase"] in {"programmee", "admission", "active"}
+                    and p["type"] not in allowed_faults):
+                if p["phase"] in {"programmee", "admission"}:
+                    p["phase"] = "annulee"
+                elif p["type"] not in PANNES_INSTANT:
+                    p["fin_prevue"] = maintenant
             if p["phase"] == "programmee":
                 m = self.humains.get(p["h"]) if p["h"] else None
                 prete = (p["a"] is not None and maintenant >= p["a"]) or \
@@ -2324,6 +2399,10 @@ class Horde:
                 verrou.release()
 
     async def activer(self, p, maintenant):
+        if getattr(self, "audit_session", None):
+            if self.audit_session.gate() or not self.audit_session.fault_allowed(p["type"]):
+                p["phase"] = "annulee"
+                return
         if self.chaos:
             if p["phase"] == "annulee":
                 return
@@ -2489,6 +2568,8 @@ GESTES_ARGUMENTS = {
     "goto": ["url"], "click": ["ref"], "type": ["ref", "texte"], "select": ["ref", "option"],
     "tick": ["ref"], "key": ["touche"], "hover": ["ref"], "upload": ["ref", "chemin"],
     "wait": ["secondes"], "flag": ["texte"], "giveup": ["texte"], "done": ["texte"],
+    "check-result": ["task", "status", "texte"],
+    "check-start": ["task"],
 }
 SENS_PERMIS = ["down", "up", "right", "left", "top", "bottom"]
 GRAVITES_PERMISES = ["blocking", "annoying", "minor"]
@@ -2893,17 +2974,32 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
 
     journal_etapes = []
     fault_events = []
+    from .audit_session import existing as existing_audit
+    audit_run = existing_audit(dossier_horde)
+
+    def audit_interruption(consume=False):
+        reason = audit_run.gate(consume=consume) if audit_run else None
+        return ({"ok": None, "raisons": [], "rejeu_impossible": "Audit stopped: " + reason,
+                 "etapes": journal_etapes, "fault_events": fault_events, "live_evidence": live_evidence()}
+                if reason else None)
+
     started = time.monotonic()
     def record_fault(event, fault, step):
         fault_events.append({"event": event, "type": fault["type"], "step": step,
                              "id": fault.get("id"),
                              "elapsed_ms": round((time.monotonic() - started) * 1000)})
     try:
+        interrupted = audit_interruption()
+        if interrupted:
+            return interrupted
         m = await ouvrir(principale)
         plan, avertissements = planifier_pannes(sc) if avec_pannes else ([], [])
         principal = m
         calme_fait = True                 # la page vient d'être attendue : pas de second calme en fin d'essai
         for i, etape in enumerate(sc["etapes"], start=1):
+            interrupted = audit_interruption(consume=True)
+            if interrupted:
+                return interrupted
             # les pannes ne touchent que la session principale ; chaque geste se joue dans sa session
             for p in plan:
                 if p["avant_etape"] == i:
@@ -2944,6 +3040,9 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
         if not calme_fait:
             await m.calme()
         if sc.get("recette"):
+            interrupted = audit_interruption(consume=True)
+            if interrupted:
+                return interrupted
             try:
                 await appliquer_recette(m, sc)
             except Exception as e:
@@ -2956,6 +3055,9 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
             await m.calme()
         raisons, inverifiable = [], ""
         for session in dict.fromkeys(r.get("session") for r in sc.get("attendu") or []):
+            interrupted = audit_interruption()
+            if interrupted:
+                return interrupted
             # un attendu sans session se lit dans la dernière session qui a agi
             monde = m if session in (None, "") else mondes.get(session) or await ouvrir(session)
             trouve, inverifiable = await verifier_attendu(monde, [r for r in sc["attendu"] if r.get("session") == session])
@@ -3423,6 +3525,11 @@ def _rapport(dossier, langue, journal):
                                "commande": None},
                "horde": "chaosfolk",
                "constats_infos": infos_constats(dossier, constats, journal, personas)}
+    from .audit_session import existing as existing_audit
+    audit_run = existing_audit(dossier)
+    if audit_run:
+        donnees["audit_session"] = audit_run.snapshot()
+        ecrire_json(dossier / "audit-coverage.json", audit_run.snapshot(details=True))
     from chaosfolk.branding import report_branding
     donnees["branding"] = report_branding(dossier)
     from chaosfolk.scoring import score_report
@@ -3704,6 +3811,16 @@ def commande_fiches(opts):
 
         fichier = dossier / "fiches" / f"{h['id']}.md"
         texte = re.sub(r"\{([a-z_]+)\}", remplir, modele)
+        if h.get("audit_tasks"):
+            work = ["AUDIT TASKS", "Run only these assigned checks, at the stated pages. Record each outcome before done.",
+                    "Before each task, use check-start TASK_ID. It checks that the test is still enabled.",
+                    "Use check-result TASK_ID passed|failed|blocked|inconclusive \"observed outcome and expected rule\".",
+                    "A result records an observation; the coordinator must prove any defect with replay.",
+                    "If the audit is stopped or your checks are disabled, finish immediately; never restart it."]
+            for task in h["audit_tasks"]:
+                work += [f"- Task {task['task_id']} at {task['route'] or 'the relevant product journey'}: {task['title']}",
+                         task["try"], "Expected: " + task["expect"]]
+            texte += "\n\n" + "\n".join(work)
         fichier.write_text("\n".join(x.rstrip() for x in texte.splitlines()) + "\n", encoding="utf-8")
         print(f"{h['id']} : {fichier.as_posix()}"
               + (f" (champs vides : {', '.join(vides)})" if vides else "")
@@ -3820,11 +3937,51 @@ def commande_tirer(opts):
                                         budget=opts.budget, fault_types=selected_faults, themes=opts.themes,
                                         checks=opts.checks, detected=known_pages(opts.dossier), countries=opts.countries,
                                         explore=explore, sessions=opts.sessions, shared=shared, roles=roles)
+    from .audit_session import existing as existing_audit, catalog as audit_catalog
+    session = existing_audit(opts.dossier)
+    if session:
+        if opts.checks != "auto":
+            raise ValueError("This audit uses its saved selection. Change it in the dashboard or audit-run configure.")
+        refusal = session.gate()
+        if refusal:
+            raise ValueError(refusal)
+        from . import checks as qa_checks
+        wave = session.next_wave()
+        renamed, kept = {}, []
+        config = session.snapshot()["config"]
+        for index, human in enumerate(personas["humains"], 1):
+            new_id = f"h{wave:03d}{index:02d}"
+            tasks = session.claim(new_id, "agent", qa_checks.per_user(opts.budget))["tasks"]
+            if not tasks:
+                continue
+            renamed[human["id"]] = new_id
+            human["intention"] = human["intention"].replace(human["id"].upper(), new_id.upper())
+            human["id"], human["audit_tasks"] = new_id, tasks
+            if tasks[0]["route"]:
+                human["depart"] = tasks[0]["route"]
+            selected = [audit_catalog()[t["check_id"]] for t in tasks if audit_catalog()[t["check_id"]]["kind"] == "qa-check"]
+            human["checks"] = qa_checks.assign(graine, selected, 1, max(7, len(selected) * 7), qa_checks.countries(opts.countries))[0]
+            human["intention"] += " Complete the audit tasks first and report every outcome with check-result."
+            kept.append(human)
+        personas["humains"] = kept
+        if not kept:
+            raise ValueError("No pending agent tasks. Complete reconnaissance or handle the coordinator/audit queue; do not spawn idle users.")
+        fault_selection = session.fault_selection()
+        plan["pannes"] = [dict(fault, humains=renamed[fault["humains"]]) for fault in plan["pannes"]
+                          if fault["humains"] in renamed and fault["type"] in fault_selection]
+        plan["checks"] = {"selection": "audit-plan", "pool": [item["id"] for item in audit_catalog().values()
+                          if item["kind"] == "qa-check" and session.selected(item, config)],
+                          "assigned": {h["id"]: [task["check_id"] for task in h["audit_tasks"]] for h in kept}}
+        plan["nombre"] = len(kept)
+        # Keep prior users available to extraction and reporting across waves.
+        previous = lire_json(Path(opts.dossier) / "personas.json", {}).get("humains", [])
+        personas["humains"] = previous + kept
     dossier = Path(opts.dossier)
     ecrire_json(dossier / "personas.json", personas)
     ecrire_json(dossier / "tirage.json", plan)
-    print(f"Seed {graine}, squad {opts.escouade}, {opts.nombre} users, budget {opts.budget}: {(dossier / 'personas.json').as_posix()}")
-    for h in personas["humains"]:
+    current_users = kept if session else personas["humains"]
+    print(f"Seed {graine}, squad {opts.escouade}, {len(current_users)} users, budget {opts.budget}: {(dossier / 'personas.json').as_posix()}")
+    for h in current_users:
         print(f"  {h['id']} {h['nom']:<22} {h['profil']:<20} {h['appareil']:<10} {h['condition']}")
     if plan["checks"]["pool"]:
         print(f"{len(plan['checks']['pool'])} QA checks in the pool ({opts.checks}); each user's share is on its sheet.")

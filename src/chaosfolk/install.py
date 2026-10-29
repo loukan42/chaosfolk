@@ -12,7 +12,7 @@ HERE = Path(__file__).resolve().parent
 SKILL_NAME = "chaosfolk"
 USER_AGENT = "chaosfolk-user"
 # The skill's files, relative to the repository root; setup.py bundles them in the wheel as chaosfolk/skill/.
-SKILL_FILES = ["SKILL.md", "LICENSE", "docs/agents.md", "docs/benchmark.md", "docs/campaigns.md", "docs/checks.md",
+SKILL_FILES = ["SKILL.md", "LICENSE", "docs/audit-runs.md", "docs/agents.md", "docs/benchmark.md", "docs/campaigns.md", "docs/checks.md",
                "docs/faults.md", "docs/chaos.md", "docs/integrations.md", "docs/planning.md", "docs/regression.md",
                "docs/replay.md", "docs/scoring.md", "docs/workflow.md"]
 

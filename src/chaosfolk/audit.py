@@ -180,12 +180,14 @@ def parse_viewports(text):
     return sizes
 
 
-async def keyboard_pass(page, limit=150):
+async def keyboard_pass(page, limit=150, check_running=None):
     """Tab through the page from the top until focus leaves the document or comes back to a seen element."""
     await page.evaluate("() => { if (document.activeElement) document.activeElement.blur(); window.scrollTo(0, 0); "
                         "delete window.__chaosfolkFocus; }")
     steps, seen, stuck = [], set(), 0
     for _ in range(limit):
+        if check_running:
+            check_running()
         await page.keyboard.press("Tab")
         state = await engine.borne(page.evaluate(FOCUS_JS))
         if state.get("body"):
@@ -228,8 +230,17 @@ async def audit_world(m, viewports, keyboard, folder, name=None):
     original = page.viewport_size
     errors_before = len(m.erreurs_page)
     results, keys = [], None
+    from .audit_session import existing
+    session = existing(folder.parent)
+
+    def check_running():
+        refusal = session.gate() if session else None
+        if refusal:
+            raise ValueError("Audit stopped: " + refusal)
+
     try:
         for width, height in viewports or [(original["width"], original["height"])]:
+            check_running()
             await page.set_viewport_size({"width": width, "height": height})
             await m.calme()
             data = await engine.borne(page.evaluate(AUDIT_JS, TARGET_MIN), engine.DELAI_LECTURE)
@@ -244,7 +255,8 @@ async def audit_world(m, viewports, keyboard, folder, name=None):
             await page.set_viewport_size(original)
             await m.calme()
         if keyboard:
-            keys = await keyboard_pass(page)
+            check_running()
+            keys = await keyboard_pass(page, check_running=check_running)
     finally:
         if original and page.viewport_size != original:
             await page.set_viewport_size(original)
@@ -253,6 +265,14 @@ async def audit_world(m, viewports, keyboard, folder, name=None):
              "note": "Review signals measured in Chromium. Confirm each one; this is not a conformance audit."}
     target = folder / f"{name}.json"
     target.write_text(json.dumps(audit, ensure_ascii=False, indent=2), encoding="utf-8")
+    if session:
+        import hashlib
+        payload = target.read_bytes()
+        relative = "audit-evidence/audit-" + hashlib.sha256(payload).hexdigest()[:16] + ".json"
+        evidence = session.folder / relative
+        evidence.parent.mkdir(exist_ok=True)
+        evidence.write_bytes(payload)
+        session.measure("audit", audit["url"], [relative])
     return summary(audit, target)
 
 

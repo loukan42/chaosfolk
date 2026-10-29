@@ -1,0 +1,2247 @@
+{
+  "schema_version": 1,
+  "status": "runtime-catalog",
+  "source": "Complete Test checklist pasted by Lou; matches README catalogue order.",
+  "priority_labels": {
+    "P1": "Essentiel",
+    "P2": "Important",
+    "P3": "Étendu"
+  },
+  "depths": {
+    "quick": [
+      "P1"
+    ],
+    "standard": [
+      "P1",
+      "P2"
+    ],
+    "deep": [
+      "P1",
+      "P2",
+      "P3"
+    ]
+  },
+  "rules_fr": [
+    "Tous les niveaux visent le produit entier ; la priorité détermine les tests sélectionnés. Les variantes exécutées restent documentées.",
+    "Examiner chaque entrée du référentiel, puis sélectionner les tests applicables de la profondeur demandée.",
+    "Promouvoir un test selon son impact sur le produit, avec une raison conservée ; ne jamais le déprioriser pour masquer un manque de budget.",
+    "Le niveau de preuve d'un défaut reste identique en rapide, standard et approfondi.",
+    "Les contrôles required-when-used s'appliquent dès que leur mécanisme est utilisé, quelle que soit leur priorité de présentation.",
+    "Les options explicites et les intégrations ne s'activent pas du seul fait de choisir approfondi.",
+    "Un prérequis manquant est un blocage ; une fonction inaccessible ou inconnue reste à qualifier, pas non applicable.",
+    "Tout test sélectionné doit avoir un responsable, un contexte, un résultat et une preuve ou une raison de non-exécution.",
+    "Approfondi exige tous les tests applicables et autorisés du plan, sans tirage aléatoire qui en omet ; un arrêt de budget rend l'audit partiel.",
+    "Les outils d'assertion servent les tests : leur présence n'est pas une preuve et n'impose pas un scénario artificiel pour chaque outil.",
+    "La priorité d'exécution d'un test est distincte de la gravité d'un défaut constaté."
+  ],
+  "entries": [
+    {
+      "id": "capability-f8da65591b99",
+      "source_order": 1,
+      "category": "Exploration et scénarios",
+      "title": "Agent-chosen actions and unexpected routes within supplied goals and authorized scope",
+      "kind": "exploration-method",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter les blocages du parcours principal dès le premier passage."
+    },
+    {
+      "id": "capability-81b3e7b10d7d",
+      "source_order": 2,
+      "category": "Exploration et scénarios",
+      "title": "Pure exploration without predefined catalog checks (--checks none)",
+      "kind": "exploration-method",
+      "priority": "P3",
+      "activation": "explicit-option",
+      "reason_fr": "Mode alternatif sans catalogue ; ne pas l'activer dans un audit qui exige le catalogue."
+    },
+    {
+      "id": "capability-bd5afd23a1c8",
+      "source_order": 3,
+      "category": "Exploration et scénarios",
+      "title": "Seeded selection and combinations of behavior profiles and shared habits",
+      "kind": "exploration-method",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Diversifier les comportements et conserver un tirage traçable sans multiplier les agents par test."
+    },
+    {
+      "id": "capability-f572f8dc05c5",
+      "source_order": 4,
+      "category": "Exploration et scénarios",
+      "title": "Varied computer confidence and patience in generated user sheets",
+      "kind": "exploration-method",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Affiner la diversité des comportements après les parcours principaux."
+    },
+    {
+      "id": "capability-f5c26452c20d",
+      "source_order": 5,
+      "category": "Exploration et scénarios",
+      "title": "Weighted draws of desktop, laptop, tablet and mobile contexts",
+      "kind": "exploration-method",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les parcours de base avec d'autres comportements pertinents."
+    },
+    {
+      "id": "capability-f05e55c48f56",
+      "source_order": 6,
+      "category": "Exploration et scénarios",
+      "title": "Shuffled objective order so users approach the same goals differently",
+      "kind": "exploration-method",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Explorer les effets de l'ordre des objectifs lors d'un passage plus poussé."
+    },
+    {
+      "id": "capability-0e8ea84bd409",
+      "source_order": 7,
+      "category": "Exploration et scénarios",
+      "title": "Randomized shares of applicable checks and samples of valid/invalid test values",
+      "kind": "exploration-method",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Distribuer les cas retenus ; le hasard ne doit jamais supprimer une obligation du plan."
+    },
+    {
+      "id": "capability-edb10e0841cc",
+      "source_order": 8,
+      "category": "Exploration et scénarios",
+      "title": "Weighted fault draws, including the possibility of no injected fault",
+      "kind": "exploration-method",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Varier les conditions autorisées ; conserver aussi des parcours sans panne."
+    },
+    {
+      "id": "capability-097e5b392aad",
+      "source_order": 9,
+      "category": "Exploration et scénarios",
+      "title": "Randomized fault-start action, duration and parameters within catalog ranges",
+      "kind": "exploration-method",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Explorer des fenêtres de panne moins courantes."
+    },
+    {
+      "id": "capability-a37aee628a20",
+      "source_order": 10,
+      "category": "Exploration et scénarios",
+      "title": "Combined behavior, device, objective order and fault conditions",
+      "kind": "exploration-method",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier des interactions entre facteurs après les défaillances isolées."
+    },
+    {
+      "id": "capability-5a3094cb467e",
+      "source_order": 11,
+      "category": "Exploration et scénarios",
+      "title": "Less-visited and unvisited known routes suggested from previous project campaigns",
+      "kind": "exploration-method",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Éviter de concentrer tout l'audit sur les mêmes écrans connus."
+    },
+    {
+      "id": "capability-fc919967a9aa",
+      "source_order": 12,
+      "category": "Exploration et scénarios",
+      "title": "Unexpected outcomes when users repeat, interrupt, abandon or resume an action",
+      "kind": "exploration-method",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les parcours de base avec d'autres comportements pertinents."
+    },
+    {
+      "id": "capability-6c1770a2b64d",
+      "source_order": 13,
+      "category": "Exploration et scénarios",
+      "title": "Seed retained to reproduce the draw; recorded actions used to replay the actual journey",
+      "kind": "exploration-method",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Conserver la provenance nécessaire pour comprendre et rejouer un constat."
+    },
+    {
+      "id": "capability-5285513ba8a5",
+      "source_order": 14,
+      "category": "Profils de comportement",
+      "title": "First-time visitor: visible paths, unfamiliar terms and help",
+      "kind": "behavior-profile",
+      "priority": "P1",
+      "activation": "contextual-behavior",
+      "reason_fr": "Vérifier qu'un nouvel utilisateur peut accomplir les parcours principaux."
+    },
+    {
+      "id": "capability-63e26157741a",
+      "source_order": 15,
+      "category": "Profils de comportement",
+      "title": "In a hurry: repeated clicks, skipped help and required fields only",
+      "kind": "behavior-profile",
+      "priority": "P1",
+      "activation": "contextual-behavior",
+      "reason_fr": "Détecter les doubles actions et les erreurs sur les étapes obligatoires."
+    },
+    {
+      "id": "capability-de66de12ae57",
+      "source_order": 16,
+      "category": "Profils de comportement",
+      "title": "Keyboard-focused: Tab, Enter, Escape and menu arrow keys",
+      "kind": "behavior-profile",
+      "priority": "P1",
+      "activation": "contextual-behavior",
+      "reason_fr": "Détecter les actions essentielles impossibles au clavier."
+    },
+    {
+      "id": "capability-728a3fd1dbb0",
+      "source_order": 17,
+      "category": "Profils de comportement",
+      "title": "Mobile user: phone viewport, quick scrolling and going back when lost",
+      "kind": "behavior-profile",
+      "priority": "P2",
+      "activation": "contextual-behavior",
+      "reason_fr": "Vérifier un contexte mobile ; promouvoir en P1 si le produit vise le mobile."
+    },
+    {
+      "id": "capability-c50bd371f025",
+      "source_order": 18,
+      "category": "Profils de comportement",
+      "title": "Careful reader: slow reading, persistence checks and cautious deletion",
+      "kind": "behavior-profile",
+      "priority": "P2",
+      "activation": "contextual-behavior",
+      "reason_fr": "Couvrir un comportement supplémentaire selon les usages du produit."
+    },
+    {
+      "id": "capability-f3647d2a2a96",
+      "source_order": 19,
+      "category": "Profils de comportement",
+      "title": "Unfamiliar with jargon: unclear terms and plain-language navigation",
+      "kind": "behavior-profile",
+      "priority": "P2",
+      "activation": "contextual-behavior",
+      "reason_fr": "Couvrir un comportement supplémentaire selon les usages du produit."
+    },
+    {
+      "id": "capability-efc3f511124a",
+      "source_order": 20,
+      "category": "Profils de comportement",
+      "title": "Distracted: interruptions, returning halfway and restarting after reload",
+      "kind": "behavior-profile",
+      "priority": "P2",
+      "activation": "contextual-behavior",
+      "reason_fr": "Couvrir un comportement supplémentaire selon les usages du produit."
+    },
+    {
+      "id": "capability-508e28eae45e",
+      "source_order": 21,
+      "category": "Profils de comportement",
+      "title": "Detail checker: rereading lists, confirmation and saved-state checks",
+      "kind": "behavior-profile",
+      "priority": "P3",
+      "activation": "contextual-behavior",
+      "reason_fr": "Couvrir un comportement supplémentaire selon les usages du produit."
+    },
+    {
+      "id": "capability-f485aad529bc",
+      "source_order": 22,
+      "category": "Profils de comportement",
+      "title": "Cautious: undo, full confirmations and hesitation before submission",
+      "kind": "behavior-profile",
+      "priority": "P3",
+      "activation": "contextual-behavior",
+      "reason_fr": "Couvrir un comportement supplémentaire selon les usages du produit."
+    },
+    {
+      "id": "capability-e292e4b10e3b",
+      "source_order": 23,
+      "category": "Profils de comportement",
+      "title": "Explorer: menus, footers, unusual authorized URLs and rarely used pages",
+      "kind": "behavior-profile",
+      "priority": "P1",
+      "activation": "contextual-behavior",
+      "reason_fr": "Explorer la navigation pour identifier les parties du produit à contrôler."
+    },
+    {
+      "id": "capability-2697fab1acee",
+      "source_order": 24,
+      "category": "Profils de comportement",
+      "title": "Multitasker: duplicated tabs and stale views after an edit",
+      "kind": "behavior-profile",
+      "priority": "P3",
+      "activation": "contextual-behavior",
+      "reason_fr": "Couvrir un comportement supplémentaire selon les usages du produit."
+    },
+    {
+      "id": "capability-c3edf2a8c36a",
+      "source_order": 25,
+      "category": "Profils de comportement",
+      "title": "Text-focused: required fields, errors and states conveyed in text",
+      "kind": "behavior-profile",
+      "priority": "P2",
+      "activation": "contextual-behavior",
+      "reason_fr": "Couvrir un comportement supplémentaire selon les usages du produit."
+    },
+    {
+      "id": "capability-379e3a4e007c",
+      "source_order": 26,
+      "category": "Profils de comportement",
+      "title": "Copy-paster: surrounding spaces, accented text, emoji and multiline input",
+      "kind": "behavior-profile",
+      "priority": "P2",
+      "activation": "contextual-behavior",
+      "reason_fr": "Couvrir un comportement supplémentaire selon les usages du produit."
+    },
+    {
+      "id": "capability-faf061bd7030",
+      "source_order": 27,
+      "category": "Profils de comportement",
+      "title": "Backtracker: Back/Forward, cancelled edits and unfinished drafts",
+      "kind": "behavior-profile",
+      "priority": "P2",
+      "activation": "contextual-behavior",
+      "reason_fr": "Couvrir un comportement supplémentaire selon les usages du produit."
+    },
+    {
+      "id": "capability-cb0dd338684a",
+      "source_order": 28,
+      "category": "Profils de comportement",
+      "title": "Search-first: partial names, combined filters and cleared searches",
+      "kind": "behavior-profile",
+      "priority": "P2",
+      "activation": "contextual-behavior",
+      "reason_fr": "Couvrir un comportement supplémentaire selon les usages du produit."
+    },
+    {
+      "id": "capability-5a8eacefb96a",
+      "source_order": 29,
+      "category": "Profils de comportement",
+      "title": "Recovery seeker: correcting invalid input, Undo/Cancel and resuming after errors",
+      "kind": "behavior-profile",
+      "priority": "P1",
+      "activation": "contextual-behavior",
+      "reason_fr": "Vérifier qu'une erreur n'empêche pas de terminer un parcours."
+    },
+    {
+      "id": "capability-2b30f4617bd0",
+      "source_order": 30,
+      "category": "Pilotage des expériences",
+      "title": "Per-injection admission probability, sampled during the session",
+      "kind": "execution-control",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Appliquer ce contrôle lorsque le mécanisme correspondant est utilisé."
+    },
+    {
+      "id": "capability-35de0a76246d",
+      "source_order": 31,
+      "category": "Pilotage des expériences",
+      "title": "Manual, time-delayed and action-triggered fault injection",
+      "kind": "execution-control",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Appliquer ce contrôle lorsque le mécanisme correspondant est utilisé."
+    },
+    {
+      "id": "capability-e74bae9d6c41",
+      "source_order": 32,
+      "category": "Pilotage des expériences",
+      "title": "Configurable allowed fault types and excluded users, roles, routes and HTTP methods",
+      "kind": "execution-control",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Respecter le périmètre et les exclusions à chaque injection."
+    },
+    {
+      "id": "capability-e997aa6c07e1",
+      "source_order": 33,
+      "category": "Pilotage des expériences",
+      "title": "Target groups selected by user, role or route",
+      "kind": "execution-control",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Appliquer ce contrôle lorsque le mécanisme correspondant est utilisé."
+    },
+    {
+      "id": "capability-fb1c3b2b2457",
+      "source_order": 34,
+      "category": "Pilotage des expériences",
+      "title": "Cooldowns between injections, including group-specific intervals",
+      "kind": "execution-control",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Appliquer ce contrôle lorsque le mécanisme correspondant est utilisé."
+    },
+    {
+      "id": "capability-6d07a386d32c",
+      "source_order": 35,
+      "category": "Pilotage des expériences",
+      "title": "Limits on simultaneous injections and the fraction of affected users",
+      "kind": "execution-control",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Limiter l'impact cumulé dès qu'une injection est autorisée."
+    },
+    {
+      "id": "capability-85309d16c155",
+      "source_order": 36,
+      "category": "Pilotage des expériences",
+      "title": "Total injection budgets and maximum fault duration",
+      "kind": "execution-control",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Borner les injections et leur durée à tous les niveaux."
+    },
+    {
+      "id": "capability-0e6c4e82247b",
+      "source_order": 37,
+      "category": "Pilotage des expériences",
+      "title": "Forbidden combinations of overlapping faults",
+      "kind": "execution-control",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Appliquer les incompatibilités de pannes avant toute injection."
+    },
+    {
+      "id": "capability-598c4e83ee2c",
+      "source_order": 38,
+      "category": "Pilotage des expériences",
+      "title": "Injection windows by weekday, hour and timezone",
+      "kind": "execution-control",
+      "priority": "P3",
+      "activation": "configured-context",
+      "reason_fr": "Configurer seulement lorsqu'une contrainte horaire existe."
+    },
+    {
+      "id": "capability-05c974eed5dc",
+      "source_order": 39,
+      "category": "Pilotage des expériences",
+      "title": "Dry-run admission simulation with recorded decisions and no applied fault",
+      "kind": "execution-control",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Appliquer ce contrôle lorsque le mécanisme correspondant est utilisé."
+    },
+    {
+      "id": "capability-a935476d222e",
+      "source_order": 40,
+      "category": "Pilotage des expériences",
+      "title": "Live pause/resume and stopping reversible active faults",
+      "kind": "execution-control",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Permettre d'interrompre les injections pendant l'exécution."
+    },
+    {
+      "id": "capability-3608b3d51417",
+      "source_order": 41,
+      "category": "Pilotage des expériences",
+      "title": "Separate controls for scheduled injections and immediate manual faults",
+      "kind": "execution-control",
+      "priority": "P3",
+      "activation": "configured-context",
+      "reason_fr": "S'applique seulement si des injections planifiées sont configurées."
+    },
+    {
+      "id": "capability-c618426e9b04",
+      "source_order": 42,
+      "category": "Pilotage des expériences",
+      "title": "Policy reload for future injections during a session",
+      "kind": "execution-control",
+      "priority": "P3",
+      "activation": "configured-context",
+      "reason_fr": "Fonction de pilotage utile aux sessions longues avec changement de politique."
+    },
+    {
+      "id": "capability-46bc7bdf56e9",
+      "source_order": 43,
+      "category": "Pilotage des expériences",
+      "title": "Independent incident/health command that can block new injections",
+      "kind": "execution-control",
+      "priority": "P3",
+      "activation": "configured-context",
+      "reason_fr": "Activer un contrôle externe uniquement lorsqu'il est configuré pour cet environnement."
+    },
+    {
+      "id": "capability-b57bb50614a0",
+      "source_order": 44,
+      "category": "Pilotage des expériences",
+      "title": "Cross-process coordination of active limits, cooldowns and forbidden pairs through shared local state",
+      "kind": "execution-control",
+      "priority": "P3",
+      "activation": "configured-context",
+      "reason_fr": "Requis dès que plusieurs sessions partagent un environnement, quelle que soit la profondeur."
+    },
+    {
+      "id": "capability-34b0e9f13725",
+      "source_order": 45,
+      "category": "Pilotage des expériences",
+      "title": "Recorded applied, simulated, skipped and cancelled injections with reasons",
+      "kind": "execution-control",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Distinguer les injections appliquées, simulées et ignorées dans les preuves."
+    },
+    {
+      "id": "capability-26ed5f04b069",
+      "source_order": 46,
+      "category": "Pilotage des expériences",
+      "title": "Injection-event tracking and separate engine/hook error counters via configured commands",
+      "kind": "execution-control",
+      "priority": "P3",
+      "activation": "configured-context",
+      "reason_fr": "Intégration de suivi à utiliser lorsqu'elle est configurée."
+    },
+    {
+      "id": "capability-9bb59b72acea",
+      "source_order": 47,
+      "category": "Pilotage des expériences",
+      "title": "Bounded recurring test commands via an external scheduler, with finite attempts and timeouts",
+      "kind": "execution-control",
+      "priority": "P3",
+      "activation": "explicit-option",
+      "reason_fr": "La récurrence reste une option demandée explicitement, indépendante de la profondeur."
+    },
+    {
+      "id": "first-name-formats",
+      "source_order": 48,
+      "category": "Catalogue QA",
+      "title": "First names: alphabets, accents, punctuation and saved values",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "first-name",
+          "full-name"
+        ]
+      }
+    },
+    {
+      "id": "last-name-formats",
+      "source_order": 49,
+      "category": "Catalogue QA",
+      "title": "Family names: particles, apostrophes, case and saved values",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "last-name",
+          "full-name"
+        ]
+      }
+    },
+    {
+      "id": "name-structure",
+      "source_order": 50,
+      "category": "Catalogue QA",
+      "title": "Single names, multiple family names and non-Western name order",
+      "kind": "qa-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Étendre les structures de noms ; promouvoir selon les utilisateurs et marchés du produit.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "first-name",
+          "last-name",
+          "full-name"
+        ]
+      }
+    },
+    {
+      "id": "email-formats",
+      "source_order": 51,
+      "category": "Catalogue QA",
+      "title": "Email formats, plus addressing, case, whitespace and invalid addresses",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Un format de courriel valide refusé peut bloquer l'accès au produit.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "email",
+          "username"
+        ]
+      }
+    },
+    {
+      "id": "email-case-and-trim",
+      "source_order": 52,
+      "category": "Catalogue QA",
+      "title": "Sign-in with uppercase emails and surrounding spaces (test account)",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "test-account",
+      "applies": {
+        "features": [
+          "login"
+        ]
+      }
+    },
+    {
+      "id": "phone-formats",
+      "source_order": 53,
+      "category": "Catalogue QA",
+      "title": "International and national phone formats, normalization and mobile keypad",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "phone"
+        ]
+      }
+    },
+    {
+      "id": "postal-code-formats",
+      "source_order": 54,
+      "category": "Catalogue QA",
+      "title": "Postal codes by country, letters, spaces and leading zeros",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "postal-code"
+        ]
+      }
+    },
+    {
+      "id": "address-formats",
+      "source_order": 55,
+      "category": "Catalogue QA",
+      "title": "International addresses, town names and keyboard address suggestions",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "address",
+          "city"
+        ]
+      }
+    },
+    {
+      "id": "birth-date-rules",
+      "source_order": 56,
+      "category": "Catalogue QA",
+      "title": "Birth dates: invalid dates, future dates, age rules and timezone shifts",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "birth-date"
+        ]
+      }
+    },
+    {
+      "id": "date-ranges",
+      "source_order": 57,
+      "category": "Catalogue QA",
+      "title": "Date ranges: reversed dates, year boundaries and daylight-saving changes",
+      "kind": "qa-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Explorer les changements calendaires ; promouvoir si les dates portent une règle métier centrale.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "date"
+        ]
+      }
+    },
+    {
+      "id": "amount-formats",
+      "source_order": 58,
+      "category": "Catalogue QA",
+      "title": "Amounts: locale separators, currency precision, rounding and limits",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Promouvoir en P1 dès qu'un montant engage un paiement, une facturation ou un calcul métier.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "amount",
+          "number",
+          "quantity"
+        ]
+      }
+    },
+    {
+      "id": "quantity-bounds",
+      "source_order": 59,
+      "category": "Catalogue QA",
+      "title": "Quantities: empty, zero, negative, decimal, oversized values and steppers",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "quantity"
+        ]
+      }
+    },
+    {
+      "id": "iban-checksum",
+      "source_order": 60,
+      "category": "Catalogue QA",
+      "title": "IBAN: checksum, country length, spaces, case and masked display",
+      "kind": "qa-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Promouvoir en P1 si des coordonnées bancaires font partie d'un parcours essentiel.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "iban"
+        ]
+      }
+    },
+    {
+      "id": "company-id-formats",
+      "source_order": 61,
+      "category": "Catalogue QA",
+      "title": "Company registration numbers and country-specific validation",
+      "kind": "qa-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Promouvoir en P1 si l'identifiant d'entreprise conditionne une opération métier.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "company-id"
+        ]
+      }
+    },
+    {
+      "id": "url-formats",
+      "source_order": 62,
+      "category": "Catalogue QA",
+      "title": "Web addresses: schemes, saved links and unsafe URL schemes",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "url"
+        ]
+      }
+    },
+    {
+      "id": "new-password-rules",
+      "source_order": 63,
+      "category": "Catalogue QA",
+      "title": "Password rules, passphrases, paste, show/hide and confirmation",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les règles d'accès et éviter de bloquer les moyens de saisie nécessaires.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "new-password"
+        ]
+      }
+    },
+    {
+      "id": "free-text-content",
+      "source_order": 64,
+      "category": "Catalogue QA",
+      "title": "Free text: Unicode, emoji, line breaks, RTL, CJK and literal markup",
+      "kind": "qa-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Étendre les variantes de texte ; promouvoir selon les langues et les contenus attendus.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "free-text",
+          "full-name",
+          "first-name",
+          "last-name",
+          "company"
+        ]
+      }
+    },
+    {
+      "id": "search-inputs",
+      "source_order": 65,
+      "category": "Catalogue QA",
+      "title": "Search: accents, case, symbols, whitespace, empty and unmatched queries",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "search"
+        ]
+      }
+    },
+    {
+      "id": "file-upload-rules",
+      "source_order": 66,
+      "category": "Catalogue QA",
+      "title": "Uploads: file type, size, empty files, names, removal and replacement",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Promouvoir en P1 si un fichier est nécessaire pour terminer le parcours principal.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "upload"
+        ]
+      }
+    },
+    {
+      "id": "form-errors-keep-data",
+      "source_order": 67,
+      "category": "Catalogue QA",
+      "title": "Form validation: required fields, precise errors, focus and retained values",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Empêcher une validation incohérente et la perte des données déjà saisies.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form"
+        ]
+      }
+    },
+    {
+      "id": "double-submit",
+      "source_order": 68,
+      "category": "Catalogue QA",
+      "title": "Duplicate records after double-clicking or pressing Enter twice",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter les doublons créés par une action fréquente.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form"
+        ]
+      }
+    },
+    {
+      "id": "reload-after-submit",
+      "source_order": 69,
+      "category": "Catalogue QA",
+      "title": "Duplicate submissions after reload, Back and Forward",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form"
+        ]
+      }
+    },
+    {
+      "id": "persistence-new-tab",
+      "source_order": 70,
+      "category": "Catalogue QA",
+      "title": "Saved values after reload and opening a new tab",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier que le résultat annoncé existe encore après rechargement.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form",
+          "edit"
+        ]
+      }
+    },
+    {
+      "id": "edit-cancel",
+      "source_order": 71,
+      "category": "Catalogue QA",
+      "title": "Cancellation of edits and recovery of unsaved work",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "edit"
+        ]
+      }
+    },
+    {
+      "id": "delete-safety",
+      "source_order": 72,
+      "category": "Catalogue QA",
+      "title": "Delete confirmation, cancellation, persistence and undo when available",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Éviter une suppression involontaire ou un état trompeur après suppression.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "delete"
+        ]
+      }
+    },
+    {
+      "id": "list-edges",
+      "source_order": 73,
+      "category": "Catalogue QA",
+      "title": "Lists: empty states, pagination bounds, stable sorting and combined filters",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "list"
+        ]
+      }
+    },
+    {
+      "id": "two-tabs-conflict",
+      "source_order": 74,
+      "category": "Catalogue QA",
+      "title": "Conflicting edits to the same record in two tabs",
+      "kind": "qa-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Tester les éditions concurrentes entre onglets ; promouvoir pour un usage multitâche central.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "edit"
+        ]
+      }
+    },
+    {
+      "id": "deep-link-auth",
+      "source_order": 75,
+      "category": "Catalogue QA",
+      "title": "Private deep links while signed out and return after sign-in (test account)",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier que les pages privées restent protégées via leur adresse directe.",
+      "scope": "test-account",
+      "applies": {
+        "features": [
+          "logged-in"
+        ]
+      }
+    },
+    {
+      "id": "reset-enumeration",
+      "source_order": 76,
+      "category": "Catalogue QA",
+      "title": "Account enumeration through password-reset responses (test account)",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "test-account",
+      "applies": {
+        "features": [
+          "password-reset"
+        ]
+      }
+    },
+    {
+      "id": "login-enumeration",
+      "source_order": 77,
+      "category": "Catalogue QA",
+      "title": "Account enumeration through sign-in errors (test account)",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "test-account",
+      "applies": {
+        "features": [
+          "login"
+        ]
+      }
+    },
+    {
+      "id": "signup-enumeration",
+      "source_order": 78,
+      "category": "Catalogue QA",
+      "title": "Account enumeration through sign-up responses (product review) (test account)",
+      "kind": "qa-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "L'attendu dépend de la politique d'inscription du produit et doit être établi avant verdict.",
+      "scope": "test-account",
+      "applies": {
+        "features": [
+          "signup"
+        ]
+      }
+    },
+    {
+      "id": "login-throttling",
+      "source_order": 79,
+      "category": "Catalogue QA",
+      "title": "Throttling after repeated wrong passwords (six attempts, explicit approval) (test account)",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Nécessite un compte de test et l'autorisation prévue par le catalogue.",
+      "scope": "test-account",
+      "applies": {
+        "features": [
+          "login"
+        ]
+      }
+    },
+    {
+      "id": "password-field-hygiene",
+      "source_order": 80,
+      "category": "Catalogue QA",
+      "title": "Password masking, paste, password-manager support and URL exposure",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Éviter l'exposition des mots de passe pendant leur saisie et leur envoi.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "password",
+          "new-password"
+        ]
+      }
+    },
+    {
+      "id": "secrets-in-url",
+      "source_order": 81,
+      "category": "Catalogue QA",
+      "title": "Passwords, session tokens and personal data exposed in URLs",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter l'exposition de secrets ou de données personnelles dans les URL.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "login",
+          "signup",
+          "password-reset",
+          "logged-in"
+        ]
+      }
+    },
+    {
+      "id": "logout-session",
+      "source_order": 82,
+      "category": "Catalogue QA",
+      "title": "Sign-out, Back, private-page reloads and session invalidation across tabs (test account)",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier qu'une déconnexion ferme effectivement l'accès privé.",
+      "scope": "test-account",
+      "applies": {
+        "features": [
+          "logged-in"
+        ]
+      }
+    },
+    {
+      "id": "html-escaping",
+      "source_order": 83,
+      "category": "Catalogue QA",
+      "title": "HTML-like input rendered as literal text",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter du contenu saisi interprété comme du balisage.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "free-text",
+          "first-name",
+          "last-name",
+          "full-name",
+          "company",
+          "search",
+          "address",
+          "city"
+        ]
+      }
+    },
+    {
+      "id": "error-leaks",
+      "source_order": 84,
+      "category": "Catalogue QA",
+      "title": "Technical details exposed in error pages",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {}
+    },
+    {
+      "id": "object-access-control",
+      "source_order": 85,
+      "category": "Catalogue QA",
+      "title": "Access to another authorized test account's records (two test accounts)",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier l'isolation des données entre comptes autorisés pour le test.",
+      "scope": "two-accounts",
+      "applies": {
+        "features": [
+          "logged-in"
+        ]
+      }
+    },
+    {
+      "id": "reset-token-lifecycle",
+      "source_order": 86,
+      "category": "Catalogue QA",
+      "title": "Password-reset links: expiry and single use (test mailbox)",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les garanties annoncées de la récupération de compte.",
+      "scope": "mailbox",
+      "applies": {
+        "features": [
+          "password-reset"
+        ]
+      }
+    },
+    {
+      "id": "sensitive-display",
+      "source_order": 87,
+      "category": "Catalogue QA",
+      "title": "Masking of sensitive data after saving (test account)",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter une exposition de données sensibles après enregistrement.",
+      "scope": "test-account",
+      "applies": {
+        "features": [
+          "logged-in"
+        ]
+      }
+    },
+    {
+      "id": "field-labels-and-errors",
+      "source_order": 88,
+      "category": "Catalogue QA",
+      "title": "Field labels, required indicators and accessible error associations",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Permettre d'identifier les champs requis et de corriger leurs erreurs.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form"
+        ]
+      }
+    },
+    {
+      "id": "keyboard-form",
+      "source_order": 89,
+      "category": "Catalogue QA",
+      "title": "Completing a whole form using the keyboard",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier qu'un formulaire essentiel peut être terminé au clavier.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form"
+        ]
+      }
+    },
+    {
+      "id": "autocomplete-attributes",
+      "source_order": 90,
+      "category": "Catalogue QA",
+      "title": "Autocomplete purpose and mobile input attributes",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "email",
+          "phone",
+          "first-name",
+          "last-name",
+          "full-name",
+          "address",
+          "city",
+          "postal-code",
+          "birth-date",
+          "country"
+        ]
+      }
+    },
+    {
+      "id": "small-screen-reflow",
+      "source_order": 91,
+      "category": "Catalogue QA",
+      "title": "Reflow at 320 CSS pixels and 200% zoom",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {}
+    },
+    {
+      "id": "slow-submit-feedback",
+      "source_order": 92,
+      "category": "Catalogue QA",
+      "title": "Feedback and recovery during slow or failed saves",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form"
+        ]
+      }
+    },
+    {
+      "id": "error-message-quality",
+      "source_order": 93,
+      "category": "Catalogue QA",
+      "title": "Clear, actionable error messages in the application language",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Permettre de comprendre et de corriger un échec de parcours.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form"
+        ]
+      }
+    },
+    {
+      "id": "paste-and-formatting",
+      "source_order": 94,
+      "category": "Catalogue QA",
+      "title": "Pasting values, automatic formatting and caret behavior",
+      "kind": "qa-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Explorer les transformations de saisie ; promouvoir pour les formulaires très utilisés.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "phone",
+          "iban",
+          "company-id",
+          "postal-code",
+          "amount",
+          "otp"
+        ]
+      }
+    },
+    {
+      "id": "text-input-extremes",
+      "source_order": 95,
+      "category": "Catalogue QA",
+      "title": "Text inputs: empty, whitespace-only, long and special-character values",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "text",
+          "free-text",
+          "first-name",
+          "last-name",
+          "full-name",
+          "company",
+          "address",
+          "city",
+          "username"
+        ]
+      }
+    },
+    {
+      "id": "number-extremes",
+      "source_order": 96,
+      "category": "Catalogue QA",
+      "title": "Numeric inputs: zero, negative, decimal and announced boundaries",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "kinds": [
+          "number",
+          "amount",
+          "quantity"
+        ]
+      }
+    },
+    {
+      "id": "submit-retry-after-error",
+      "source_order": 97,
+      "category": "Catalogue QA",
+      "title": "Retrying a submission after an error",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier la reprise d'une opération après un échec.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form"
+        ]
+      }
+    },
+    {
+      "id": "interrupted-form",
+      "source_order": 98,
+      "category": "Catalogue QA",
+      "title": "Interrupted forms: reload, Back/Forward, tab closure and reopening",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form"
+        ]
+      }
+    },
+    {
+      "id": "search-filter-behavior",
+      "source_order": 99,
+      "category": "Catalogue QA",
+      "title": "Search/filter races, reset and state retained after navigation",
+      "kind": "qa-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Explorer les courses et états persistants ; promouvoir si la recherche est centrale.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "search",
+          "list"
+        ]
+      }
+    },
+    {
+      "id": "false-success",
+      "source_order": 100,
+      "category": "Catalogue QA",
+      "title": "Success messages checked against actual saved data",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter une annonce de succès sans effet réel.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form",
+          "edit"
+        ]
+      }
+    },
+    {
+      "id": "data-loss-on-edit",
+      "source_order": 101,
+      "category": "Catalogue QA",
+      "title": "Unedited fields and attachments retained after another field changes",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter la perte silencieuse de données pendant une modification.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "edit"
+        ]
+      }
+    },
+    {
+      "id": "ui-desync",
+      "source_order": 102,
+      "category": "Catalogue QA",
+      "title": "Consistency between lists, detail views, counters, badges and tabs",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "list",
+          "edit"
+        ]
+      }
+    },
+    {
+      "id": "responsive-controls",
+      "source_order": 103,
+      "category": "Catalogue QA",
+      "title": "Controls reachable on phone, tablet and desktop viewports",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter une action principale inaccessible dans un format pris en charge.",
+      "scope": "safe",
+      "applies": {}
+    },
+    {
+      "id": "layout-overflow",
+      "source_order": 104,
+      "category": "Catalogue QA",
+      "title": "Horizontal overflow, clipped forms and unreachable submit buttons",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter des champs ou boutons hors d'atteinte.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form"
+        ]
+      }
+    },
+    {
+      "id": "keyboard-reachability",
+      "source_order": 105,
+      "category": "Catalogue QA",
+      "title": "Tab order, focus visibility, hidden focus targets and modal focus traps",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter un blocage de navigation ou un piège de focus.",
+      "scope": "safe",
+      "applies": {}
+    },
+    {
+      "id": "accessible-names",
+      "source_order": 106,
+      "category": "Catalogue QA",
+      "title": "Accessible names for controls, informative images and frames",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Identifier les commandes et informations nécessaires avec un nom accessible.",
+      "scope": "safe",
+      "applies": {}
+    },
+    {
+      "id": "color-contrast",
+      "source_order": 107,
+      "category": "Catalogue QA",
+      "title": "Estimated text contrast (review signal)",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {}
+    },
+    {
+      "id": "target-size",
+      "source_order": 108,
+      "category": "Catalogue QA",
+      "title": "Pointer-target dimensions and spacing (WCAG signal)",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {}
+    },
+    {
+      "id": "page-structure",
+      "source_order": 109,
+      "category": "Catalogue QA",
+      "title": "Page language, title, heading order, duplicate IDs, tabindex and zoom",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {}
+    },
+    {
+      "id": "status-messages",
+      "source_order": 110,
+      "category": "Catalogue QA",
+      "title": "Live-region markup for results, success messages and errors",
+      "kind": "qa-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les formats, états limites et comportements du domaine détecté.",
+      "scope": "safe",
+      "applies": {
+        "features": [
+          "form",
+          "search"
+        ]
+      }
+    },
+    {
+      "id": "time-limits",
+      "source_order": 111,
+      "category": "Catalogue QA",
+      "title": "Session-timeout warnings, extension and retained work (test account)",
+      "kind": "qa-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les interruptions de session ; promouvoir pour les sessions longues ou sensibles.",
+      "scope": "test-account",
+      "applies": {
+        "features": [
+          "logged-in",
+          "form"
+        ]
+      }
+    },
+    {
+      "id": "broken-resources",
+      "source_order": 112,
+      "category": "Catalogue QA",
+      "title": "Broken images and failed same-site styles, scripts, fonts and resources",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter des ressources défaillantes qui empêchent d'utiliser l'écran.",
+      "scope": "safe",
+      "applies": {}
+    },
+    {
+      "id": "javascript-errors",
+      "source_order": 113,
+      "category": "Catalogue QA",
+      "title": "Unhandled JavaScript errors and promise rejections during interactions",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter les erreurs JavaScript et vérifier leur effet sur le parcours.",
+      "scope": "safe",
+      "applies": {}
+    },
+    {
+      "id": "concurrent-edit-two-users",
+      "source_order": 114,
+      "category": "Catalogue QA",
+      "title": "Conflicting edits by two users on the same record (coordinated users)",
+      "kind": "qa-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Explorer les conflits entre personnes ; promouvoir en P1 pour les produits collaboratifs.",
+      "scope": "coordinated",
+      "applies": {
+        "features": [
+          "edit"
+        ]
+      }
+    },
+    {
+      "id": "role-permissions",
+      "source_order": 115,
+      "category": "Catalogue QA",
+      "title": "Editor/reader permissions, direct URLs and visibility of changes (coordinated users)",
+      "kind": "qa-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les droits des rôles qui existent réellement dans le produit.",
+      "scope": "coordinated",
+      "applies": {
+        "features": [
+          "logged-in"
+        ]
+      }
+    },
+    {
+      "id": "shared-object-notifications",
+      "source_order": 116,
+      "category": "Catalogue QA",
+      "title": "Changes or deletions made by another user while a screen stays open (coordinated users)",
+      "kind": "qa-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Explorer les écrans devenus obsolètes ; promouvoir pour les produits collaboratifs.",
+      "scope": "coordinated",
+      "applies": {
+        "features": [
+          "list",
+          "edit"
+        ]
+      }
+    },
+    {
+      "id": "capability-083f9e0f55cb",
+      "source_order": 117,
+      "category": "Inspection des pages",
+      "title": "Password forms submitted with GET or served over plain HTTP outside localhost",
+      "kind": "page-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter un transport ou une soumission qui expose le mot de passe."
+    },
+    {
+      "id": "capability-5fd0ea5c2e84",
+      "source_order": 118,
+      "category": "Inspection des pages",
+      "title": "Session-like cookies readable by JavaScript (review signal)",
+      "kind": "page-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Repérer des cookies de session lisibles par script, puis confirmer leur rôle et le risque."
+    },
+    {
+      "id": "capability-5bb935f66332",
+      "source_order": 119,
+      "category": "Inspection des pages",
+      "title": "Numeric field types that lose phone prefixes or postal-code zeros",
+      "kind": "page-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les mesures de structure et d'ergonomie sur les écrans concernés."
+    },
+    {
+      "id": "capability-95e5ba76db56",
+      "source_order": 120,
+      "category": "Inspection des pages",
+      "title": "Labels provided only by disappearing placeholders",
+      "kind": "page-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les mesures de structure et d'ergonomie sur les écrans concernés."
+    },
+    {
+      "id": "capability-65a8d6e4f121",
+      "source_order": 121,
+      "category": "Inspection des pages",
+      "title": "Overly short maxlength limits for names, emails and addresses",
+      "kind": "page-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les mesures de structure et d'ergonomie sur les écrans concernés."
+    },
+    {
+      "id": "capability-8cac07c8e22c",
+      "source_order": 122,
+      "category": "Inspection des pages",
+      "title": "Controls covered by sticky bars, banners or other elements",
+      "kind": "page-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter des commandes essentielles recouvertes par un autre élément."
+    },
+    {
+      "id": "capability-ab1f3180e2c0",
+      "source_order": 123,
+      "category": "Inspection des pages",
+      "title": "Clipped text in buttons, links, labels and headings",
+      "kind": "page-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les mesures de structure et d'ergonomie sur les écrans concernés."
+    },
+    {
+      "id": "capability-7b600ac1b2d8",
+      "source_order": 124,
+      "category": "Inspection des pages",
+      "title": "Clickable-looking elements unreachable from the keyboard",
+      "kind": "page-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter des commandes essentielles inutilisables au clavier."
+    },
+    {
+      "id": "capability-b2b98951d492",
+      "source_order": 125,
+      "category": "Inspection des pages",
+      "title": "Focusable elements inside aria-hidden regions",
+      "kind": "page-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les mesures de structure et d'ergonomie sur les écrans concernés."
+    },
+    {
+      "id": "capability-e6d3d1a7cf6e",
+      "source_order": 126,
+      "category": "Inspection des pages",
+      "title": "Generic link names such as \"click here\"",
+      "kind": "page-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les mesures de structure et d'ergonomie sur les écrans concernés."
+    },
+    {
+      "id": "capability-f6a3d23bc3e3",
+      "source_order": 127,
+      "category": "Inspection des pages",
+      "title": "Focus escaping a modal, landing on hidden elements or lacking a visible indicator",
+      "kind": "page-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter un focus perdu, invisible ou bloqué."
+    },
+    {
+      "id": "capability-85ca5ea2c2b0",
+      "source_order": 128,
+      "category": "Pannes et récupération",
+      "title": "Offline browser context (offline)",
+      "kind": "fault-scenario",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier l'effet d'une perte de connexion sur une opération pertinente."
+    },
+    {
+      "id": "capability-4f97d2e04e1d",
+      "source_order": 129,
+      "category": "Pannes et récupération",
+      "title": "Slow matching requests (slow)",
+      "kind": "fault-scenario",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier la récupération sous une panne pertinente pour l'architecture détectée."
+    },
+    {
+      "id": "capability-33b340d83c1f",
+      "source_order": 130,
+      "category": "Pannes et récupération",
+      "title": "Aborted application requests (server-down)",
+      "kind": "fault-scenario",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier la récupération après une requête applicative interrompue."
+    },
+    {
+      "id": "capability-b9f1ff069007",
+      "source_order": 131,
+      "category": "Pannes et récupération",
+      "title": "Stop/restart of a local application managed by Chaosfolk (app-stop; replay uses request failure)",
+      "kind": "fault-scenario",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Nécessite une application locale gérée ; explorer la reprise du processus."
+    },
+    {
+      "id": "capability-2a5090bb4fc4",
+      "source_order": 132,
+      "category": "Pannes et récupération",
+      "title": "HTTP error responses, including selected routes and methods (http-error)",
+      "kind": "fault-scenario",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier la récupération sous une panne pertinente pour l'architecture détectée."
+    },
+    {
+      "id": "capability-3755c6a7d2e5",
+      "source_order": 133,
+      "category": "Pannes et récupération",
+      "title": "Backend writes whose responses are lost (lost-response)",
+      "kind": "fault-scenario",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Promouvoir en P1 lorsque réessayer une écriture peut créer un doublon ou une opération financière."
+    },
+    {
+      "id": "capability-cdc2becc98bc",
+      "source_order": 134,
+      "category": "Pannes et récupération",
+      "title": "localStorage write failures from simulated quota exhaustion (storage-full)",
+      "kind": "fault-scenario",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Promouvoir en P1 si des brouillons ou données essentielles dépendent du stockage navigateur."
+    },
+    {
+      "id": "capability-604ee20a63e0",
+      "source_order": 135,
+      "category": "Pannes et récupération",
+      "title": "Cleared local/session storage (storage-empty)",
+      "kind": "fault-scenario",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier la récupération sous une panne pertinente pour l'architecture détectée."
+    },
+    {
+      "id": "capability-d603e4187702",
+      "source_order": 136,
+      "category": "Pannes et récupération",
+      "title": "Corrupted browser-storage values (storage-corrupt)",
+      "kind": "fault-scenario",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Explorer un état de stockage corrompu après les pannes ordinaires."
+    },
+    {
+      "id": "capability-c2fc5e3b31e3",
+      "source_order": 137,
+      "category": "Pannes et récupération",
+      "title": "Page-clock advances (clock)",
+      "kind": "fault-scenario",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Explorer les dépendances temporelles ; ne prouve pas à lui seul une expiration côté serveur."
+    },
+    {
+      "id": "capability-a0efb2e602e3",
+      "source_order": 138,
+      "category": "Pannes et récupération",
+      "title": "Viewport changes during a journey (window)",
+      "kind": "fault-scenario",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier la récupération sous une panne pertinente pour l'architecture détectée."
+    },
+    {
+      "id": "capability-b608aee74e1d",
+      "source_order": 139,
+      "category": "Pannes et récupération",
+      "title": "Cleared browser cookies (cookies-cleared)",
+      "kind": "fault-scenario",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier la récupération sous une panne pertinente pour l'architecture détectée."
+    },
+    {
+      "id": "capability-91e8dbcf380f",
+      "source_order": 140,
+      "category": "Rejeu et preuves",
+      "title": "Expected text visible, absent or present a specified number of times",
+      "kind": "assertion-method",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Vérifier un résultat visible correspondant à une attente établie."
+    },
+    {
+      "id": "capability-99927c448841",
+      "source_order": 141,
+      "category": "Rejeu et preuves",
+      "title": "Expected field value, exact or containing a substring",
+      "kind": "assertion-method",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Vérifier la valeur effectivement conservée."
+    },
+    {
+      "id": "capability-3e5472299aaf",
+      "source_order": 142,
+      "category": "Rejeu et preuves",
+      "title": "Expected localStorage key/value or JSON content",
+      "kind": "assertion-method",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les assertions ou les conditions de persistance pertinentes."
+    },
+    {
+      "id": "capability-17e83d15cdae",
+      "source_order": 143,
+      "category": "Rejeu et preuves",
+      "title": "Expected URL substring",
+      "kind": "assertion-method",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Vérifier une navigation attendue lorsque l'adresse constitue une assertion pertinente."
+    },
+    {
+      "id": "capability-d3066e03d1cd",
+      "source_order": 144,
+      "category": "Rejeu et preuves",
+      "title": "No recorded JavaScript page errors",
+      "kind": "assertion-method",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Recueillir les erreurs sans en déduire un dommage non observé."
+    },
+    {
+      "id": "capability-d9bfce44566b",
+      "source_order": 145,
+      "category": "Rejeu et preuves",
+      "title": "Page body contains visible text",
+      "kind": "assertion-method",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Détecter un écran vide ; compléter avec une assertion métier."
+    },
+    {
+      "id": "capability-3eeee1017783",
+      "source_order": 146,
+      "category": "Rejeu et preuves",
+      "title": "Custom JavaScript assertions defined by the project",
+      "kind": "assertion-method",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Utiliser les règles métier fournies pour vérifier le résultat attendu."
+    },
+    {
+      "id": "capability-7abff079d6ba",
+      "source_order": 147,
+      "category": "Rejeu et preuves",
+      "title": "Persistence after reload (--persist reload)",
+      "kind": "persistence-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier la persistance après une action courante."
+    },
+    {
+      "id": "capability-e4fe83c8594f",
+      "source_order": 148,
+      "category": "Rejeu et preuves",
+      "title": "Persistence after reopening the start address (--persist revisit)",
+      "kind": "persistence-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les assertions ou les conditions de persistance pertinentes."
+    },
+    {
+      "id": "capability-1e2c2d6ea601",
+      "source_order": 149,
+      "category": "Rejeu et preuves",
+      "title": "Persistence in a new tab (--persist new-tab)",
+      "kind": "persistence-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les assertions ou les conditions de persistance pertinentes."
+    },
+    {
+      "id": "capability-be18591656a8",
+      "source_order": 150,
+      "category": "Rejeu et preuves",
+      "title": "Persistence after clearing local/session storage (--persist local-only)",
+      "kind": "persistence-check",
+      "priority": "P3",
+      "activation": "when-applicable",
+      "reason_fr": "Distinguer les données locales des données persistées selon le contrat du produit."
+    },
+    {
+      "id": "capability-0c8c9bed9770",
+      "source_order": 151,
+      "category": "Rejeu et preuves",
+      "title": "Behavior after Back (--persist back)",
+      "kind": "persistence-check",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les assertions ou les conditions de persistance pertinentes."
+    },
+    {
+      "id": "capability-1d150785c0b2",
+      "source_order": 152,
+      "category": "Rejeu et preuves",
+      "title": "Duplicates and recovery after retrying the last successful action (--persist retry)",
+      "kind": "persistence-check",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Détecter les doublons lors d'une nouvelle tentative."
+    },
+    {
+      "id": "capability-d1c6c0ad15b7",
+      "source_order": 153,
+      "category": "Rejeu et preuves",
+      "title": "All supplied field values, with separate acceptance/rejection assertions (vary)",
+      "kind": "evidence-method",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Exécuter les valeurs sélectionnées sans modèle ; approfondi inclut toutes les valeurs applicables."
+    },
+    {
+      "id": "capability-9f302dc200d3",
+      "source_order": 154,
+      "category": "Rejeu et preuves",
+      "title": "Equivalent or different final outcomes from two scenarios (compare)",
+      "kind": "evidence-method",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Compléter les assertions ou les conditions de persistance pertinentes."
+    },
+    {
+      "id": "capability-847e1a4f0e39",
+      "source_order": 155,
+      "category": "Rejeu et preuves",
+      "title": "Repeated treatment/control trials with and without injected faults",
+      "kind": "evidence-method",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Conserver le même seuil de preuve des défauts à tous les niveaux."
+    },
+    {
+      "id": "capability-2bad27be6668",
+      "source_order": 156,
+      "category": "Rejeu et preuves",
+      "title": "Observed/reference journey comparison with and without faults (2×2 matrix)",
+      "kind": "evidence-method",
+      "priority": "P3",
+      "activation": "configured-context",
+      "reason_fr": "Comparer davantage de conditions quand un parcours de référence existe."
+    },
+    {
+      "id": "capability-3a25d2bb85a8",
+      "source_order": 157,
+      "category": "Rejeu et preuves",
+      "title": "Fixture preparation and identity verification before every trial and retry (project commands)",
+      "kind": "evidence-method",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Préparer et vérifier les données nécessaires avant chaque essai concerné."
+    },
+    {
+      "id": "capability-7303002ffe53",
+      "source_order": 158,
+      "category": "Rejeu et preuves",
+      "title": "Failure rates with valid, invalid and requested trial counts",
+      "kind": "evidence-method",
+      "priority": "P1",
+      "activation": "required-when-used",
+      "reason_fr": "Séparer les vrais échecs de l'application des essais incomplets ou invalides."
+    },
+    {
+      "id": "capability-58ca829a9c1e",
+      "source_order": 159,
+      "category": "Rejeu et preuves",
+      "title": "Whether saved findings still fail or pass after a fix or in a later campaign",
+      "kind": "evidence-method",
+      "priority": "P3",
+      "activation": "configured-context",
+      "reason_fr": "Réutiliser les scénarios antérieurs lorsqu'ils existent et sont encore pertinents."
+    },
+    {
+      "id": "capability-543d8d139843",
+      "source_order": 160,
+      "category": "Rejeu et preuves",
+      "title": "Saved scenario assertions in CI, with JUnit results (regression run)",
+      "kind": "evidence-method",
+      "priority": "P3",
+      "activation": "explicit-option",
+      "reason_fr": "Exécution CI uniquement dans un contexte de régression configuré ou demandé."
+    },
+    {
+      "id": "capability-207ea141e212",
+      "source_order": 161,
+      "category": "Parcours et compatibilité",
+      "title": "Project-defined create, read, edit, delete and multi-step journeys",
+      "kind": "journey-or-compatibility",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les opérations métier principales de chaque partie identifiée du produit."
+    },
+    {
+      "id": "capability-96ac9d113471",
+      "source_order": 162,
+      "category": "Parcours et compatibilité",
+      "title": "Navigation, links, Back/Forward, tabs and browser dialogs",
+      "kind": "journey-or-compatibility",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier les déplacements nécessaires pour terminer les parcours."
+    },
+    {
+      "id": "capability-ce73e78bf855",
+      "source_order": 163,
+      "category": "Parcours et compatibilité",
+      "title": "Journey comprehension, labels, discoverability and feedback through simulated users",
+      "kind": "journey-or-compatibility",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Repérer les incompréhensions qui empêchent d'atteindre l'objectif."
+    },
+    {
+      "id": "capability-5adcd5e4b818",
+      "source_order": 164,
+      "category": "Parcours et compatibilité",
+      "title": "Assigned behavior profiles, including hurried, distracted, keyboard and mobile users",
+      "kind": "journey-or-compatibility",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Choisir des comportements utiles aux parcours et tracer ceux réellement exécutés."
+    },
+    {
+      "id": "capability-a79be0b08653",
+      "source_order": 165,
+      "category": "Parcours et compatibilité",
+      "title": "Independent users and coordinated users with separate roles on shared records",
+      "kind": "journey-or-compatibility",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Étendre les contextes d'utilisation pris en charge par le produit."
+    },
+    {
+      "id": "capability-8ab49887e1d5",
+      "source_order": 166,
+      "category": "Parcours et compatibilité",
+      "title": "Desktop, laptop, tablet and mobile viewport/input emulation",
+      "kind": "journey-or-compatibility",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Étendre les contextes d'utilisation pris en charge par le produit."
+    },
+    {
+      "id": "capability-1f05be5c8e44",
+      "source_order": 167,
+      "category": "Parcours et compatibilité",
+      "title": "Chromium, Firefox and WebKit scenario replays (installed browser engines)",
+      "kind": "journey-or-compatibility",
+      "priority": "P3",
+      "activation": "configured-context",
+      "reason_fr": "Étendre aux moteurs de navigateur pris en charge par le produit."
+    },
+    {
+      "id": "capability-7d975a0ba9a9",
+      "source_order": 168,
+      "category": "Parcours et compatibilité",
+      "title": "Pixel differences against reviewed screenshot baselines (optional visual extra)",
+      "kind": "journey-or-compatibility",
+      "priority": "P3",
+      "activation": "configured-context",
+      "reason_fr": "Comparer à des références visuelles approuvées si elles existent."
+    },
+    {
+      "id": "capability-5fa399df0d96",
+      "source_order": 169,
+      "category": "Performance et intégrations",
+      "title": "Observed responsiveness and delays during user journeys",
+      "kind": "signal-or-integration",
+      "priority": "P1",
+      "activation": "when-applicable",
+      "reason_fr": "Repérer les attentes ou blocages visibles pendant les parcours."
+    },
+    {
+      "id": "capability-db093d7c3d60",
+      "source_order": 170,
+      "category": "Performance et intégrations",
+      "title": "Bounded local concurrent page-load smoke tests: HTTP errors, median and p95 timings (probe)",
+      "kind": "signal-or-integration",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Vérifier quelques chargements concurrents sans conclure à une capacité de production."
+    },
+    {
+      "id": "capability-6a61f91a933b",
+      "source_order": 171,
+      "category": "Performance et intégrations",
+      "title": "Presence of CSP, X-Content-Type-Options, X-Frame-Options, Referrer-Policy and HSTS headers (local probe)",
+      "kind": "signal-or-integration",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Recueillir les en-têtes comme signaux à examiner selon l'application."
+    },
+    {
+      "id": "capability-f2dc480a86e7",
+      "source_order": 172,
+      "category": "Performance et intégrations",
+      "title": "Email subject, recipient and body content (Mailpit test mailbox)",
+      "kind": "signal-or-integration",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Promouvoir en P1 si le courriel est indispensable à l'accès ou à un parcours métier."
+    },
+    {
+      "id": "capability-6b8e2955d6c3",
+      "source_order": 173,
+      "category": "Performance et intégrations",
+      "title": "Downloaded CSV files: required columns, row-count bounds and expected content",
+      "kind": "signal-or-integration",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Promouvoir en P1 si l'export CSV est un livrable essentiel du produit."
+    },
+    {
+      "id": "capability-73cd106815c4",
+      "source_order": 174,
+      "category": "Performance et intégrations",
+      "title": "Downloaded text files: expected content",
+      "kind": "signal-or-integration",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Promouvoir en P1 si le fichier texte est un livrable essentiel du produit."
+    },
+    {
+      "id": "capability-321bc0c273d8",
+      "source_order": 175,
+      "category": "Performance et intégrations",
+      "title": "Downloaded PDF files: PDF parsing and expected text (optional PDF extra)",
+      "kind": "signal-or-integration",
+      "priority": "P2",
+      "activation": "when-applicable",
+      "reason_fr": "Promouvoir en P1 si le PDF est un livrable essentiel du produit."
+    },
+    {
+      "id": "capability-7bc85568ebeb",
+      "source_order": 176,
+      "category": "Performance et intégrations",
+      "title": "Automated axe-core accessibility rules (locally supplied axe-core script)",
+      "kind": "signal-or-integration",
+      "priority": "P2",
+      "activation": "configured-context",
+      "reason_fr": "Compléter les mesures internes lorsque le script axe-core est disponible."
+    },
+    {
+      "id": "capability-9142ce5142d4",
+      "source_order": 177,
+      "category": "Performance et intégrations",
+      "title": "External k6 load-test results (configured k6 executable and script)",
+      "kind": "signal-or-integration",
+      "priority": "P3",
+      "activation": "configured-context",
+      "reason_fr": "Utiliser le scénario k6 configuré ; promouvoir si la charge est une exigence prioritaire."
+    },
+    {
+      "id": "capability-711e69d0bf08",
+      "source_order": 178,
+      "category": "Performance et intégrations",
+      "title": "External Appium test results, including native mobile suites (configured Appium runner and script)",
+      "kind": "signal-or-integration",
+      "priority": "P3",
+      "activation": "configured-context",
+      "reason_fr": "Utiliser les tests Appium configurés si une application native est dans le périmètre."
+    }
+  ]
+}
