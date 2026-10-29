@@ -14,7 +14,9 @@
 
 Version [0.8.0 alpha](https://github.com/loukan42/chaosfolk/releases/tag/v0.8.0)
 adds configurable product scans, live limits and fixes to audit controls and
-shared reports. Read the [release notes in French](docs/release-notes/0.8.0.fr.md).
+shared reports. Read the release notes in
+[English](docs/release-notes/0.8.0.en.md) or
+[French](docs/release-notes/0.8.0.fr.md).
 
 ## Choose a scan
 

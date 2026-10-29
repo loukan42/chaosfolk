@@ -2,6 +2,7 @@
 
 Run from the repository root: python scripts/record_audit_scan.py
 The temporary audit never starts. Every recorded selection is verified in SQLite.
+English labels are applied to the recording's HTML, JS and API responses only.
 """
 import json
 from pathlib import Path
@@ -14,6 +15,26 @@ from playwright.sync_api import expect, sync_playwright
 
 from chaosfolk.audit_dashboard import make_server
 from chaosfolk.audit_session import Session
+
+
+def english_dashboard(route):
+    """Translate recording labels while keeping the real session and controls."""
+    response = route.fetch()
+    source = response.text()
+    translations = json.loads(Path(__file__).with_name("audit_scan_en.json").read_text(encoding="utf-8"))
+    if "/api/" in route.request.url:
+        if response.status == 204:
+            route.fulfill(response=response)
+            return
+        value = json.loads(source)
+        for entry in value.get("entries", []):
+            if "category" in entry:
+                entry["category"] = translations.get(entry["category"], entry["category"])
+        route.fulfill(response=response, json=value)
+        return
+    for french, english in sorted(translations.items(), key=lambda item: len(item[0]), reverse=True):
+        source = source.replace(french, english)
+    route.fulfill(response=response, body=source)
 
 
 def main():
@@ -37,18 +58,25 @@ def main():
                 page = browser.new_page(viewport={"width":1120,"height":1000}, device_scale_factor=1)
                 errors = []
                 page.on("pageerror", lambda error: errors.append(str(error)))
+                page.route("**/", english_dashboard)
+                page.route("**/audit-live.js", english_dashboard)
+                page.route("**/api/**", english_dashboard)
                 page.goto(f"http://127.0.0.1:{server.server_port}/#{server.audit_token}")
-                expect(page.locator("#connection")).to_contain_text("Connecté")
+                expect(page.locator("#connection")).to_contain_text("Connected")
 
                 def capture():
                     expect(page.locator("body")).not_to_have_class("busy")
+                    expect(page.locator("html")).to_have_attribute("lang", "en")
+                    assert not any(label in page.locator("body").inner_text() for label in
+                                   ("sélectionnés", "Catalogue QA", "Indisponible", "Enregistrer", "Approfondi",
+                                    "Autoriser l’audit"))
                     path = folder / f"frame-{len(frames):03d}.png"
                     page.screenshot(path=str(path), animations="disabled")
                     frames.append(path)
 
                 def depth(value, count):
                     page.locator(f"input[value={value}]").check()
-                    expect(page.locator("#selection-count")).to_contain_text(f"{count} tests sélectionnés")
+                    expect(page.locator("#selection-count")).to_contain_text(f"{count} tests selected")
                     assert session.snapshot()["config"]["depth"] == value
                     capture()
 
@@ -59,7 +87,7 @@ def main():
                 page.locator("#tests").scroll_into_view_if_needed()
                 capture()
                 page.locator('#tests input[data-check="email-formats"]').uncheck()
-                expect(page.locator("#selection-count")).to_contain_text("115 tests sélectionnés")
+                expect(page.locator("#selection-count")).to_contain_text("115 tests selected")
                 assert session.snapshot()["config"]["excluded"] == ["email-formats"]
                 capture()
                 page.locator("#search").fill("")
@@ -72,7 +100,7 @@ def main():
                 page.locator('#limits input[name="minutes"]').fill("15")
                 page.locator('#limits input[name="actions"]').fill("250")
                 capture()
-                page.get_by_role("button", name="Enregistrer les limites").click()
+                page.get_by_role("button", name="Save limits").click()
                 expect(page.locator("#actions")).to_have_text("0 / 250")
                 capture()
                 state = session.snapshot()
