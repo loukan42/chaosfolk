@@ -1,6 +1,6 @@
 # Choisir jusqu'où Chaosfolk vérifie ton application
 
-À paraître dans la prochaine version. [Read in English](product-audit-scans.md).
+Disponible dans Chaosfolk 0.8.0 alpha. [Read in English](product-audit-scans.md).
 
 Tu peux choisir la profondeur du scan, retirer les tests inutiles et suivre
 l'audit dans un tableau de bord local pendant que ton assistant de code l'exécute.

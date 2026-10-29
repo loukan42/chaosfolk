@@ -12,6 +12,10 @@
 
 </div>
 
+Version [0.8.0 alpha](https://github.com/loukan42/chaosfolk/releases/tag/v0.8.0)
+adds configurable product scans, live limits and fixes to audit controls and
+shared reports. Read the [release notes in French](docs/release-notes/0.8.0.fr.md).
+
 ## Choose a scan
 
 Ask your coding agent to audit your product with Chaosfolk. Choose a depth in the
@@ -49,7 +53,7 @@ counts as complete only when all selected, applicable tests have a recorded resu
 If access or the budget prevents that, the audit stays partial.
 Sanitized reports keep this coverage and your exclusions when shared.
 
-Read the [setup and execution guide](docs/audit-runs.md) or the upcoming release
+Read the [setup and execution guide](docs/audit-runs.md) or the release
 notes in [English](docs/release-notes/product-audit-scans.md) and
 [French](docs/release-notes/product-audit-scans.fr.md).
 

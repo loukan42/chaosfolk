@@ -1,6 +1,6 @@
 # Choose how thoroughly Chaosfolk checks your app
 
-Upcoming release. [Lire en français](product-audit-scans.fr.md).
+Included in Chaosfolk 0.8.0 alpha. [Lire en français](product-audit-scans.fr.md).
 
 You can choose a scan depth, remove tests you do not need and follow the audit
 from a local dashboard while your coding agent runs it.

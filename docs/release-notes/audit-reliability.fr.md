@@ -1,6 +1,6 @@
 # Garder le contrôle pendant un audit
 
-À paraître dans la prochaine version de Chaosfolk.
+Disponible dans Chaosfolk 0.8.0 alpha.
 
 Cette mise à jour corrige l'arrêt et la reprise des scans, conserve tes réglages
 quand une sauvegarde échoue et retire des rapports à partager certains détails
