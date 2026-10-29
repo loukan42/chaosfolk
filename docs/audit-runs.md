@@ -19,6 +19,9 @@ Tool invocations through `execute` also consume an action. One deterministic too
 invocation can perform multiple internal operations; this is not a count of HTTP requests.
 Changing depth updates untouched default time/action limits and preserves customized
 limits. No token limit is assumed. Users can set one when their host provides usage.
+Each audit also limits open user browsers to six by default. Set `max_browsers`
+between 1 and 64 in `limits`, or change it in the dashboard. This bounds simultaneous
+browser contexts; it does not estimate RAM or count Chromium's internal processes.
 
 The complete checklist has 178 entries: 116 configurable test definitions (including
 the 69 QA checks), plus 62 exploration methods, profiles, assertion methods and
@@ -44,6 +47,18 @@ an action already in progress finishes or reaches its normal tool timeout.
 
 The dashboard binds only to loopback and uses a per-session access token. Do not
 share `audit-dashboard.json` or its URL outside the local user session.
+Checkbox changes are applied individually in a transaction, so a stale tab cannot
+silently replace another tab's exclusions.
+Budget edits also send only changed fields. Unsaved values stay in the tab's
+session storage across reloads and failed requests, with a visible unsaved label
+and a discard action. Stop remains accessible while saving and reading the list.
+A delayed start cannot override a newer stop.
+
+Use a dedicated session folder. Chaosfolk protects it and its existing regular
+files with owner-only permissions on Unix, and access for the current user,
+Administrators and SYSTEM on Windows. It rejects internal symbolic links,
+directory junctions and hard-linked files; repository roots and home/drive roots are refused. These
+permissions do not protect against an administrator or a compromised user account.
 
 ## Discover the actual product
 
@@ -53,6 +68,8 @@ Inspect key routes and roles, navigation, forms, files and saved data. Save
 This refreshes the queue automatically. Reusing a page's URL updates its inventory;
 if multiple states at one URL have different controls, merge their kinds/features
 into the inventory and retain the source observations as evidence.
+Concurrent discoveries merge under a lock and publish a complete JSON file.
+Queue refresh reads that inventory after acquiring its database transaction.
 
 The queue uses detected control kinds and page features, plus explicit prerequisites.
 Without sufficient discovery, a missing matching control stays `needs-discovery`.
@@ -114,6 +131,11 @@ reproduction/control process before it can become a confirmed defect.
 `done` and `giveup` requeue unreported tasks. Recover an interrupted worker with
 `audit-run release --owner ID --folder ...` only after that worker is stopped.
 Do not reclaim an active worker's task or repeatedly retry a known blocker.
+Before opening the next wave, the engine releases finished independent users'
+browsers and saves their cookies/local storage and evidence. Coordinated users
+keep their browsers for cross-user checks; call `release ID` when those checks
+finish. A pending fault or download prevents automatic release. If retained users
+leave too few browser slots, finish and release them or explicitly raise the limit.
 
 The remaining executors are obtained with:
 
@@ -149,7 +171,9 @@ The task must already be claimed. `execute` records the command output, checks t
 shared stop state every 200 ms and terminates only its owned tool process tree on
 stop or exclusion. It accepts `fields`, `audit`, `replay`, `vary`, `compare`, `probe`,
 `integrations`, `visual` and `regression`. Keep output paths inside the session.
-An interrupted tool is inconclusive. It cannot terminate an unrelated server or
+An interrupted tool is inconclusive until the user resumes the audit; it then
+returns to the queue with its earlier attempt retained as evidence. Ordinary
+inconclusive results are not automatically retried. The wrapper cannot terminate an unrelated server or
 an active host model request. Direct tool calls outside this wrapper do not all
 have the same stop guarantee; use the wrapper in product audits.
 
@@ -201,9 +225,23 @@ owned application using the ordinary cleanup commands. Starting the dashboard do
 not create a monitoring agent. A CLI `start` or the resume button is required to
 continue; a user stop never triggers an automatic retry.
 
+Close the dashboard at the end of the audit with its **Fermer le tableau de bord**
+button or `audit-run dashboard-close --folder .horde/product-audit`. This closes
+its local server and removes the access record; it does not stop or resume audit
+work. A dashboard without authenticated client activity exits after 15 minutes.
+Closing a browser tab alone leaves that idle timeout in effect. Stop the audit
+and engine separately when work should end.
+
 Generate `report` as usual. It includes selected scope, exclusions and unresolved
 tests, and writes `audit-coverage.json` with individual task results/evidence.
 Completion applies to the discovered, selected scope only. Deep with exclusions,
 missing prerequisites or an exhausted budget must not be described as an exhaustive
 product certification. Assertion, reproduction and proof standards are identical
 at every depth.
+An audit with no completed checks has no numerical score. A partial audit's score
+stays visibly provisional. A fresh tool measurement cannot replace evidence that
+a coordinator is already reviewing; release that review before collecting it again.
+Sanitized `privacy` exports retain depth, exclusions and aggregate coverage in
+`audit-coverage.json`, including when exported again. They omit the database,
+dashboard credentials, worker claims and host usage records. Review redacted
+content and screenshots before sharing, as described in [integrations.md](integrations.md).

@@ -8,6 +8,38 @@ Each entry explains what the change helps you do and gives an example.
 
 ## [Unreleased]
 
+Read the [French release note on audit controls and report privacy](docs/release-notes/audit-reliability.fr.md)
+for the changes visible to users.
+
+### Fixed
+
+- Preserve concurrent page discoveries and evidence already claimed for review.
+  Stop tools whose original claim has been replaced, and reject a delayed dashboard
+  start after a newer Stop. Keep Stop reachable while saving or reading the list.
+- Preserve unsaved budget edits through request failures and reloads; submit only
+  changed limits so another tab's changes survive. Clear recovered connection errors.
+- Block redirects in the read-only probe and axe adapter before they can reach
+  an unauthorized origin. Redirects require a final URL and remain inconclusive.
+- Refuse portable exports containing recognized authentication URLs or sensitive
+  controls, including French password labels and OTP autocomplete metadata.
+  Omit raw replay diagnostics and observations from public proofs.
+- Keep incomplete audit scores provisional and leave the numerical score empty
+  until a check has a result. Reject links inside private session folders.
+- Recheck stop and exclusions after asynchronous fault admission, before applying
+  a fault. An explicit resume requeues interrupted tools and retains their earlier
+  evidence; ordinary inconclusive results stay available for review.
+- Keep concurrent dashboard checkbox edits from replacing one another. Rejected
+  requests receive a stable HTTP response on Windows.
+- Preserve audit depth, exclusions and coverage in sanitized reports without
+  copying database files, dashboard credentials or worker claims.
+- Terminate external test descendants on success, failure and timeout. Close the
+  dashboard server explicitly or after 15 minutes without authenticated activity.
+- Release finished independent users before opening another wave and enforce a
+  configurable open-browser limit, default six. Coordinated users remain available
+  until released. Limit queue reads to the requested batch.
+- Restrict private session file access on Windows and Unix, including existing
+  files. Refuse repository roots and hard-linked session files when securing state.
+
 ### Added
 
 - Choose Quick, Standard or Deep for a full-product scan, uncheck individual

@@ -42,7 +42,9 @@ def origin(url):
 async def run(args, folder):
     from playwright.async_api import async_playwright
     from . import engine
+    from .integrations import fulfill_read_only, origin as guarded_origin
     engine.charger_moteur()
+    permitted = {guarded_origin(local_url(args.url))}
     attempts = []
     async with async_playwright() as pw:
         browser, channel = await engine.lancer_navigateur(pw, False)
@@ -50,13 +52,12 @@ async def run(args, folder):
             async def visit(round_number, client):
                 context = await browser.new_context(service_workers="block", accept_downloads=False)
                 errors = []
+                blocked = []
                 try:
                     async def route(request_route):
-                        request = request_route.request
-                        if request.method not in ("GET", "HEAD") or origin(request.url) != origin(args.url):
-                            await request_route.abort()
-                        else:
-                            await request_route.continue_()
+                        reason = await fulfill_read_only(request_route, permitted, timeout=15)
+                        if reason and reason not in blocked and len(blocked) < 10:
+                            blocked.append(reason)
 
                     await context.route("**/*", route)
                     await context.route_web_socket("**/*", lambda ws: ws.close())
@@ -67,8 +68,11 @@ async def run(args, folder):
                     elapsed_ms = round((time.perf_counter() - start) * 1000)
                     status = response.status if response else None
                     outcome = "ok" if status is not None and status < 400 else "http-error"
+                    if blocked:
+                        outcome = "inconclusive"
                     evidence = {"round": round_number, "client": client, "elapsed_ms": elapsed_ms,
-                                "http_status": status, "outcome": outcome, "page_errors": errors}
+                                "http_status": status, "outcome": outcome, "page_errors": errors,
+                                "blocked_reasons": blocked}
                     if round_number == 1 and client == 1 and response:
                         headers = await response.all_headers()
                         evidence["header_presence"] = {
@@ -89,7 +93,7 @@ async def run(args, folder):
                     return evidence
                 except Exception as error:
                     return {"round": round_number, "client": client, "outcome": "inconclusive",
-                            "error": str(error).split("\n")[0][:300], "page_errors": errors}
+                            "error": str(error).split("\n")[0][:300], "page_errors": errors, "blocked_reasons": blocked}
                 finally:
                     await context.close()
 
@@ -97,7 +101,7 @@ async def run(args, folder):
                 attempts.extend(await asyncio.gather(*(visit(round_number, client) for client in range(1, args.clients + 1))))
         finally:
             await browser.close()
-    valid = [attempt["elapsed_ms"] for attempt in attempts if "elapsed_ms" in attempt]
+    valid = [attempt["elapsed_ms"] for attempt in attempts if "elapsed_ms" in attempt and attempt["outcome"] != "inconclusive"]
     ordered = sorted(valid)
     result = {"url": args.url, "clients": args.clients, "rounds": args.rounds, "browser": channel,
               "attempts": attempts, "valid_count": len(valid),
@@ -105,7 +109,7 @@ async def run(args, folder):
               "http_error_count": sum(a["outcome"] == "http-error" for a in attempts),
               "median_ms": round(statistics.median(valid)) if valid else None,
               "p95_ms": ordered[math.ceil(len(ordered) * .95) - 1] if ordered else None,
-              "note": "Navigation timing is a local smoke measurement, not a load capacity or accessibility certification."}
+              "note": "Local smoke timings include the guarded request relay. Redirects are refused; use the final endpoint. These measurements do not certify load capacity or accessibility."}
     (folder / "probe.json").write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     return result
 

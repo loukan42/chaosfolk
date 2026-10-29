@@ -38,13 +38,23 @@ from the same screen. AI usage appears when your coding tool supplies measuremen
 otherwise it is shown as unavailable. An AI request already in progress may finish
 and keep consuming usage after you press Stop.
 
+You can also cap the number of open user browsers (six by default). Finished
+independent users are released before the next batch; coordinated users remain
+available until their shared checks finish. Resume returns interrupted tools to
+the queue. Closing the dashboard shuts down its local server; use Stop when you
+want to halt the audit itself.
+
 The report records what ran, what you removed and what remains unfinished. Deep
 counts as complete only when all selected, applicable tests have a recorded result.
 If access or the budget prevents that, the audit stays partial.
+Sanitized reports keep this coverage and your exclusions when shared.
 
 Read the [setup and execution guide](docs/audit-runs.md) or the upcoming release
 notes in [English](docs/release-notes/product-audit-scans.md) and
 [French](docs/release-notes/product-audit-scans.fr.md).
+
+The [latest release note in French](docs/release-notes/audit-reliability.fr.md)
+explains the fixes to stopping scans, saving limits and sharing reports.
 
 ## Test checklist
 

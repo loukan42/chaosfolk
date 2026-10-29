@@ -37,6 +37,19 @@ complete measurements before work can continue.
 An AI request already running can still consume tokens after you press Stop.
 Cancelling that request depends on the coding tool running the agents.
 
+Stop stays available during saves and while reading the test list. A delayed start
+cannot restart an audit you have just stopped. Unsaved limits survive failures and
+reloads; edits to different limits in separate tabs preserve one another.
+
+You can also limit how many user browsers stay open at once: six by default.
+Chaosfolk releases finished users before starting the next batch. Browsers needed
+for shared-user checks remain available until those checks finish.
+
+If you stop and resume the audit, interrupted tools return to the queue and keep
+their earlier observations. **Fermer le tableau de bord** closes the dashboard's
+local server; use Stop to halt test work. Without client activity, that server
+closes after fifteen minutes.
+
 ## See what was checked
 
 The report keeps completed tests, observations awaiting review and unfinished
@@ -46,6 +59,15 @@ without reporting a result, the test remains on the list of work to do.
 A Deep scan can stay partial if time runs out, a feature is inaccessible or a
 required tool is missing. Completion means every selected, applicable test has a
 recorded result for the product areas that were discovered.
+The report has no numerical score until a check has a result, and partial audits
+keep a visible provisional label. Concurrent discoveries preserve all saved routes.
+
+Sanitized report copies retain depth, exclusions and progress. Private session
+files have restricted access permissions. External test programs and their child
+processes are cleaned up when a test succeeds, fails or reaches its time limit.
+Shared copies also omit detailed replay diagnostics that can contain entered values.
+Read-only probes and accessibility checks block redirects; supply the final
+authorized URL to continue those checks.
 
 The live dashboard refreshes without asking an AI model to redraw it. Agents
 receive small batches of work and short progress summaries to limit repeated

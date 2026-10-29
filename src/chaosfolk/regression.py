@@ -9,7 +9,7 @@ import re
 import sys
 import time
 from types import SimpleNamespace
-from urllib.parse import parse_qsl, urlsplit
+from urllib.parse import unquote_plus, urlsplit
 from xml.etree import ElementTree as ET
 
 
@@ -20,7 +20,7 @@ EXPORT_ACTIONS = {
     "scroll": {"sens"}, "back": set(), "forward": set(), "reload": set(),
     "wait": {"secondes"},
 }
-SECRET = re.compile(r"password|passwd|secret|token|api.?key|authorization", re.I)
+SECRET = re.compile(r"password|passwd|secret|token|api.?key|authorization|jeton|mot[\s_-]*de[\s_-]*passe|\bpwd\b", re.I)
 
 
 def load_scenario(path):
@@ -37,6 +37,7 @@ def load_scenario(path):
 def portable_scenario(scenario):
     """Reject unsupported semantics before writing anything; never drop a step."""
     from . import engine
+    from .privacy import CREDENTIAL_PARAMETERS, URL_PARAMETER
     sc = deepcopy(scenario)
     if sc.get("sessions") or any(s.get("session") for s in sc["etapes"]):
         raise ValueError("Portable export does not yet support multiple sessions; use regression run")
@@ -52,7 +53,9 @@ def portable_scenario(scenario):
         if not url:
             continue
         parsed = urlsplit(url)
-        if parsed.username or parsed.password or any(SECRET.search(k) for k, _ in parse_qsl(parsed.query)):
+        # Includes OAuth fragments and hash-router callback parameters as well as queries.
+        keys = [unquote_plus(match[2]) for match in URL_PARAMETER.finditer(url)]
+        if parsed.username or parsed.password or any(SECRET.search(k) or k.casefold() in CREDENTIAL_PARAMETERS for k in keys):
             raise ValueError("An address contains authentication data; remove it before exporting")
     for index, step in enumerate(sc["etapes"], 1):
         action = step["action"]
@@ -70,7 +73,8 @@ def portable_scenario(scenario):
                                   not math.isfinite(args["secondes"]) or args["secondes"] < 0):
             raise ValueError(f"Step {index}: seconds must be finite and non-negative")
         target = step.get("cible") or {}
-        if action == "type" and SECRET.search(" ".join(str(target.get(k, "")) for k in ("nom", "placeholder", "testid", "css"))):
+        if action == "type" and (target.get("sensitive") is True or
+                SECRET.search(" ".join(str(target.get(k, "")) for k in ("nom", "placeholder", "testid", "css")))):
             raise ValueError(f"Step {index}: credential input must be supplied by an external authenticated state")
         if "index" in target and (type(target["index"]) is not int or target["index"] < 0):
             raise ValueError(f"Step {index}: target index must be a non-negative integer")

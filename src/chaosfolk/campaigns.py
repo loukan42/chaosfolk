@@ -56,8 +56,9 @@ def project_dir(project):
 
 
 def read(path, default):
+    from .private_state import read_json
     path = Path(path)
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else default
+    return read_json(path) if path.is_file() else default
 
 
 def write(path, data):

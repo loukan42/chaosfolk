@@ -292,6 +292,7 @@
       nb = memes.length;
     }
     return {role: role, nom: abrege(nom, 120), tag: el.tagName.toLowerCase(),
+      ...((el.type === 'password' || /\b(?:current-password|new-password|one-time-code)\b/i.test(el.getAttribute('autocomplete') || '')) ? {sensitive: true} : {}),
       testid: el.getAttribute('data-testid') || el.getAttribute('data-test') || null,
       placeholder: el.getAttribute('placeholder'), texte: abrege(el.innerText || '', 120),
       css: cheminCss(el), index: index, nb: nb, ref: el.getAttribute('data-horde-ref'), hors_ecran: horsEcran(el)};

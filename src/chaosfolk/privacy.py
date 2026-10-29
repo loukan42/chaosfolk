@@ -15,7 +15,7 @@ MASKS = ['input[type="password"]', '[autocomplete^="cc-"]',
 SECRET = re.compile(r"password|passwd|secret|authorization|cookie|token|api.?key|jeton", re.I)
 EMAIL = re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}")
 # A value stops at the closing quote or bracket of HTML attributes, Markdown links and JSON-in-strings.
-URL_PARAMETER = re.compile(r"([?&#])([^=&#\s]+)=([^&#\s\"'<>)\]}\\]*)")
+URL_PARAMETER = re.compile(r"([?&#])([^=?&#\s]+)=([^&#\s\"'<>)\]}\\]*)")
 # Any scheme carries credentials in its authority: wss, postgres, redis, amqp, mongodb...
 URL_CREDENTIALS = re.compile(r"(\w[\w+.-]*://)[^\s/@]+@")
 BEARER = re.compile(r"(?i)Bearer\s+[A-Za-z0-9._~+/-]+=*")
@@ -142,10 +142,21 @@ def _export_contents(source, destination, language, literals, include_captures):
         value = findings if name == "constats.json" else _sanitize(json.loads(path.read_text(encoding="utf-8-sig")), literals)
         if name == "config.json":
             value = {k: value[k] for k in ("url", "demo", "project", "navigateur", "debut") if k in value}
+        if name == "personas.json":
+            for person in value.get("humains", []):
+                for task in person.get("audit_tasks", []):
+                    task.pop("claim", None)
         def remove_captures(obj):
             if isinstance(obj, dict):
                 for key in list(obj):
-                    if key in {"capture", "captures", "scenario", "dossier_horde", "command", "commande", "live_evidence"}:
+                    if key in {"ecran", "args", "live_evidence", "observation"}:
+                        obj.pop(key)
+                    elif key == "raisons":
+                        # Assertion diagnostics include actual field/storage values.
+                        obj[key] = []
+                    elif key == "rejeu_impossible" and obj[key]:
+                        obj[key] = "Private diagnostic omitted; inspect the original evidence"
+                    elif key in {"capture", "captures", "scenario", "dossier_horde", "command", "commande"}:
                         obj[key] = None
                     else:
                         remove_captures(obj[key])
@@ -157,6 +168,20 @@ def _export_contents(source, destination, language, literals, include_captures):
         out = destination / name
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding="utf-8")
+    from .audit_session import existing
+    audit = existing(source)
+    summary_path = _evidence_path(source, "audit-coverage.json")
+    summary = audit.snapshot() if audit else (json.loads(summary_path.read_text(encoding="utf-8")) if summary_path.is_file() else None)
+    if isinstance(summary, dict) and isinstance(summary.get("entries"), list):
+        # Preserve scope without copying the database, claims, paths, credentials or host usage.
+        config = summary.get("config", {})
+        public = {"export_schema": 1, "config": {"depth": config.get("depth"), "excluded": config.get("excluded", [])}}
+        for key in ("counts", "completion", "tested", "unresolved", "elapsed"):
+            if key in summary:
+                public[key] = summary[key]
+        public["entries"] = [{key: item[key] for key in ("id", "title", "category", "priority", "states", "selected", "excluded", "configurable")
+                              if key in item} for item in summary["entries"] if isinstance(item, dict)]
+        (destination / "audit-coverage.json").write_text(json.dumps(_sanitize(public, literals), ensure_ascii=False), encoding="utf-8")
     with (destination / "journal.jsonl").open("w", encoding="utf-8") as journal:
         for index, event in enumerate(engine.iterer_journal(source)):
             capture = event.get("capture")

@@ -4,11 +4,22 @@ const $ = id => document.getElementById(id);
 const token = location.hash.slice(1) || sessionStorage.getItem("chaosfolk-token");
 if (token) sessionStorage.setItem("chaosfolk-token", token);
 history.replaceState(null, "", location.pathname);
-let state, busy = false, page = 0, timer, lastTable = "", received = 0, stopped = false;
+let state, busy = false, page = 0, timer, lastTable = "", received = 0, stopped = false, closed = false, stopping = false, pendingPath = "", errorKind = "";
+const draftKey = "chaosfolk-limits-" + token;
+let draft = {};
+try { draft = JSON.parse(sessionStorage.getItem(draftKey) || "{}"); } catch (_) { /* Storage may be unavailable. */ }
+if (!draft || typeof draft !== "object" || Array.isArray(draft)) draft = {};
+if (Object.keys(draft).length) $("limits").closest("details").open = true;
+const limitFields = {minutes:"max_seconds", actions:"max_actions", tokens:"max_tokens", browsers:"max_browsers"};
+function saveDraft() {
+  try { sessionStorage.setItem(draftKey, JSON.stringify(draft)); } catch (_) { /* Keep edits in memory. */ }
+  $("limits-note").textContent = Object.keys(draft).length ? "Modifications non enregistrées." : "";
+  $("discard-limits").hidden = !Object.keys(draft).length;
+}
 const size = 15, ranks = {quick: 1, standard: 2, deep: 3};
 const names = {pending:"À faire",running:"En cours",measured:"À confirmer",blocked:"Bloqué",passed:"Réussi",failed:"Échec observé",inconclusive:"Non concluant","needs-discovery":"À explorer","not-applicable":"Non applicable","review-context":"Contexte à revoir","excluded-by-user":"Retiré par vous","outside-depth":"Autre niveau"};
 const format = n => new Intl.NumberFormat("fr-FR").format(n);
-function error(message) { $("message").hidden = !message; $("message").textContent = message || ""; }
+function error(message, kind = "action") { errorKind = message ? kind : ""; $("message").hidden = !message; $("message").textContent = message || ""; }
 async function api(path, body) {
   const response = await fetch("/api/" + path, {method:body === undefined ? "GET":"POST", headers:{Authorization:"Bearer " + (token || ""), ...(body === undefined ? {}:{"Content-Type":"application/json"})}, body:body === undefined ? undefined:JSON.stringify(body), signal:AbortSignal.timeout(10000)});
   if (response.status === 204) return null;
@@ -49,7 +60,8 @@ function rows() {
   $("page").textContent = `${entries.length ? page + 1 : 0} / ${Math.ceil(entries.length / size)}`;
   $("previous").disabled = page === 0; $("next").disabled = (page + 1) * size >= entries.length;
 }
-function render(value) {
+function render(value, updateRows = true) {
+  if (state && value.config.revision < state.config.revision) return;
   if (value.entries_mode === "patch" && state) {
     const changes = new Map(value.entries.map(entry => [entry.id, entry]));
     value = {...value, entries_mode:"full", entries:state.entries.map(entry => ({...entry, ...changes.get(entry.id)}))};
@@ -62,49 +74,86 @@ function render(value) {
   $("actions").textContent = format(c.actions) + (c.limits.max_actions ? ` / ${format(c.limits.max_actions)}` : "");
   $("tokens").textContent = c.usage.tokens === null ? "Indisponible" : format(c.usage.tokens) + (c.limits.max_tokens ? ` / ${format(c.limits.max_tokens)}` : "");
   $("usage-note").textContent = c.usage.updated ? `Mesures hôte reçues à ${new Date(c.usage.updated * 1000).toLocaleTimeString("fr-FR")}. ${c.usage.complete ? "" : "Couverture incomplète des agents."}` : "Aucune mesure de tokens reçue de l’hôte. Aucune estimation n’est affichée.";
-  $("start").disabled = running || busy; $("stop").disabled = !running || busy;
+  $("start").disabled = running || busy || stopping; $("stop").disabled = (!running && pendingPath !== "start") || stopping;
+  $("stop").textContent = stopping ? "Arrêt en cours…" : "Arrêter l’audit";
+  $("reset").disabled = busy; $("limits").querySelector("button[type=submit]").disabled = busy;
+  $("close-dashboard").disabled = busy || stopping;
   $("start").textContent = c.state === "stopped" ? "Reprendre l’audit" : "Autoriser l’audit";
   $("progress").textContent = `${format(state.tested)} vérifications avec résultat · ${format(state.unresolved)} à terminer ou à confirmer${state.counts["not-applicable"] ? " · " + format(state.counts["not-applicable"]) + " non applicables" : ""}. ${state.completion === "complete" ? "Périmètre sélectionné couvert." : "Audit partiel."}${c.reason ? " Motif : " + c.reason + "." : ""}`;
   const configurable = state.entries.filter(e => e.configurable), selected = configurable.filter(e => e.selected).length;
   $("selection-count").textContent = `${selected} tests sélectionnés sur ${configurable.length} · ${c.excluded.length} retirés par vous`;
-  document.querySelectorAll("input[name=depth]").forEach(input => {input.checked = input.value === c.depth; input.disabled = busy;});
-  if (!$("limits").contains(document.activeElement) && !$("limits").dataset.dirty) {
-    $("limits").elements.minutes.value = c.limits.max_seconds ? c.limits.max_seconds / 60 : "";
-    $("limits").elements.actions.value = c.limits.max_actions || ""; $("limits").elements.tokens.value = c.limits.max_tokens || "";
+  document.querySelectorAll("input[name=depth]").forEach(input => {if (updateRows) input.checked = input.value === c.depth; input.disabled = busy;});
+  for (const [field, key] of Object.entries(limitFields)) {
+    const input = $("limits").elements[field];
+    if (document.activeElement !== input) input.value = draft[field] ?? (c.limits[key] ? c.limits[key] / (field === "minutes" ? 60 : 1) : "");
   }
+  saveDraft();
   if (!$("methods").children.length) {
     const methods = state.entries.filter(e => !e.configurable);
     $("methods-count").textContent = `${methods.length} méthodes, profils et outils disponibles`;
     $("methods").replaceChildren(...methods.map(e => text("li", e.title)));
   }
-  rows(); clock();
+  if (updateRows) rows(); clock();
 }
-async function mutate(path, body) {
-  if (busy) return;
-  busy = true; document.body.classList.add("busy");
-  document.querySelectorAll("input[name=depth], #tests input, #start, #stop").forEach(el => el.disabled = true);
+async function mutate(path, body, submitted) {
+  const isStop = path === "stop";
+  if (closed || (isStop ? stopping : busy || stopping)) return;
+  if (isStop) stopping = true;
+  else {busy = true; pendingPath = path; document.body.classList.add("busy");}
+  if (state) render(state, false);
+  if (!isStop) document.querySelectorAll("#tests input").forEach(input => input.disabled = true);
+  $("operation").textContent = stopping ? "Arrêt demandé…" : "Enregistrement en cours…";
   error("");
-  try { const result = await api(path, body); render(result); if (result.ok === false) error(result.reason); }
+  try {
+    const result = await api(path, body);
+    if (result.ok !== false && submitted) {
+      for (const [field, value] of Object.entries(submitted)) if (draft[field] === value) delete draft[field];
+      saveDraft();
+    }
+    render(result); if (result.ok === false) error(result.reason);
+  }
   catch (e) { error(e.message); }
-  finally { busy = false; document.body.classList.remove("busy"); if (state) render(state); }
+  finally {
+    if (isStop) stopping = false;
+    else {busy = false; pendingPath = ""; document.body.classList.remove("busy");}
+    $("operation").textContent = stopping ? "Arrêt demandé…" : busy ? "Enregistrement en cours…" : "";
+    if (state) render(state);
+  }
 }
 async function poll() {
   clearTimeout(timer); if (stopped) return;
-  try { if (!busy) {const value = await api("state" + (state ? "?after=" + state.config.revision : "")); if (value && !busy && (!state || value.config.revision >= state.config.revision)) render(value); else $("connection").textContent = "Connecté · session locale";} }
-  catch (e) { $("connection").textContent = "Connexion interrompue"; error(e.message); }
-  timer = setTimeout(poll, document.hidden ? 5000 : 1000);
+  try { if (!busy) {const value = await api("state" + (state ? "?after=" + state.config.revision : "")); if (!stopped) {if (value && !busy && (!state || value.config.revision >= state.config.revision)) render(value); else $("connection").textContent = "Connecté · session locale"; if (errorKind === "network") error("");}} }
+  catch (e) { if (!stopped) {$("connection").textContent = "Connexion interrompue"; if (errorKind !== "action") error("Connexion interrompue. Nouvelle tentative automatique.", "network");} }
+  if (!stopped) timer = setTimeout(poll, document.hidden ? 5000 : 1000);
 }
 document.querySelectorAll("input[name=depth]").forEach(input => input.addEventListener("change", () => mutate("selection", {depth:input.value})));
-$("tests").addEventListener("change", event => {const input = event.target; if (!input.dataset.check || !state) return; const excluded = new Set(state.config.excluded); input.checked ? excluded.delete(input.dataset.check) : excluded.add(input.dataset.check); mutate("selection", {excluded:[...excluded]});});
+$("tests").addEventListener("change", event => {const input = event.target; if (!input.dataset.check || !state) return; mutate("selection", {test_id:input.dataset.check, enabled:input.checked});});
 $("reset").addEventListener("click", () => {
   if (!state) return;
-  const outside = new Set(state.entries.filter(e => Number(e.priority.slice(1)) > ranks[state.config.depth]).map(e => e.id));
-  mutate("selection", {excluded:state.config.excluded.filter(id => outside.has(id))});
+  mutate("selection", {reset:true});
 });
-$("start").addEventListener("click", () => mutate("start", {})); $("stop").addEventListener("click", () => mutate("stop", {}));
+$("start").addEventListener("click", () => {if (state) mutate("start", {expected_revision:state.config.revision});}); $("stop").addEventListener("click", () => mutate("stop", {}));
+$("close-dashboard").addEventListener("click", async () => {
+  if (busy || stopped) return;
+  busy = true;
+  $("close-dashboard").disabled = true;
+  try {
+    await api("shutdown", {}); stopped = true; closed = true; clearTimeout(timer); clearInterval(clockTimer);
+    $("connection").textContent = "Tableau de bord fermé";
+    document.querySelectorAll("button,input,select").forEach(el => el.disabled = true);
+    error("Le tableau de bord est fermé. L’audit reste géré par votre assistant.");
+  } catch (e) { busy = false; $("close-dashboard").disabled = false; error(e.message); }
+});
 $("search").addEventListener("input", () => {page = 0; rows();}); $("filter").addEventListener("change", () => {page = 0; rows();});
 $("previous").addEventListener("click", () => {page--; rows();}); $("next").addEventListener("click", () => {page++; rows();});
-$("limits").addEventListener("input", () => $("limits").dataset.dirty = "true");
-$("limits").addEventListener("submit", event => {event.preventDefault(); const form = event.currentTarget.elements; delete $("limits").dataset.dirty; mutate("selection", {limits:{max_seconds:form.minutes.value ? Number(form.minutes.value) * 60 : null,max_actions:form.actions.value ? Number(form.actions.value) : null,max_tokens:form.tokens.value ? Number(form.tokens.value) : null}});});
+$("limits").addEventListener("input", event => { if (limitFields[event.target.name]) {draft[event.target.name] = event.target.value; saveDraft();} });
+$("limits").addEventListener("submit", event => {
+  event.preventDefault();
+  const submitted = {...draft}, limits = {};
+  for (const [field, value] of Object.entries(submitted)) if (limitFields[field]) limits[limitFields[field]] = value ? Number(value) * (field === "minutes" ? 60 : 1) : null;
+  if (Object.keys(limits).length) mutate("selection", {limits}, submitted);
+});
+$("discard-limits").addEventListener("click", () => {draft = {}; saveDraft(); if (state) render(state);});
 window.addEventListener("pagehide", () => {stopped = true; clearTimeout(timer);});
-setInterval(clock, 1000); poll();
+window.addEventListener("pageshow", event => {if (event.persisted && !closed) {stopped = false; poll();}});
+const clockTimer = setInterval(clock, 1000); poll();
