@@ -7,9 +7,11 @@ live page; `draw --checks` hands a seeded share of the matching checks to each
 user; `vary` and `compare` replay them without a model.
 """
 import argparse
+from contextlib import closing
 import json
 import random
 import re
+import sqlite3
 import unicodedata
 from datetime import date, timedelta
 from pathlib import Path
@@ -262,7 +264,8 @@ def known_pages(folder):
     saved = Path(folder) / "fields.json"
     if not saved.is_file():
         return None
-    data = json.loads(saved.read_text(encoding="utf-8"))
+    from .private_state import read_json
+    data = read_json(saved)
     pages = data.get("pages") or []
     return ({kind for page in pages for kind in page.get("kinds", [])},
             {name for page in pages for name in page.get("features", [])})
@@ -410,12 +413,22 @@ def page_report(analysis, catalog=None):
 
 def save_page(folder_file, analysis):
     """Add or replace one analysed page (by URL) in fields.json."""
+    from .private_state import read_json, secure, write_json
     path = Path(folder_file)
-    data = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {"pages": []}
-    pages = [page for page in data.get("pages", []) if page.get("url") != analysis["url"]]
-    pages.append(analysis)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"pages": pages}, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Serialize the entire merge across CLI processes as well as threads. Keep
+    # this lock file stable; deleting it would let another writer lock a new inode.
+    lock = path.with_name("." + path.name + ".lock.sqlite3")
+    if lock.is_symlink() or lock.is_junction() or (lock.exists() and lock.stat().st_nlink > 1):
+        raise ValueError("Inventory lock must be a private file")
+    with closing(sqlite3.connect(lock, timeout=10)) as db, db:
+        secure(lock)
+        db.execute("BEGIN IMMEDIATE")
+        data = read_json(path) if path.is_file() else {"pages": []}
+        pages = [page for page in data.get("pages", []) if page.get("url") != analysis["url"]]
+        pages.append(analysis)
+        # Readers see a complete inventory even while a writer replaces it.
+        write_json(path, {"pages": pages})
     return path
 
 

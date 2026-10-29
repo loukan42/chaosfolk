@@ -366,10 +366,12 @@ def test_local_concurrency_probe_has_isolated_trials_and_blocks_writes(tmp_path)
         url = f"http://127.0.0.1:{server.server_port}/"
         output = tmp_path / "probe"
         result = cli("probe", url, "--clients", "2", "--rounds", "2", "--output", output)
-        assert result.returncode == 0, result.stdout + result.stderr
+        assert result.returncode == 2, result.stdout + result.stderr
         evidence = json.loads((output / "probe.json").read_text(encoding="utf-8"))
-        assert evidence["valid_count"] == 4 and evidence["inconclusive_count"] == 0
-        assert evidence["http_error_count"] == 0 and evidence["median_ms"] >= 0
+        # Blocked writes leave usable observations, but cannot certify a complete visit.
+        assert evidence["valid_count"] == 0 and evidence["inconclusive_count"] == 4
+        assert evidence["http_error_count"] == 0 and evidence["median_ms"] is None
+        assert all(attempt["elapsed_ms"] >= 0 and attempt["blocked_reasons"] for attempt in evidence["attempts"])
         assert evidence["attempts"][0]["review_signals"] == {"images_without_alt": 1, "inputs_without_label": 1, "buttons_without_name": 1}
         assert evidence["attempts"][0]["header_presence"]["content-security-policy"] is False
         assert (output / "screen.png").is_file()

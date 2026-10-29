@@ -150,6 +150,9 @@ commands and finish with the outcome and flagged action numbers.”
 
 In a full product audit, the saved queue overrides legacy theme/check sampling.
 Use at most three users per wave and start only the new user ids printed by `draw`.
+Independent finished browsers are released before the next wave. Coordinated
+users retain theirs until `release ID`; finish cross-user checks before releasing
+them. Honor `limits.max_browsers` (default six) and avoid raising it without a need.
 Run further waves only while pending tasks and the session budget remain. A worker
 finishing without a check result returns that task to the queue; do not repeatedly
 assign an inaccessible task. Record its blocking reason instead.
@@ -229,3 +232,7 @@ user research. Explain that the report score is a provisional heuristic based on
 
 Always close the engine with `stop` and any managed app with `stop-app`, including
 after a failure. Do not stop a server that the session did not start.
+For an audit session, also run `audit-run dashboard-close --folder ...` after the
+report is ready. Closing the dashboard alone does not stop audit work. An explicit
+resume requeues tools interrupted by stop/exclusion; ordinary inconclusive outcomes
+still require review before another attempt.

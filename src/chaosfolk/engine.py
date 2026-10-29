@@ -409,8 +409,9 @@ def premiere_ligne(erreur, n=300):
 
 def lire_json(chemin, defaut=None):
     """Lit un JSON (avec ou sans BOM). Fichier absent, vide ou `null` : renvoie `defaut`."""
+    from .private_state import read_json
     try:
-        donnees = json.loads(Path(chemin).read_text(encoding="utf-8-sig"))
+        donnees = read_json(chemin, encoding="utf-8-sig")
     except FileNotFoundError:
         return defaut
     except json.JSONDecodeError as e:
@@ -420,11 +421,8 @@ def lire_json(chemin, defaut=None):
 
 def ecrire_json(chemin, donnees):
     """Écrit un JSON d'un coup (fichier temporaire puis remplacement) : jamais lu à moitié."""
-    chemin = Path(chemin)
-    chemin.parent.mkdir(parents=True, exist_ok=True)
-    temporaire = chemin.with_name(chemin.name + ".tmp")
-    temporaire.write_text(json.dumps(donnees, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(temporaire, chemin)
+    from .private_state import write_json
+    write_json(chemin, donnees)
 
 
 def iterer_journal(dossier, obligatoire=True):
@@ -1447,7 +1445,8 @@ class Horde:
     def __init__(self, opts):
         self.opts = opts
         self.dossier = Path(opts.dossier).resolve()
-        self.dossier.mkdir(parents=True, exist_ok=True)
+        from .private_state import session_directory
+        session_directory(self.dossier)
         from .audit_session import existing as existing_audit
         self.audit_session = existing_audit(self.dossier)
         (self.dossier / "captures").mkdir(exist_ok=True)
@@ -1656,7 +1655,7 @@ class Horde:
                     # Stop admission of new work. Keep the engine available for
                     # final results and explicit cleanup; never kill the host.
                     for fault in self.pannes:
-                        if fault["phase"] == "programmee":
+                        if fault["phase"] in {"programmee", "admission"}:
                             fault["phase"] = "annulee"
                         elif fault["phase"] == "active" and fault["type"] not in PANNES_INSTANT:
                             fault["fin_prevue"] = self.horodatage()
@@ -1892,6 +1891,18 @@ class Horde:
         donnees = lire_json(fichier)
         if not donnees:
             raise ValueError(f"fichier de personas illisible : {fichier}")
+        if getattr(self, "audit_session", None):
+            for hid, world in list(self.humains.items()):
+                if (not world.closed and world.statut in {"fini", "abandon"}
+                        and not self.fiches.get(hid, {}).get("retain_browser")):
+                    released = await self.liberer_humain({"h": hid})
+                    if not released["ok"]:
+                        return released
+            new_count = sum(1 for item in donnees.get("humains", []) if isinstance(item, dict) and item.get("id") not in self.humains)
+            opened = sum(not world.closed for world in self.humains.values())
+            limit = self.audit_session.snapshot()["config"]["limits"].get("max_browsers", 6)
+            if opened + new_count > limit:
+                return {"ok": False, "texte": f"Browser limit ({limit}) reached. Release finished coordinated users before the next batch."}
         base = fichier.resolve().parent
         crees, erreurs, arrivees = [], [], []
         for k, fiche in enumerate(donnees.get("humains", []), 1):
@@ -2407,7 +2418,9 @@ class Horde:
             if p["phase"] == "annulee":
                 return
             reason = await self.chaos.admit(p, self)
-            if p["phase"] == "annulee":
+            if (p["phase"] == "annulee" or (getattr(self, "audit_session", None) and
+                    (self.audit_session.gate() or not self.audit_session.fault_allowed(p["type"])))):
+                p["phase"] = "annulee"
                 await self.chaos.release(p)
                 return
             if reason or self.chaos.dry_run():
@@ -3530,6 +3543,10 @@ def _rapport(dossier, langue, journal):
     if audit_run:
         donnees["audit_session"] = audit_run.snapshot()
         ecrire_json(dossier / "audit-coverage.json", audit_run.snapshot(details=True))
+    elif (dossier / "audit-coverage.json").is_file():
+        exported = lire_json(dossier / "audit-coverage.json", {})
+        if isinstance(exported, dict) and exported.get("export_schema") == 1:
+            donnees["audit_session"] = exported
     from chaosfolk.branding import report_branding
     donnees["branding"] = report_branding(dossier)
     from chaosfolk.scoring import score_report
@@ -3957,6 +3974,7 @@ def commande_tirer(opts):
             renamed[human["id"]] = new_id
             human["intention"] = human["intention"].replace(human["id"].upper(), new_id.upper())
             human["id"], human["audit_tasks"] = new_id, tasks
+            human["retain_browser"] = opts.sessions == "coordinated"
             if tasks[0]["route"]:
                 human["depart"] = tasks[0]["route"]
             selected = [audit_catalog()[t["check_id"]] for t in tasks if audit_catalog()[t["check_id"]]["kind"] == "qa-check"]

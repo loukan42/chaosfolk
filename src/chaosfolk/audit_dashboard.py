@@ -7,14 +7,33 @@ import secrets
 import subprocess
 import sys
 import time
+import threading
 from urllib.parse import parse_qs, urlsplit
-from urllib.request import Request, urlopen
+from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHandler
+from urllib.error import URLError
 
 ASSETS = Path(__file__).with_name("templates")
 MAX_BODY = 128 * 1024
 
 
-def make_server(session, port=0, token=None):
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, *_):
+        return None
+
+
+def request_local(record, path, body=None):
+    port = record.get("port")
+    token = record.get("token")
+    if type(port) is not int or not 1 <= port <= 65535 or not isinstance(token, str) or not token:
+        raise ValueError("Invalid local dashboard record")
+    headers = {"Authorization": "Bearer " + token}
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+    request = Request(f"http://127.0.0.1:{port}" + path, data=body, headers=headers)
+    return build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=2)
+
+
+def make_server(session, port=0, token=None, idle_seconds=900):
     token = token or secrets.token_urlsafe(32)
 
     class Handler(BaseHTTPRequestHandler):
@@ -48,7 +67,13 @@ def make_server(session, port=0, token=None):
             return self.headers.get("Host") in {f"127.0.0.1:{self.server.server_port}", f"localhost:{self.server.server_port}"}
 
         def authenticated(self):
-            return hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + token)
+            try:
+                valid = hmac.compare_digest(self.headers.get("Authorization", ""), "Bearer " + token)
+            except TypeError:
+                valid = False
+            if valid:
+                self.server.last_seen = time.monotonic()
+            return valid
 
         def do_GET(self):
             if not self.allowed_host():
@@ -77,6 +102,15 @@ def make_server(session, port=0, token=None):
             origin = self.headers.get("Origin")
             if (not self.allowed_host() or not self.authenticated()
                     or origin not in {None, f"http://{self.headers.get('Host')}"}):
+                self.close_connection = True
+                # Drain a bounded body before closing, otherwise Windows may
+                # reset the connection before the client receives its 403.
+                try:
+                    length = int(self.headers.get("Content-Length", "0"))
+                    if 0 < length <= MAX_BODY:
+                        self.rfile.read(length)
+                except (OSError, ValueError):
+                    pass
                 return self.reply(403, {"error": "Request not authorized"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -87,54 +121,76 @@ def make_server(session, port=0, token=None):
                 if not isinstance(value, dict):
                     raise ValueError("Expected an object")
                 if self.path == "/api/selection":
-                    if set(value) - {"depth", "excluded", "limits"}:
+                    if set(value) - {"depth", "excluded", "limits", "test_id", "enabled", "reset"}:
                         raise ValueError("Unknown selection field")
                     result = session.configure(**value)
                 elif self.path == "/api/start":
-                    result = session.start()
+                    if set(value) - {"expected_revision"}:
+                        raise ValueError("Unknown start field")
+                    revision = value.get("expected_revision")
+                    if revision is not None and (type(revision) is not int or revision < 0):
+                        raise ValueError("Expected a nonnegative revision")
+                    result = session.start(expected_revision=revision)
                 elif self.path == "/api/stop":
                     result = session.stop()
+                elif self.path == "/api/shutdown":
+                    self.reply(200, {"ok": True, "closed": True})
+                    threading.Thread(target=self.server.shutdown, daemon=True).start()
+                    return
                 else:
                     return self.reply(404, {"error": "Not found"})
                 return self.reply(200, result)
             except (ValueError, OSError, TypeError) as error:
                 return self.reply(400, {"error": str(error)})
 
-    server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    class Server(ThreadingHTTPServer):
+        def service_actions(self):
+            if idle_seconds and not self.expiring and time.monotonic() - self.last_seen >= idle_seconds:
+                self.expiring = True
+                threading.Thread(target=self.shutdown, daemon=True).start()
+
+    server = Server(("127.0.0.1", port), Handler)
     server.daemon_threads = True
     server.audit_token = token
+    server.last_seen, server.expiring = time.monotonic(), False
     return server
 
 
 def serve(session, port=0):
+    from .private_state import session_directory
+    session_directory(session.folder)
     session.snapshot()  # Fail before serving if the session is missing/corrupt.
     server = make_server(session, port)
     import os
     record = {"port": server.server_port, "token": server.audit_token, "pid": os.getpid()}
     path = session.folder / "audit-dashboard.json"
-    temporary = path.with_suffix(".tmp")
-    temporary.write_text(json.dumps(record), encoding="utf-8")
-    temporary.replace(path)
+    from .private_state import write_json
+    write_json(path, record)
     try:
         server.serve_forever(poll_interval=0.25)
     finally:
         server.server_close()
+        try:
+            if json.loads(path.read_text(encoding="utf-8")) == record:
+                path.unlink()
+        except (OSError, ValueError):
+            pass
 
 
 def launch(session):
+    from .private_state import session_directory
+    session_directory(session.folder)
     session.snapshot()
     path = session.folder / "audit-dashboard.json"
 
     def current():
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
-            url = f"http://127.0.0.1:{int(record['port'])}"
-            request = Request(url + "/api/state", headers={"Authorization": "Bearer " + record["token"]})
-            with urlopen(request, timeout=1) as response:
+            with request_local(record, "/api/state") as response:
                 value = json.load(response)
             if value["config"]["created"] != session.snapshot()["config"]["created"]:
                 return None
-            return {"url": url + "/#" + record["token"], "folder": str(session.folder)}
+            return {"url": f"http://127.0.0.1:{record['port']}/#" + record["token"], "folder": str(session.folder)}
         except (OSError, ValueError, KeyError):
             return None
 
@@ -156,3 +212,18 @@ def launch(session):
             return ready
         time.sleep(0.1)
     raise RuntimeError("Dashboard startup is pending; rerun dashboard to recover its URL")
+
+
+def close(session):
+    path = session.folder / "audit-dashboard.json"
+    try:
+        record = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {"ok": True, "closed": False}
+    try:
+        with request_local(record, "/api/shutdown", b"{}") as response:
+            return json.load(response)
+    except URLError as error:
+        if isinstance(error.reason, (ConnectionRefusedError, ConnectionResetError)):
+            return {"ok": True, "closed": False}
+        raise

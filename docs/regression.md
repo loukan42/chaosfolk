@@ -21,6 +21,10 @@ cannot reproduce faithfully instead of dropping a step:
 
 It never overwrites an existing file. Review the synthetic inputs before you
 commit the test, and reset the app data before each run.
+New browser recordings mark password and one-time-code controls as sensitive,
+regardless of their displayed name. Export also checks authentication parameters
+in URL queries and fragments, including hash-router callbacks. Older recordings
+without control metadata still need review before sharing.
 
 Run time options:
 

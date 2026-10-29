@@ -12,6 +12,10 @@
 
 </div>
 
+Version [0.8.0 alpha](https://github.com/loukan42/chaosfolk/releases/tag/v0.8.0)
+adds configurable product scans, live limits and fixes to audit controls and
+shared reports. Read the [release notes in French](docs/release-notes/0.8.0.fr.md).
+
 ## Choose a scan
 
 Ask your coding agent to audit your product with Chaosfolk. Choose a depth in the
@@ -38,13 +42,23 @@ from the same screen. AI usage appears when your coding tool supplies measuremen
 otherwise it is shown as unavailable. An AI request already in progress may finish
 and keep consuming usage after you press Stop.
 
+You can also cap the number of open user browsers (six by default). Finished
+independent users are released before the next batch; coordinated users remain
+available until their shared checks finish. Resume returns interrupted tools to
+the queue. Closing the dashboard shuts down its local server; use Stop when you
+want to halt the audit itself.
+
 The report records what ran, what you removed and what remains unfinished. Deep
 counts as complete only when all selected, applicable tests have a recorded result.
 If access or the budget prevents that, the audit stays partial.
+Sanitized reports keep this coverage and your exclusions when shared.
 
-Read the [setup and execution guide](docs/audit-runs.md) or the upcoming release
+Read the [setup and execution guide](docs/audit-runs.md) or the release
 notes in [English](docs/release-notes/product-audit-scans.md) and
 [French](docs/release-notes/product-audit-scans.fr.md).
+
+The [latest release note in French](docs/release-notes/audit-reliability.fr.md)
+explains the fixes to stopping scans, saving limits and sharing reports.
 
 ## Test checklist
 
@@ -397,13 +411,14 @@ Gemini CLI, OpenCode and Windsurf). You don't need Python, Node.js or Git.
 **macOS and Linux**
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/loukan42/chaosfolk/v0.8.0/install.sh | CHAOSFOLK_SOURCE=https://github.com/loukan42/chaosfolk/archive/refs/tags/v0.8.0.zip sh
 ```
 
 **Windows**, in PowerShell
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.ps1 | iex"
+$env:CHAOSFOLK_SOURCE = 'https://github.com/loukan42/chaosfolk/archive/refs/tags/v0.8.0.zip'
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/loukan42/chaosfolk/v0.8.0/install.ps1 | iex"
 ```
 
 **With the [Skills CLI](https://github.com/vercel-labs/skills)** ([skills.sh](https://skills.sh))
@@ -416,7 +431,8 @@ The Skills CLI installs the skill, not the engine it drives. Run the macOS and
 Linux or Windows command above as well.
 
 Then restart your coding agent and ask it: `Run chaosfolk check and tell me if
-anything is missing.` Run the same command again to update.
+anything is missing.` These commands install version 0.8.0. To update later,
+use the commands in the newer release's README.
 
 If your agent can start subagents, testers run in parallel. Otherwise the agent
 plays them one after another, which takes longer and makes them less

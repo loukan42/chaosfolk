@@ -179,6 +179,11 @@ def score_report(data, *, journal_metrics=None):
     weights = {"blocking": 10, "annoying": 4, "minor": 1}
     has_evidence = bool(findings or journal_metrics["has_actions"] or any(property_status(p.get("statut")) != "untested" for p in properties) or console_errors or fault)
     provisional = not reviewed or not has_evidence or any(item["stage"] == "pending" for item in items)
+    audit = data.get("audit_session")
+    if isinstance(audit, dict):
+        provisional = provisional or audit.get("completion") != "complete"
+        if not audit.get("tested"):
+            has_evidence = False
 
     def calculate(scored_items, scored_properties):
         penalty = sum(weights[item["severity"]] * item["factor"] for item in scored_items)

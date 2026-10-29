@@ -15,6 +15,14 @@ signatures, keys, one-time codes, SAML and OAuth values), emails and the exact
 strings listed in the redaction file, and excludes screenshots unless you add `--include-reviewed-captures` after looking
 at each one. Automatic redaction is incomplete: read `PRIVACY-REVIEW.txt` and
 the copy before sharing. The original session is left untouched.
+Raw replay screens, observation snapshots and assertion diagnostics are omitted
+from public proofs because they can contain field values. Trial outcomes and counts
+remain available; inspect detailed diagnostics in the original private session.
+
+The read-only `probe` and axe integration block HTTP redirects before following
+them, including same-origin redirects. Supply the final authorized URL. A blocked
+redirect or resource makes the result inconclusive. Requests use a controlled relay,
+so probe timings include that overhead.
 
 Exports are prepared in a temporary sibling folder and published only after
 report generation succeeds. A failed generation leaves the destination absent

@@ -178,6 +178,34 @@ def check_file(path, kind='auto', contains=(), columns=(), min_rows=None, max_ro
             'checks': checks, 'sha256': hashlib.sha256(raw).hexdigest(), 'bytes': len(raw), **metadata}
 
 
+async def fulfill_read_only(route, permitted, timeout=30):
+    """Fetch one authorized request; reject redirects before a second dispatch."""
+    try:
+        accepted = route.request.method in {'GET', 'HEAD'} and origin(route.request.url) in permitted
+    except ValueError:
+        accepted = False
+    reason = 'Request blocked by the read-only origin policy'
+    if accepted:
+        response = None
+        try:
+            # Browser routing only intercepts the first request in a redirect
+            # chain. Never continue or fulfill a redirect back to the browser.
+            response = await route.fetch(max_redirects=0, max_retries=0, timeout=timeout * 1000)
+            if response.status in {301, 302, 303, 307, 308}:
+                reason = 'Redirect refused; specify the final test endpoint explicitly'
+            else:
+                await route.fulfill(response=response)
+                return None
+        except Exception as error:
+            reason = 'Request could not be fetched: ' + str(error).split('\n')[0][:200]
+        finally:
+            if response is not None:
+                await response.dispose()
+    with suppress(Exception):
+        await route.abort()
+    return reason
+
+
 async def axe_audit(url, script, allow=(), timeout=30):
     """Run a trusted local axe-core bundle; never load a CDN automatically."""
     target = allowed_origin(url, allow)
@@ -186,26 +214,28 @@ async def axe_audit(url, script, allow=(), timeout=30):
     if not 1 <= timeout <= 120:
         raise ValueError('Timeout must be between 1 and 120 seconds')
     from playwright.async_api import async_playwright
-    blocked = {'requests': 0}
+    blocked = {'requests': 0, 'reasons': []}
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch(headless=True)
         try:
             context = await browser.new_context(service_workers='block', accept_downloads=False)
             async def guard(route):
-                try:
-                    accepted = origin(route.request.url) in permitted and route.request.method in {'GET', 'HEAD'}
-                except ValueError:
-                    accepted = False
-                if accepted:
-                    await route.continue_()
-                else:
+                reason = await fulfill_read_only(route, permitted, timeout)
+                if reason:
                     blocked['requests'] += 1
-                    await route.abort()
+                    if reason not in blocked['reasons'] and len(blocked['reasons']) < 10:
+                        blocked['reasons'].append(reason)
             await context.route('**/*', guard)
             await context.route_web_socket('**/*', lambda ws: ws.close())
             page = await context.new_page()
             page.set_default_timeout(timeout * 1000)
-            response = await page.goto(url, wait_until='load')
+            try:
+                response = await page.goto(url, wait_until='load')
+            except Exception:
+                if blocked['requests']:
+                    return {'adapter': 'axe', 'status': 'inconclusive', 'blocked_requests': blocked['requests'],
+                            'reasons': blocked['reasons'], 'script_sha256': hashlib.sha256(source.encode()).hexdigest()}
+                raise
             if response is None or response.status >= 400:
                 raise ValueError('Target did not load successfully')
             await page.add_script_tag(content=source)
@@ -223,6 +253,7 @@ async def axe_audit(url, script, allow=(), timeout=30):
             result.update({'adapter': 'axe', 'status': 'failed' if result['violations'] else
                            'inconclusive' if blocked['requests'] or result.get('incomplete') else 'passed',
                            'blocked_requests': blocked['requests'], 'script_sha256': hashlib.sha256(source.encode()).hexdigest(),
+                           'blocked_reasons': blocked['reasons'],
                            'scope': 'Automated checks for this page state; not an accessibility conformance audit.'})
             return result
         finally:
@@ -231,6 +262,9 @@ async def axe_audit(url, script, allow=(), timeout=30):
 
 def _kill_tree(process, owned):
     """Stop the root captured at launch; never look up an exited root by bare PID."""
+    if hasattr(process, "close"):
+        process.close()
+        return
     import psutil
     try:
         if owned is None:
@@ -267,8 +301,9 @@ def run_external(tool, executable, script, timeout=120):
         result_path = Path(folder) / 'result.json'
         args = [str(executable), 'run', '--summary-export', str(result_path), str(script)] if tool == 'k6' else [str(executable), str(script)]
         env = dict(os.environ, CHAOSFOLK_RESULT_PATH=str(result_path))
-        process = subprocess.Popen(args, cwd=script.parent, env=env, stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT, shell=False, bufsize=0)
+        from .owned_process import OwnedProcess
+        process = OwnedProcess(args, cwd=script.parent, env=env, stdout=subprocess.PIPE,
+                               stderr=subprocess.STDOUT, bufsize=0)
         owned = None
         log_bytes = 0
         reason = None
@@ -306,10 +341,9 @@ def run_external(tool, executable, script, timeout=120):
                 process.wait(timeout=5)
         finally:
             try:
-                if process.poll() is None:
-                    _kill_tree(process, owned)
-                    with suppress(subprocess.TimeoutExpired):
-                        process.wait(timeout=5)
+                _kill_tree(process, owned)
+                with suppress(subprocess.TimeoutExpired):
+                    process.wait(timeout=5)
             finally:
                 process.stdout.close()
         base = {'adapter': tool, 'exit_code': process.returncode,

@@ -87,6 +87,8 @@ class Session:
     def db(self, write=False):
         if not self.path.is_file():
             raise ValueError("No audit session. Run audit-run init first.")
+        if self.path.is_symlink() or not self.path.resolve().is_relative_to(self.folder) or self.path.stat().st_nlink > 1:
+            raise ValueError("Audit database must be a private file inside the session")
         db = sqlite3.connect(self.path, timeout=10)
         db.row_factory = sqlite3.Row
         try:
@@ -115,15 +117,17 @@ class Session:
         if depth not in DEPTHS:
             raise ValueError("Unknown audit depth")
         self.validate_ids(excluded)
-        limits = {**LIMITS[depth], "max_tokens": max_tokens}
+        limits = {**LIMITS[depth], "max_tokens": max_tokens, "max_browsers": 6}
         for name, value in (("max_seconds", max_seconds), ("max_actions", max_actions)):
             if value is not None:
                 limits[name] = value
         self.validate_limits(limits)
-        self.folder.mkdir(parents=True, exist_ok=True)
+        from .private_state import session_directory, secure
+        session_directory(self.folder)
         # Exclusive creation prevents replacing an existing selection or evidence.
         with self.path.open("xb"):
             pass
+        secure(self.path)
         with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("PRAGMA journal_mode=WAL")
             db.executescript("""
@@ -155,9 +159,11 @@ class Session:
 
     @staticmethod
     def validate_limits(limits):
-        if set(limits) - {"max_actions", "max_seconds", "max_tokens"}:
+        if set(limits) - {"max_actions", "max_seconds", "max_tokens", "max_browsers"}:
             raise ValueError("Unknown audit limit")
         for name, value in limits.items():
+            if name == "max_browsers" and (type(value) is not int or not 1 <= value <= 64):
+                raise ValueError("max_browsers must be between 1 and 64")
             if value is not None and (type(value) is not int or value <= 0):
                 raise ValueError(f"{name} must be a positive integer or null")
 
@@ -167,7 +173,14 @@ class Session:
         return (item["configurable"] and item["id"] not in config["excluded"]
                 and int(priority[1:]) <= DEPTHS[config["depth"]])
 
-    def configure(self, *, depth=None, excluded=None, limits=None, promotions=None, capabilities=None, applicability=None):
+    def configure(self, *, depth=None, excluded=None, limits=None, promotions=None, capabilities=None, applicability=None,
+                  test_id=None, enabled=None, reset=False):
+        if test_id is not None or enabled is not None:
+            self.validate_ids([test_id])
+            if type(enabled) is not bool or excluded is not None or reset:
+                raise ValueError("Toggle needs a boolean enabled value and cannot replace the exclusion list")
+        if type(reset) is not bool:
+            raise ValueError("reset must be a boolean")
         if depth is not None and depth not in DEPTHS:
             raise ValueError("Unknown audit depth")
         if excluded is not None:
@@ -206,20 +219,30 @@ class Session:
                     config[key] = list(dict.fromkeys(value)) if key in {"excluded", "capabilities"} else value
             if limits is not None:
                 config["limits"].update(limits)
+            if test_id is not None:
+                current = set(config["excluded"])
+                current.discard(test_id) if enabled else current.add(test_id)
+                config["excluded"] = sorted(current)
+            if reset:
+                config["excluded"] = [key for key in config["excluded"] if
+                    int(config["promotions"].get(key, catalog()[key]["priority"])[1:]) > DEPTHS[config["depth"]]]
             self.save(db, config, "selection", {"depth": config["depth"], "excluded": config["excluded"]})
         if capabilities is not None or applicability is not None:
             self.refresh()
         return self.snapshot()
 
     def refresh(self, discovery_complete=None):
+        from .private_state import read_json
         path = self.folder / "fields.json"
-        inventory = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {"pages": []}
-        pages = inventory.get("pages", [])
-        if not isinstance(pages, list) or any(not isinstance(p, dict) or not isinstance(p.get("url"), str) for p in pages):
-            raise ValueError("Invalid fields inventory")
-        if discovery_complete and not pages:
-            raise ValueError("Complete discovery requires a saved page inventory")
         with self.db(True) as db:
+            # Read after acquiring the transaction: a refresh that waited for
+            # another writer must not restore an older inventory's task set.
+            inventory = read_json(path) if path.is_file() else {"pages": []}
+            pages = inventory.get("pages", [])
+            if not isinstance(pages, list) or any(not isinstance(p, dict) or not isinstance(p.get("url"), str) for p in pages):
+                raise ValueError("Invalid fields inventory")
+            if discovery_complete and not pages:
+                raise ValueError("Complete discovery requires a saved page inventory")
             config = self.config(db)
             if discovery_complete is not None:
                 config["discovery_complete"] = bool(discovery_complete)
@@ -302,13 +325,21 @@ class Session:
     def stop(self, reason="Stopped by user"):
         with self.db(True) as db:
             config = self.config(db)
-            if config["state"] != "stopped":
-                self._stop(db, config, reason)
+            # Even a repeated Stop invalidates an older delayed Start request.
+            self._stop(db, config, reason)
         return self.snapshot()
 
-    def start(self):
+    def start(self, expected_revision=None):
+        if expected_revision is not None and (type(expected_revision) is not int or expected_revision < 0):
+            raise ValueError("Expected revision must be a non-negative integer")
         with self.db(True) as db:
             config = self.config(db)
+            if expected_revision is not None and config["revision"] != expected_revision:
+                raise ValueError("Audit changed; refresh before starting")
+            changed = db.execute("""UPDATE tasks SET status='pending',owner=NULL,claim=NULL,updated=?
+                WHERE status='inconclusive' AND json_extract(result,'$.retryable')=1""", (time.time(),)).rowcount
+            if changed:
+                self.save(db, config, "resumed-tasks", {"tasks": changed})
             if config["state"] != "running":
                 config.update(state="running", started=time.time(), stopped=None, reason="")
                 self.save(db, config, "started")
@@ -325,14 +356,25 @@ class Session:
             reason = self._gate(db, config)
             if reason:
                 return {"tasks": [], "reason": reason}
-            candidates = [row for row in db.execute("SELECT id,check_id,route,status,result FROM tasks WHERE status IN ('pending','measured') AND eligibility='eligible'")
-                          if self.selected(catalog()[row["check_id"]], config)
-                          and ((row["status"] == "measured" and executor == "coordinator") or
-                               (row["status"] == "pending" and catalog()[row["check_id"]]["executor"] == executor))
-                          and (route is None or row["route"] == route)]
-            candidates.sort(key=lambda r: (config["promotions"].get(r["check_id"], catalog()[r["check_id"]]["priority"]), r["route"], r["id"]))
+            selected = [item for item in catalog().values() if self.selected(item, config)]
+            clauses, parameters = [], []
+            for status, ids in (("pending", [item["id"] for item in selected if item["executor"] == executor]),
+                                ("measured", [item["id"] for item in selected] if executor == "coordinator" else [])):
+                if ids:
+                    clauses.append("(status=? AND check_id IN (" + ",".join("?" for _ in ids) + "))")
+                    parameters.extend([status, *ids])
+            if not clauses:
+                return {"tasks": [], "reason": None}
+            query = "SELECT id,check_id,route,status,result FROM tasks WHERE eligibility='eligible' AND (" + " OR ".join(clauses) + ")"
+            if route is not None:
+                query += " AND route=?"
+                parameters.append(route)
+            query += " ORDER BY CASE check_id " + " ".join("WHEN ? THEN ?" for _ in selected) + " END,route,id LIMIT ?"
+            for item in selected:
+                parameters.extend([item["id"], int(config["promotions"].get(item["id"], item["priority"])[1:])])
+            candidates = db.execute(query, (*parameters, limit)).fetchall()
             chosen = []
-            for row in candidates[:limit]:
+            for row in candidates:
                 claim = uuid.uuid4().hex
                 db.execute("UPDATE tasks SET status='running',owner=?,claim=?,updated=? WHERE id=?", (owner, claim, time.time(), row["id"]))
                 item = catalog()[row["check_id"]]
@@ -356,7 +398,9 @@ class Session:
                 raise ValueError("Evidence must be a non-empty file inside the audit session")
         return references
 
-    def record(self, task_id, status, summary, evidence=None, owner=None, claim=None):
+    def record(self, task_id, status, summary, evidence=None, owner=None, claim=None, retryable=False):
+        if type(retryable) is not bool or (retryable and status != "inconclusive"):
+            raise ValueError("Only inconclusive attempts can be retryable")
         if status not in FINISHED | {"measured"} or not isinstance(summary, str) or not summary.strip() or len(summary) > 4000:
             raise ValueError("Supply a valid result status and a concise outcome")
         references = self.evidence(evidence) if status in {"passed", "failed", "measured"} else (self.evidence(evidence) if evidence else [])
@@ -366,15 +410,18 @@ class Session:
                 raise ValueError("Unknown audit task")
             if owner is not None and (row["owner"] != owner or row["claim"] != claim or row["status"] != "running"):
                 raise ValueError("This task is not assigned to this worker claim")
-            result = {"status": status, "summary": summary, "evidence": references, "recorded": time.time(), "owner": owner}
-            db.execute("UPDATE tasks SET status=?,result=?,updated=? WHERE id=?", (status, dumps(result), time.time(), task_id))
-            self.save(db, self.config(db), "result", {"task_id": task_id, **result})
+            config = self.config(db)
+            result = {"status": status, "summary": summary, "evidence": references, "recorded": time.time(), "owner": owner,
+                      "retryable": retryable}
+            stored_status = "pending" if retryable and config["state"] == "running" else status
+            db.execute("UPDATE tasks SET status=?,result=?,updated=? WHERE id=?", (stored_status, dumps(result), time.time(), task_id))
+            self.save(db, config, "result", {"task_id": task_id, **result})
         return result
 
     def release(self, owner, reason="Worker finished without a result"):
         # Requeue work, never convert an unreported check into a pass.
         with self.db(True) as db:
-            changed = db.execute("UPDATE tasks SET status=CASE WHEN result IS NOT NULL THEN 'measured' ELSE 'pending' END,owner=NULL,claim=NULL,updated=? WHERE owner=? AND status='running'",
+            changed = db.execute("UPDATE tasks SET status=CASE WHEN json_extract(result,'$.status')='measured' THEN 'measured' ELSE 'pending' END,owner=NULL,claim=NULL,updated=? WHERE owner=? AND status='running'",
                                  (time.time(), owner)).rowcount
             if changed:
                 self.save(db, self.config(db), "released", {"owner": owner, "reason": reason, "tasks": changed})
@@ -400,7 +447,11 @@ class Session:
         references = self.evidence(evidence)
         with self.db(True) as db:
             config = self.config(db)
-            rows = list(db.execute("SELECT id,check_id FROM tasks WHERE route=? AND status IN ('pending','running') AND eligibility='eligible'", (route,)))
+            # A running review owns the previously saved measurement. A later
+            # page scan must not invalidate that claim or replace its evidence.
+            rows = list(db.execute("""SELECT id,check_id FROM tasks WHERE route=?
+                AND status IN ('pending','running') AND eligibility='eligible'
+                AND NOT (status='running' AND COALESCE(json_extract(result,'$.status'),'')='measured')""", (route,)))
             ids = [r["id"] for r in rows if catalog()[r["check_id"]]["executor"] == executor
                    and self.selected(catalog()[r["check_id"]], config)]
             result = {"status": "measured", "summary": "Tool signals recorded; review expected behavior before judging",
@@ -420,9 +471,8 @@ class Session:
 
     def execute(self, task_id, command):
         """Run a coordinator tool under this task's stop gate; record output for review."""
-        import subprocess
         import sys
-        from .engine import process_identity, stop_owned_process
+        from .owned_process import OwnedProcess
         allowed = {"fields", "audit", "replay", "vary", "compare", "probe", "integrations", "visual", "regression"}
         if not command or command[0] not in allowed:
             raise ValueError("execute accepts a Chaosfolk test command: " + ", ".join(sorted(allowed)))
@@ -434,44 +484,41 @@ class Session:
         relative = "audit-evidence/tool-" + uuid.uuid4().hex + ".log"
         output = self.folder / relative
         output.parent.mkdir(exist_ok=True)
-        reason = None
+        reason, retryable = None, False
         with output.open("wb") as stream:
             stream.write(("chaosfolk " + " ".join(command) + "\n").encode())
             stream.flush()
-            process = subprocess.Popen([sys.executable, "-m", "chaosfolk", *command], stdout=stream,
-                       stderr=stream, stdin=subprocess.DEVNULL, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-                       start_new_session=sys.platform != "win32")
-            identity = process_identity(process.pid)
+            process = OwnedProcess([sys.executable, "-m", "chaosfolk", *command], stdout=stream, stderr=stream)
             try:
                 while process.poll() is None:
                     reason = self.gate()
-                    if not reason and not self.task_allowed(task_id):
-                        # fields/audit may have just saved their measurement.
+                    retryable = bool(reason)
+                    if not reason:
                         with self.db() as db:
-                            row = db.execute("SELECT status,check_id FROM tasks WHERE id=?", (task_id,)).fetchone()
-                            selected = row and self.selected(catalog()[row["check_id"]], self.config(db))
-                        if not selected or row["status"] != "measured":
+                            row = db.execute("SELECT status,check_id,eligibility,claim FROM tasks WHERE id=?", (task_id,)).fetchone()
+                            selected = (row and row["eligibility"] == "eligible"
+                                        and self.selected(catalog()[row["check_id"]], self.config(db)))
+                        # fields/audit may have saved their measurement. A
+                        # replacement running claim belongs to another attempt.
+                        owned = row and row["status"] == "running" and row["claim"] == task["claim"]
+                        if not selected or not (owned or row["status"] == "measured"):
                             reason = "Test disabled or claim released"
+                            retryable = True
                     if output.stat().st_size > 10 * 1024 * 1024:
                         reason = "Tool output exceeded 10 MiB"
+                        retryable = False
                     if reason:
                         break
                     time.sleep(0.2)
             finally:
-                if process.poll() is None:
-                    stop_owned_process(identity)
-                    try:
-                        process.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        process.kill()
-                        process.wait(timeout=5)
+                process.close()
         status = "inconclusive" if reason or process.returncode else "measured"
         summary = reason or f"Tool exit {process.returncode}; review the recorded output and assertions"
         # The tool may already have released its measurement; coordinator review remains required.
         with self.db() as db:
             current = db.execute("SELECT status,owner,claim FROM tasks WHERE id=?", (task_id,)).fetchone()
         if current and current["status"] == "running" and current["claim"] == task["claim"]:
-            self.record(task_id, status, summary, [relative], task["owner"], task["claim"])
+            self.record(task_id, status, summary, [relative], task["owner"], task["claim"], retryable=retryable)
         elif not current or current["status"] != "measured":
             return {"ok": False, "status": "inconclusive", "evidence": relative,
                     "reason": "Task claim changed; output preserved without replacing its newer result", "returncode": process.returncode}
@@ -614,6 +661,7 @@ def main(argv=None):
     usage.add_argument("--input", type=Path, required=True)
     usage.add_argument("--complete", action="store_true", help="measurements include coordinator and every worker")
     sub.add_parser("dashboard")
+    sub.add_parser("dashboard-close")
     serve = sub.add_parser("serve")
     serve.add_argument("--port", type=int, default=0)
     for child in sub.choices.values():
@@ -643,12 +691,12 @@ def main(argv=None):
         value = session.execute(args.task, command)
     elif args.command == "usage":
         value = session.usage([json.loads(line) for line in args.input.read_text(encoding="utf-8-sig").splitlines() if line.strip()], args.complete)
-    elif args.command in {"serve", "dashboard"}:
-        from .audit_dashboard import serve, launch
+    elif args.command in {"serve", "dashboard", "dashboard-close"}:
+        from .audit_dashboard import serve, launch, close
         if args.command == "serve":
             serve(session, args.port)
             return 0
-        value = launch(session)
+        value = close(session) if args.command == "dashboard-close" else launch(session)
     else:
         value = session.outstanding(args.limit, args.offset) if args.pending else session.snapshot(details=args.details)
     if isinstance(value, dict) and "entries" in value and not (args.command == "status" and args.details):

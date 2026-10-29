@@ -1,4 +1,4 @@
-# Replay reproducibility (unreleased)
+# Replay reproducibility (0.8.0 alpha)
 
 Replay a finding against the same verified dataset, retain its reproduction
 metadata, and compare it with a reference journey supplied by your team.
