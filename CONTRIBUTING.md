@@ -61,6 +61,12 @@ the matching `Added`, `Changed`, `Fixed` or `Removed` group.
 
 ## Releasing
 
+For every release, write matching English and French notes in
+`docs/release-notes/X.Y.Z.en.md` and `docs/release-notes/X.Y.Z.fr.md`.
+Both versions must cover the same changes and limitations. Link both from the
+README and changelog, and include both languages in the GitHub release notes.
+User-facing notes for unreleased changes must also have an English/French pair.
+
 1. Move the `Unreleased` entries to a new dated version section in
    `CHANGELOG.md` and update the comparison links at the bottom.
 2. Set the same version in `pyproject.toml` and `src/chaosfolk/__init__.py`.

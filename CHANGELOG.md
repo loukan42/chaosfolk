@@ -10,14 +10,20 @@ Each entry explains what the change helps you do and gives an example.
 
 ### Fixed
 
+- Use English labels in the README's product-audit GIF and still image. The
+  recording script applies the translations on each run and verifies the saved
+  test selection and limits. Release notes:
+  [English](docs/release-notes/english-audit-demo.en.md) and
+  [French](docs/release-notes/english-audit-demo.fr.md).
+
 - Wait up to five seconds for SQLite writer contention in the shared chaos
   ledger instead of failing after 250 ms. Concurrent admissions still enforce
   the same active-injection limit and cooldown; a lock timeout leaves no lease.
 
 ## [0.8.0] - 2026-10-29
 
-Read the [French release note on audit controls and report privacy](docs/release-notes/audit-reliability.fr.md)
-for the changes visible to users.
+Read the release notes in [English](docs/release-notes/0.8.0.en.md) or
+[French](docs/release-notes/0.8.0.fr.md) for the changes visible to users.
 
 ### Added
 
