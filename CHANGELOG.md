@@ -8,6 +8,12 @@ Each entry explains what the change helps you do and gives an example.
 
 ## [Unreleased]
 
+### Fixed
+
+- Wait up to five seconds for SQLite writer contention in the shared chaos
+  ledger instead of failing after 250 ms. Concurrent admissions still enforce
+  the same active-injection limit and cooldown; a lock timeout leaves no lease.
+
 ## [0.8.0] - 2026-10-29
 
 Read the [French release note on audit controls and report privacy](docs/release-notes/audit-reliability.fr.md)

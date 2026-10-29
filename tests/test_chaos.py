@@ -1,8 +1,11 @@
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import json
+import sqlite3
 import sys
+import threading
 import time
 from types import SimpleNamespace
 
@@ -183,6 +186,46 @@ def test_shared_admission_is_atomic_and_cooldown_survives_release(tmp_path):
     assert ledger.claim("recipe", "new", "f2", "api", "offline", policy, now=110) == "shared-cooldown"
     assert ledger.claim("other-environment", "new", "f2", "api", "offline", policy, now=110) is None
     assert ledger.claim("recipe", "new", "f3", "api", "offline", policy, now=131) is None
+
+
+def test_shared_admission_waits_for_a_competing_writer(tmp_path, monkeypatch):
+    ledger = chaos.Ledger(tmp_path / "state.db")
+    policy = chaos.validate({"max_active": 1, "min_interval": 30})
+    ready = threading.Event()
+    connect = ledger.connect
+
+    @contextmanager
+    def observed_connect():
+        with connect() as db:
+            ready.set()
+            yield db
+
+    monkeypatch.setattr(ledger, "connect", observed_connect)
+    with connect() as blocker, ThreadPoolExecutor(max_workers=1) as pool:
+        blocker.execute("BEGIN IMMEDIATE")
+        future = pool.submit(ledger.claim, "recipe", "waiting", "f1", "api", "offline", policy, 100)
+        try:
+            assert ready.wait(5)
+            # A genuine SQLite lock held beyond the previous 250 ms deadline.
+            time.sleep(0.5)
+        finally:
+            blocker.commit()
+        assert future.result(timeout=10) is None
+    assert ledger.claim("recipe", "other", "f2", "api", "offline", policy, now=110) == "shared-cooldown"
+
+
+def test_shared_admission_lock_timeout_preserves_state(tmp_path, monkeypatch):
+    ledger = chaos.Ledger(tmp_path / "state.db")
+    monkeypatch.setattr(ledger, "LOCK_TIMEOUT", 0.1)
+    policy = chaos.validate({"max_active": 1, "min_interval": 30})
+    with ledger.connect() as blocker:
+        blocker.execute("BEGIN IMMEDIATE")
+        with pytest.raises(sqlite3.OperationalError, match="locked"):
+            ledger.claim("recipe", "waiting", "f1", "api", "offline", policy, now=100)
+        # A rejected admission must not reserve a lease or consume the cooldown.
+        assert blocker.execute("SELECT count(*) FROM leases").fetchone()[0] == 0
+        assert blocker.execute("SELECT count(*) FROM history").fetchone()[0] == 0
+    assert ledger.claim("recipe", "waiting", "f1", "api", "offline", policy, now=100) is None
 
 
 def test_dry_run_does_not_reserve_shared_environment(tmp_path):

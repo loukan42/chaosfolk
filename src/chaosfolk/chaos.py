@@ -187,6 +187,10 @@ def selected(rule, human, role, route):
 
 class Ledger:
     """Atomic admission across processes on one shared local SQLite database."""
+    # Short transactions can still exceed 250 ms on a busy Windows runner.
+    # Let SQLite wait for the writer without replaying an admitted injection.
+    LOCK_TIMEOUT = 5.0
+
     def __init__(self, path):
         self.path = Path(path)
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -196,7 +200,7 @@ class Ledger:
 
     @contextmanager
     def connect(self):
-        db = sqlite3.connect(self.path, timeout=0.25)
+        db = sqlite3.connect(self.path, timeout=self.LOCK_TIMEOUT)
         try:
             with db:
                 yield db
