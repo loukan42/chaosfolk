@@ -193,6 +193,11 @@ Use an explicit Python executable for the intended environment. Prepare/reset
 synthetic fixtures in the foreground script if needed. Jobs get isolated engine
 state; logs stay under `<state directory>/chaos-job-logs/` and may contain app data.
 The same job cannot overlap during its reserved timeout. Code 124 means timeout.
+Combined stdout/stderr logs default to a 10 MiB limit per attempt. Set
+`"max_log_bytes"` in the job JSON to an integer from 1 to 67,108,864 (64 MiB)
+to change it. If output exceeds the limit, Chaosfolk stops the owned process
+tree, retains at most the configured bytes and returns code 125. This cap covers
+the captured log; files the command writes itself remain outside this limit.
 
 ## Shared environments
 
@@ -252,8 +257,10 @@ and counted.
 For a secret manager use `{"command": ["my-secret-cli", "read", "qa-token"]}`
 instead of `{"env": "QA_MONITOR_TOKEN"}`. The program returns the plain secret
 on stdout (up to 64 KiB); the hook receives it in the named environment variable.
-Values never enter policy evidence or agent prompts. Providers run only for
-configured hooks.
+Captured stdout is read through a bounded pipe and kept in memory. If a provider
+exceeds 64 KiB, Chaosfolk stops its owned process tree and raises an
+`output-limit` error; it does not spool the excess output to disk. Values never
+enter policy evidence or agent prompts. Providers run only for configured hooks.
 
 ## Evidence and limits
 

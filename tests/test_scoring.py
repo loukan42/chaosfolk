@@ -11,7 +11,9 @@ def proof(failed=3, mode="traitement", count=3, requested=3):
 
 
 def finding(severity="blocking", **extra):
-    return {"id": "C1", "gravite": severity, "statut": "reproduit", "preuves": {"avant": proof()}, **extra}
+    return {"id": "C1", "gravite": severity, "statut": "reproduit", "qualification": "defect",
+            "expected_basis": "Documented save contract: retain a draft when saving fails.",
+            "preuves": {"avant": proof()}, **extra}
 
 
 def report(*findings, journal=None, properties=None):
@@ -30,10 +32,10 @@ def test_original_severity_weights_exponential_formula_and_caps(severity, penalt
 
 
 @pytest.mark.parametrize("status,proofs,expected", [
-    ("observed", {}, 0.4), ("intermittent", {}, 0.6), ("à décider", {}, 0.3), ("écarté", {}, 0),
+    ("observed", {}, 0), ("intermittent", {}, 0), ("à décider", {}, 0), ("écarté", {}, 0),
     ("réparé", {"avant": proof(), "apres": proof(0)}, 0.3),
     ("réparé", {"avant": proof(), "apres": proof(0), "demontee": proof()}, 0.15),
-    ("réparé", {"apres": proof(0), "demontee": proof()}, 0.4),
+    ("réparé", {"apres": proof(0), "demontee": proof()}, 0),
 ])
 def test_evidence_factors_and_declared_fix_cannot_invent_baseline(status, proofs, expected):
     info = finding_info(finding(statut=status, preuves=proofs))
@@ -44,8 +46,8 @@ def test_evidence_factors_and_declared_fix_cannot_invent_baseline(status, proofs
                                     proof(count=True, requested=True, failed=True), {"fois": 3, "casses": 3}])
 def test_wrong_mode_or_incomplete_trials_never_establish_reproduction(invalid):
     result = score_report(report(finding(preuves={"avant": invalid})))
-    assert result["penalty"] == 4
-    assert result["cap"]["value"] == 74
+    assert result["penalty"] == 0
+    assert result["cap"]["value"] == 100
 
 
 def test_condition_needs_complete_control_and_fix_removal():
@@ -65,10 +67,10 @@ def test_empty_report_has_no_score_and_is_provisional():
     assert score["pillars"] == []
 
 
-def test_unreviewed_flags_use_original_provisional_weight():
+def test_unreviewed_flags_do_not_count_as_defects():
     score = score_report({"journal": [{"type": "action", "h": "h01", "action": "flag", "gravite": "blocking"}]})
     assert score["provisional"]
-    assert score["penalty"] == 2
+    assert score["penalty"] == 0
 
 
 def test_property_pillar_is_optional_and_fixed_receives_partial_credit():

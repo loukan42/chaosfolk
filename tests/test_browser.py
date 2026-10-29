@@ -153,8 +153,26 @@ def test_divergence_retry_prepares_a_fresh_fixture(tmp_path, fixture_url, monkey
                              "--output", str(tmp_path / "results")]) == 0
     assert len(preparations) == 2
     result = json.loads((tmp_path / "results" / "scenario-traitement.json").read_text())
-    assert result["casses"] == 1
+    assert result["casses"] == result["fois"] == 0
+    assert result["reproducibility"]["invalid"] == 1
+    assert result["essais"][0]["ok"] is None
     assert result["essais"][0]["preparation"]["status"] == "reset-verified"
+
+
+@pytest.mark.parametrize("assertion", [{"type": "no-page-error"}, {"type": "text-visible", "text": "Never reached"}])
+def test_action_divergence_invalidates_the_actual_replay(tmp_path, fixture_url, monkeypatch, assertion):
+    async def broken_action(*args, **kwargs):
+        raise ValueError("The recorded target is stale")
+    monkeypatch.setattr(engine, "jouer_etape", broken_action)
+    source = tmp_path / "scenario.json"
+    source.write_text(json.dumps({"url": fixture_url, "steps": [
+        {"action": "click", "target": {"role": "button", "name": "Save"}}], "expect": [assertion]}))
+    assert engine.principal(["replay", str(source), "--times", "1", "--channel", "chromium", "--fail-on-bug",
+                             "--output", str(tmp_path / "results")]) == 2
+    result = json.loads((tmp_path / "results" / "scenario-traitement.json").read_text())
+    assert result["casses"] == result["fois"] == 0
+    assert result["essais"][0]["divergence"]["etape"] == 1
+    assert result["essais"][0]["ok"] is None
 
 
 def test_daemon_authentication_actions_and_storage_isolation(tmp_path, fixture_url):
@@ -289,6 +307,7 @@ def test_replay_exit_codes_distinguish_pass_failure_and_inconclusive(tmp_path, f
 
 
 def test_demo_measures_failure_control_and_fix(tmp_path):
+    from test_core import embedded_report_data
     result = cli("demo", "--output", tmp_path / "demo", "--lang", "fr", timeout=180)
     assert result.returncode == 0, result.stdout + result.stderr
     for name, failures in (("before", 3), ("before-temoin", 0), ("after", 0), ("after-temoin", 0)):
@@ -297,7 +316,7 @@ def test_demo_measures_failure_control_and_fix(tmp_path):
         assert evidence["casses"] == failures
         assert all(Path(trial["capture"]).is_file() for trial in evidence["essais"])
     assert (tmp_path / "demo/rapport.html").is_file()
-    assert '"lang": "fr"' in (tmp_path / "demo/rapport.html").read_text(encoding="utf-8")
+    assert embedded_report_data(tmp_path / "demo/rapport.html")["lang"] == "fr"
     # A second run must not silently overwrite evidence.
     assert cli("demo", "--output", tmp_path / "demo", "--lang", "fr").returncode != 0
 

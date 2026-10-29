@@ -13,10 +13,17 @@ Its memory lives in <state directory>/projects/<name>/ and keeps:
   is gone, even when the app has moved to another port (`--url`).
 """
 import argparse
+from contextlib import contextmanager
+from copy import deepcopy
+import errno
 import hashlib
 import json
+import os
 import re
+import sqlite3
+import stat
 import subprocess
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
@@ -25,6 +32,9 @@ from chaosfolk import checks as catalog
 
 SEVERITY = {"bloquant": 3, "blocking": 3, "genant": 2, "gênant": 2, "annoying": 2, "mineur": 1, "minor": 1}
 ID_SEGMENT = re.compile(r"^(\d+|[0-9a-f]{8}-[0-9a-f-]{27,}|[0-9a-f]{16,}|[A-Za-z0-9_-]{22,})$", re.I)
+PENDING_FILE = ".campaign-pending.json"
+MAX_PENDING_BYTES = 64 * 1024 * 1024
+MAX_PENDING_FILES = 10003
 
 
 def home():
@@ -51,9 +61,146 @@ def read(path, default):
 
 
 def write(path, data):
+    _atomic_write(path, data)
+
+
+def sync_directory(path):
+    """Persist directory entries where the OS and filesystem support it."""
+    if os.name == "nt":
+        return  # Python exposes no portable directory fsync on Windows.
+    descriptor = None
+    try:
+        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        os.fsync(descriptor)
+    except OSError as error:
+        if error.errno not in {errno.EINVAL, errno.ENOTSUP, errno.EBADF}:
+            raise
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+
+
+def _atomic_write(path, data, max_bytes=None):
+    """Serialize incrementally; a failed write leaves the previous file intact."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="wb", dir=path.parent,
+                                         prefix=f".{path.name}.", suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            written = 0
+            for part in json.JSONEncoder(ensure_ascii=False, indent=2).iterencode(data):
+                encoded = part.encode("utf-8")
+                written += len(encoded)
+                if max_bytes is not None and written > max_bytes:
+                    raise ValueError("Campaign transaction exceeds 64 MiB")
+                stream.write(encoded)
+            stream.flush()
+            if os.name != "nt":
+                os.fchmod(stream.fileno(), _published_mode(path))
+            os.fsync(stream.fileno())
+        temporary.replace(path)
+        sync_directory(path.parent)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+
+
+def _published_mode(path):
+    """Temporary files are private (0600); published snapshots keep the usual permissions."""
+    try:
+        return stat.S_IMODE(os.stat(path).st_mode)
+    except FileNotFoundError:
+        mask = os.umask(0)
+        os.umask(mask)
+        return 0o666 & ~mask
+
+
+@contextmanager
+def project_lock(root):
+    """Serialize project read/modify/write operations across CLI processes."""
+    lock = Path(root) / ".campaign-lock.sqlite3"
+    try:
+        db = sqlite3.connect(lock, timeout=10)
+    except sqlite3.Error as error:
+        raise ValueError(f"Project folder {Path(root).as_posix()} is not writable; "
+                         "campaign commands need to create its lock file") from error
+    try:
+        try:
+            db.execute("BEGIN IMMEDIATE")
+        except sqlite3.OperationalError as error:
+            if "locked" in str(error) or "busy" in str(error):
+                raise ValueError("Project memory is busy; retry after the current campaign update finishes") from error
+            raise ValueError(f"Project lock file {lock.as_posix()} is not writable") from error
+        except sqlite3.DatabaseError as error:
+            raise ValueError(f"Project lock file {lock.as_posix()} is unreadable; "
+                             "remove it while no campaign command is running") from error
+        recover_project(root)
+        yield
+    finally:
+        db.close()
+
+
+def transaction_targets(root, payload):
+    """Validate all journal destinations before publishing any snapshot."""
+    if (not isinstance(payload, dict) or set(payload) != {"version", "files"}
+            or type(payload["version"]) is not int or payload["version"] != 1
+            or not isinstance(payload["files"], dict) or not 3 <= len(payload["files"]) <= MAX_PENDING_FILES
+            or not {"campaigns.json", "findings.json", "map.json"}.issubset(payload["files"])):
+        raise ValueError("Invalid pending campaign transaction")
+    root = Path(root).resolve()
+    targets = []
+    for name, data in payload["files"].items():
+        if (not isinstance(name, str) or (name not in {"campaigns.json", "findings.json", "map.json"}
+                and not re.fullmatch(r"scenarios/(?:[a-f0-9]{12}|[a-f0-9]{64})\.json", name))):
+            raise ValueError("Unsafe path in pending campaign transaction")
+        target = root / name
+        if not target.resolve().is_relative_to(root) or not isinstance(data, dict):
+            raise ValueError("Unsafe destination or snapshot in pending campaign transaction")
+        targets.append((target, data))
+    return targets
+
+
+def recover_project(root):
+    """Finish an interrupted publication while holding the project lock."""
+    pending = Path(root) / PENDING_FILE
+    if not pending.is_file():
+        return
+    if pending.is_symlink() or not pending.resolve().is_relative_to(Path(root).resolve()):
+        raise ValueError("Pending campaign transaction must stay inside its project")
+    with pending.open("rb") as stream:
+        raw = stream.read(MAX_PENDING_BYTES + 1)
+    if len(raw) > MAX_PENDING_BYTES:
+        raise ValueError("Pending campaign transaction exceeds 64 MiB")
+    targets = transaction_targets(root, json.loads(raw))
+    del raw
+    _publish_targets(pending, targets)
+
+
+def _publish_targets(pending, targets):
+    for target, data in targets:
+        write(target, data)
+    pending.unlink()
+    sync_directory(pending.parent)
+
+
+def publish_project(root, files):
+    """Stage a recoverable batch before replacing its JSON destinations."""
+    payload = {"version": 1, "files": files}
+    targets = transaction_targets(root, payload)
+    pending = Path(root) / PENDING_FILE
+    if pending.exists() or pending.is_symlink():
+        raise ValueError("Recover the pending campaign transaction before publishing another")
+    # Complete the bounded recovery journal before exposing any new snapshot.
+    # Reuse the validated objects instead of immediately decoding a second copy.
+    _atomic_write(pending, payload, max_bytes=MAX_PENDING_BYTES)
+    _publish_targets(pending, targets)
+
+
+def fingerprint_filename(key):
+    """Explicit fingerprints are identities, not filesystem paths."""
+    return key if re.fullmatch(r"[a-f0-9]{12}", key) else hashlib.sha256(key.encode("utf-8")).hexdigest()
 
 
 def route(url):
@@ -66,14 +213,14 @@ def route(url):
 
 def session_events(folder):
     from chaosfolk import engine
-    return engine.lire_journal(Path(folder), obligatoire=False)
+    return engine.iterer_journal(Path(folder), obligatoire=False)
 
 
-def journey_map(folder):
+def journey_map(folder, events=None):
     """Routes and transitions of one session, from the journal and from pages saved by `fields --save`."""
     routes, edges = {}, {}
     previous = {}
-    for event in session_events(folder):
+    for event in session_events(folder) if events is None else events:
         if event.get("type") != "action" or not event.get("url") or str(event.get("h", "")).startswith("e"):
             continue
         here = route(event["url"])
@@ -100,18 +247,42 @@ def journey_map(folder):
 
 
 def merge_map(total, part, campaign):
+    # Keep sparse per-session contributions so rerunning map or recording the
+    # same session replaces its counters. Legacy aggregates remain intact.
+    contributions = total.setdefault("_campaigns", {})
+    previous = contributions.get(campaign, {"routes": {}, "edges": {}})
+    contribution = {"routes": {name: [node["visits"], node["failures"]] for name, node in part["routes"].items()},
+                    "edges": {key: edge["count"] for key, edge in part["edges"].items()}}
+    changed = contribution != previous
+    for name, counts in previous["routes"].items():
+        known = total["routes"].get(name)
+        if known is None:
+            continue  # An edited aggregate lost the route; nothing to subtract.
+        known["visits"] -= counts[0]
+        known["failures"] -= counts[1]
+        known["campaigns"] -= bool(counts[0])
+        if known.get("last_campaign") == campaign and not part["routes"].get(name, {}).get("visits"):
+            known["last_campaign"] = next((key for key in reversed(contributions) if key != campaign
+                and contributions[key]["routes"].get(name, [0])[0]), None)
+    for key, count in previous["edges"].items():
+        if key in total["edges"]:
+            total["edges"][key]["count"] -= count
     for name, node in part["routes"].items():
         known = total["routes"].setdefault(name, {"visits": 0, "failures": 0, "campaigns": 0, "last_campaign": None})
         known["visits"] += node["visits"]
         known["failures"] += node["failures"]
-        if node["visits"] and known.get("last_campaign") != campaign:
+        if node["visits"]:
             known["campaigns"] += 1
-            known["last_campaign"] = campaign
+            if changed:
+                known["last_campaign"] = campaign
     for key, edge in part["edges"].items():
         known = total["edges"].setdefault(key, {"from": edge["from"], "to": edge["to"], "count": 0, "via": []})
         known["count"] += edge["count"]
         known["via"] = list(dict.fromkeys(known["via"] + edge["via"]))[:8]
     total["discovered"] = sorted(set(total.get("discovered", [])) | set(part["discovered"]))
+    if changed:
+        contributions.pop(campaign, None)
+    contributions[campaign] = contribution
     return total
 
 
@@ -131,9 +302,11 @@ def command_map(opts):
     write(folder / "map.json", part)
     data = part
     if opts.project:
-        target = project_dir(opts.project) / "map.json"
-        data = merge_map(read(target, {"routes": {}, "edges": {}, "discovered": []}), part, folder.resolve().as_posix())
-        write(target, data)
+        root = project_dir(opts.project)
+        target = root / "map.json"
+        with project_lock(root):
+            data = merge_map(read(target, {"routes": {}, "edges": {}, "discovered": []}), part, folder.resolve().as_posix())
+            write(target, data)
     routes = data["routes"]
     print(f"{len(routes)} routes, {len(data['edges'])} transitions" + (f" (project {opts.project}, all campaigns)" if opts.project else ""))
     for name, node in sorted(routes.items(), key=lambda item: -item[1]["visits"]):
@@ -147,11 +320,36 @@ def command_map(opts):
     return 0
 
 
-def fingerprint(finding, events):
+def action_index(events):
+    return {(e.get("h"), e.get("n")): e for e in events if e.get("type") == "action"}
+
+
+def session_summary(folder, findings):
+    """Map the journal once, keeping only URLs used to identify findings."""
+    needed = set()
+    for finding in findings:
+        if not isinstance(finding, dict) or finding.get("fingerprint") or finding.get("empreinte"):
+            continue
+        first = next((item for item in finding.get("evenements") or [] if isinstance(item, dict)), {})
+        needed.add((first.get("h"), first.get("n")))
+    actions = {}
+
+    def events():
+        for event in session_events(folder):
+            key = (event.get("h"), event.get("n"))
+            if event.get("type") == "action" and key in needed:
+                actions[key] = {"url": event.get("url")}
+            yield event
+
+    return actions, journey_map(folder, events())
+
+
+def fingerprint(finding, events=(), *, actions=None):
     """Stable identity of a finding across campaigns: an explicit `fingerprint`, or check id + route + title words."""
     if finding.get("fingerprint") or finding.get("empreinte"):
         return str(finding.get("fingerprint") or finding.get("empreinte"))
-    actions = {(e.get("h"), e.get("n")): e for e in events if e.get("type") == "action"}
+    if actions is None:
+        actions = action_index(events)
     first = next((x for x in finding.get("evenements") or [] if isinstance(x, dict)), {})
     where = route((actions.get((first.get("h"), first.get("n"))) or {}).get("url"))
     title = str(finding.get("titre") or finding.get("title") or "")
@@ -178,32 +376,38 @@ def proof_summary(folder, path):
 
 def command_record(opts):
     """campaign record: store a finished session's findings and proofs in the project's memory."""
-    from chaosfolk import engine
     folder = Path(opts.dossier).resolve()
-    findings = read(folder / "constats.json", {}).get("constats", [])
     config = read(folder / "config.json", {})
     project = project_name(opts.project or config.get("projet"))
     root = project_dir(project)
-    events = session_events(folder)
-    campaign_id = opts.label or datetime.now().strftime("%Y%m%d-%H%M%S")
+    with project_lock(root):
+        return _record(opts, folder, config, project, root)
+
+
+def _record(opts, folder, config, project, root):
+    findings = read(folder / "constats.json", {}).get("constats", [])
+    actions, session_map = session_summary(folder, findings)
+    campaign_id = opts.label or datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     history = read(root / "campaigns.json", {"project": project, "campaigns": []})
     if any(c["id"] == campaign_id for c in history["campaigns"]):
         raise ValueError(f"Campaign {campaign_id} is already recorded for {project}")
     registry = read(root / "findings.json", {})
     entries = []
+    files = {}
     for finding in findings:
         if not isinstance(finding, dict):
             continue
-        key = fingerprint(finding, events)
+        key = fingerprint(finding, actions=actions)
         proofs = {name: proof_summary(folder, (value or {}).get("source") if isinstance(value, dict) else value)
                   for name, value in (finding.get("preuves") or {}).items()}
         scenario = next((p["scenario"] for p in proofs.values() if p and p.get("scenario")), None)
         kept = None
         if scenario and Path(scenario).is_file():
-            kept = root / "scenarios" / f"{key}.json"
+            filename = fingerprint_filename(key)
+            kept = root / "scenarios" / f"{filename}.json"
             data = read(scenario, {})
             data.setdefault("dossier_horde", folder.as_posix())
-            write(kept, data)
+            files[f"scenarios/{filename}.json"] = data
         status = (finding.get("statut") or "observed").lower()
         entries.append({"fingerprint": key, "id": finding.get("id"), "title": finding.get("titre"),
                         "severity": finding.get("gravite"), "status": status, "proofs": proofs})
@@ -214,15 +418,16 @@ def command_record(opts):
         known["campaigns"] = (known["campaigns"] + [campaign_id])[-10:]
         if kept:
             known["scenario"] = kept.as_posix()
-            known["assertions"] = len(read(kept, {}).get("attendu") or read(kept, {}).get("expect") or [])
+            known["assertions"] = len(data.get("attendu") or data.get("expect") or [])
     history["campaigns"].append({"id": campaign_id, "folder": folder.as_posix(), "date": datetime.now().isoformat(timespec="seconds"),
                                  "url": config.get("url"), "revision": git_revision(opts.repo or Path.cwd()),
                                  "themes": read(folder / "tirage.json", {}).get("themes"), "findings": entries,
                                  "coverage": read(folder / "coverage.json", {}).get("results", [])})
-    write(root / "campaigns.json", history)
-    write(root / "findings.json", registry)
-    write(root / "map.json", merge_map(read(root / "map.json", {"routes": {}, "edges": {}, "discovered": []}),
-                                       journey_map(folder), folder.as_posix()))
+    files["campaigns.json"] = history
+    files["findings.json"] = registry
+    files["map.json"] = merge_map(read(root / "map.json", {"routes": {}, "edges": {}, "discovered": []}),
+                                   session_map, folder.as_posix())
+    publish_project(root, files)
     engine_note = "" if config.get("projet") == project else f" (launch with --project {project} to tag the session itself)"
     print(f"Recorded campaign {campaign_id} for {project}: {len(entries)} findings, "
           f"{sum(1 for e in entries if registry[e['fingerprint']]['seen'] > 1)} already seen before{engine_note}.")
@@ -231,7 +436,10 @@ def command_record(opts):
 
 def command_compare(opts):
     """campaign compare: what is new, still there or gone between two recorded campaigns."""
-    history = read(project_dir(opts.project) / "campaigns.json", {}).get("campaigns", [])
+    root = project_dir(opts.project)
+    with project_lock(root):
+        history = read(root / "campaigns.json", {}).get("campaigns", [])
+        registry = read(root / "findings.json", {})
     if len(history) < 2 and not (opts.before and opts.after):
         print("Record at least two campaigns first.")
         return 1
@@ -242,7 +450,6 @@ def command_compare(opts):
         raise ValueError(f"Unknown campaign. Recorded: {', '.join(by_id)}")
     old = {f["fingerprint"]: f for f in before["findings"]}
     new = {f["fingerprint"]: f for f in after["findings"]}
-    registry = read(project_dir(opts.project) / "findings.json", {})
     print(f"{opts.project}: {before['id']} ({before.get('revision') or 'no revision'}) -> {after['id']} ({after.get('revision') or 'no revision'})")
     for label, keys in (("New", new.keys() - old.keys()), ("Still present", new.keys() & old.keys()),
                         ("Not seen again", old.keys() - new.keys())):
@@ -275,7 +482,8 @@ def rebase(scenario, url):
             return address
         return urlunsplit((new.scheme, new.netloc, parts.path, parts.query, parts.fragment))
 
-    scenario = dict(scenario, url=move(scenario.get("url")))
+    scenario = deepcopy(scenario)
+    scenario["url"] = move(scenario.get("url"))
     if scenario.get("depart"):
         scenario["depart"] = move(scenario["depart"])
     for step in scenario.get("etapes") or scenario.get("steps") or []:
@@ -304,7 +512,8 @@ def command_select(opts):
     import asyncio
     from chaosfolk import engine
     root = project_dir(opts.project)
-    registry = read(root / "findings.json", {})
+    with project_lock(root):
+        registry = read(root / "findings.json", {})
     chosen = selection(registry, opts.limit)
     if not chosen:
         print("No recorded finding has a replayable scenario yet.")
@@ -315,19 +524,22 @@ def command_select(opts):
         print("Add --replay to run them (three trials each) and update their status.")
         return 0
     engine.charger_moteur()
-    run = root / "replays" / datetime.now().strftime("%Y%m%d-%H%M%S")
+    run = root / "replays" / datetime.now().strftime("%Y%m%d-%H%M%S-%f")
     code = 0
+    updates = {}
     for key, item in chosen:
+        original = deepcopy(item)
         scenario = rebase(read(item["scenario"], {}), opts.url)
         if not (scenario.get("attendu") or scenario.get("expect")):
             print(f"{key}: skipped, its scenario has no assertion")
             continue
-        path = run / "scenarios" / f"{key}.json"
+        filename = fingerprint_filename(key)
+        path = run / "scenarios" / f"{filename}.json"
         write(path, scenario)
         args = argparse.Namespace(scenario=[str(path)], fois=opts.times, fail_on_bug=False, temoin=False, avec_temoin=False,
-                                  sequentiel=True, nom=key, sortie=str(run), visible=False, canal=None, persist=None)
+                                  sequentiel=True, nom=filename, sortie=str(run), visible=False, canal=None, persist=None)
         asyncio.run(engine.rejouer(args))
-        result = read(run / f"{key}.json", {})
+        result = read(run / f"{filename}.json", {})
         if result.get("fois") == opts.times and result.get("casses") == 0:
             item.update(state="fixed", fixed_in=datetime.now().isoformat(timespec="seconds"))
         elif result.get("fois") == opts.times and result.get("casses") == opts.times:
@@ -337,16 +549,28 @@ def command_select(opts):
             item.setdefault("notes", []).append(f"{datetime.now():%Y-%m-%d}: replay {result.get('verdict', 'inconclusive')}")
             code = max(code, 1)
         item["last_replay"] = {"date": datetime.now().isoformat(timespec="seconds"), "verdict": result.get("verdict"),
-                               "failures": result.get("casses"), "trials": result.get("fois"), "file": (run / f"{key}.json").as_posix()}
+                               "failures": result.get("casses"), "trials": result.get("fois"), "file": (run / f"{filename}.json").as_posix()}
+        updates[key] = (original, item)
         print(f"{key}: {item['state']} ({result.get('casses')}/{result.get('fois')} failing)")
-    write(root / "findings.json", registry)
+    with project_lock(root):
+        current = read(root / "findings.json", {})
+        for key, (original, updated) in updates.items():
+            if current.get(key) == original:
+                current[key] = updated
+            else:
+                # A new observation or another replay wins over stale evidence.
+                print(f"{key}: project memory changed during replay; recorded state retained")
+                code = max(code, 1)
+        write(root / "findings.json", current)
     return code
 
 
 def command_status(opts):
     """campaign status: the project's findings with their state."""
-    registry = read(project_dir(opts.project) / "findings.json", {})
-    history = read(project_dir(opts.project) / "campaigns.json", {}).get("campaigns", [])
+    root = project_dir(opts.project)
+    with project_lock(root):
+        registry = read(root / "findings.json", {})
+        history = read(root / "campaigns.json", {}).get("campaigns", [])
     print(f"{opts.project}: {len(history)} campaigns, {len(registry)} findings "
           f"({sum(1 for f in registry.values() if f.get('state') == 'open')} open)")
     for key, item in sorted(registry.items(), key=lambda pair: (pair[1].get("state") != "open", pair[1].get("last_seen") or "")):

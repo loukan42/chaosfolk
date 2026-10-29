@@ -17,7 +17,7 @@ classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Pytho
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "build>=1,<2", "ruff>=0.11,<1"]
-visual = ["Pillow>=10,<13"]
+visual = ["Pillow>=10,<14"]
 pdf = ["pypdf>=5,<7"]
 chaos = ["tzdata>=2025.2"]
 
@@ -43,4 +43,4 @@ target-version = "py312"
 line-length = 120
 
 [tool.ruff.lint]
-select = ["E9", "F63", "F7", "F82"]
+select = ["E9", "F"]

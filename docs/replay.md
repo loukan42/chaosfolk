@@ -264,6 +264,8 @@ The schema retains stored keys for compatibility:
     "titre": "The draft disappears when saving fails",
     "gravite": "bloquant",
     "statut": "reproduit",
+    "qualification": "defect",
+    "expected_basis": "The supplied save requirement says a failed save must preserve the draft.",
     "condition": "storage-full",
     "resume": "The form clears before its storage write completes.",
     "evenements": [{"h": "h01", "n": 8}],
@@ -283,5 +285,25 @@ This is a format example, not measured evidence. Replace every count, event and
 proof path with your session's results. Omit `condition` only for an unconditional
 bug. Severity values are `bloquant`, `genant`, `mineur` (English equivalents are
 also displayed). Proof keys `apres` and `demontee` capture the fixed and removed-fix
-series. The renderer derives its reproduced badge from resolved trial evidence,
-not the free-form `statut` label.
+series. Confirmation requires both resolved trial evidence and a supported
+expectation, regardless of the free-form `statut` label.
+
+Set `qualification` to `defect`, `product-decision`, `suggestion` or `unverified`.
+For a defect, `expected_basis` must identify the source of the expectation: a
+supplied requirement, documented or visible promise, previously working behavior,
+or applicable standard with its exceptions checked. The assertion itself and an
+agent's preference do not establish the expectation. Keep the claim as narrow as
+the assertion: detecting an uncaught exception does not demonstrate server data loss.
+
+A reproducible behavior with no supported expectation remains a point to review.
+Product decisions, suggestions, excluded findings and complete passing replays
+receive no defect penalty and are not selected for correction by default. If
+manually selected, they produce a verification prompt. Older findings without
+`qualification` and `expected_basis` remain readable and await qualification;
+regenerate their report after reviewing the expectation. Existing exported HTML
+reports keep their original behavior until regenerated.
+
+A replay that cannot execute a recorded action is invalid, even when it blocks
+twice at the same step. Recheck the scenario and its locators before treating the
+obstacle as an application defect. Use a reachable path and an assertion of the
+user-visible consequence to prove a blocked journey.

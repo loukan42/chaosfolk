@@ -1,9 +1,11 @@
 """`chaosfolk setup`: browser, agent skill and Claude Code user definition in one idempotent step."""
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -46,24 +48,54 @@ def is_chaosfolk(folder):
     skill = folder / "SKILL.md"
     if not skill.is_file():
         return False
-    head = skill.read_text(encoding="utf-8", errors="replace")[:400]
-    return f"name: {SKILL_NAME}" in head
+    with skill.open(encoding="utf-8-sig", errors="replace") as stream:
+        head = stream.read(4096)
+    # A mention in the body or another skill's name must never authorize deletion.
+    frontmatter = re.match(r"\A---\s*\n(.*?)\n---(?:\s|$)", head, re.S)
+    if frontmatter is None:
+        return False
+    names = re.findall(r"^name:\s*([^\r\n]+)", frontmatter.group(1), re.M)
+    return len(names) == 1 and names[0].strip() in {SKILL_NAME, f'"{SKILL_NAME}"', f"'{SKILL_NAME}'"}
 
 
 def copy_skill(source, target):
-    """Install or refresh the skill folder; never removes a folder that is not a Chaosfolk skill."""
-    if target.is_symlink():
-        target.unlink()  # left by `npx skills add`; replaced by a plain copy
-    elif target.is_junction():
-        os.rmdir(target)
-    elif target.exists():
-        if not is_chaosfolk(target):
-            return f"skipped: {target.as_posix()} holds another skill"
-        shutil.rmtree(target)
-    for name in SKILL_FILES:
-        destination = target / name
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(source / name, destination)
+    """Stage a complete skill before replacement, restoring the old copy if publishing fails."""
+    source, target = Path(source), Path(target)
+    linked = target.is_symlink() or target.is_junction()
+    if target.exists() and not linked and not is_chaosfolk(target):
+        return f"skipped: {target.as_posix()} holds another skill"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    # Siblings stay on the same filesystem, where directory rename is atomic.
+    staging = Path(tempfile.mkdtemp(prefix=".chaosfolk-setup-", dir=target.parent)).resolve()
+    fresh, previous = staging / "new", staging / "previous"
+    try:
+        for name in SKILL_FILES:
+            destination = fresh / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source / name, destination)
+        if linked or target.exists():
+            target.replace(previous)
+        try:
+            fresh.replace(target)
+        except BaseException:
+            if previous.exists() or previous.is_symlink() or previous.is_junction():
+                try:
+                    previous.replace(target)
+                except OSError as error:
+                    raise OSError(f"Could not restore the previous skill; backup kept at {previous}") from error
+            raise
+        # Only delete the saved entry after the new skill is in place. Links are
+        # removed themselves; their external targets must remain untouched.
+        if previous.is_symlink():
+            previous.unlink()
+        elif previous.is_junction():
+            os.rmdir(previous)
+        elif previous.exists():
+            shutil.rmtree(previous)
+    finally:
+        # Preserve the backup if rollback or cleanup failed, including broken links.
+        if not (previous.exists() or previous.is_symlink() or previous.is_junction()):
+            shutil.rmtree(staging)
     return f"installed in {target.as_posix()}"
 
 

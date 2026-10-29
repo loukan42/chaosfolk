@@ -4,6 +4,7 @@ import asyncio
 import csv
 import hashlib
 import io
+from contextlib import suppress
 import ipaddress
 import json
 import os
@@ -11,12 +12,11 @@ from pathlib import Path
 import re
 import subprocess
 import tempfile
-import threading
 import time
 from email import policy
 from email.parser import BytesParser
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urlsplit, urlunsplit
+from urllib.parse import urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 
@@ -229,17 +229,24 @@ async def axe_audit(url, script, allow=(), timeout=30):
             await browser.close()
 
 
-def _kill_tree(process):
+def _kill_tree(process, owned):
+    """Stop the root captured at launch; never look up an exited root by bare PID."""
     import psutil
     try:
-        parent = psutil.Process(process.pid)
-        descendants = parent.children(recursive=True)
+        if owned is None:
+            # Popen retains the owned OS process handle (and checks child exit).
+            if process.poll() is None:
+                process.kill()
+            return
+        if not owned.is_running():
+            return
+        descendants = owned.children(recursive=True)
         for child in reversed(descendants):
             try:
                 child.kill()
             except psutil.NoSuchProcess:
                 pass
-        parent.kill()
+        owned.kill()
     except psutil.NoSuchProcess:
         pass
 
@@ -261,35 +268,54 @@ def run_external(tool, executable, script, timeout=120):
         args = [str(executable), 'run', '--summary-export', str(result_path), str(script)] if tool == 'k6' else [str(executable), str(script)]
         env = dict(os.environ, CHAOSFOLK_RESULT_PATH=str(result_path))
         process = subprocess.Popen(args, cwd=script.parent, env=env, stdout=subprocess.PIPE,
-                                   stderr=subprocess.STDOUT, shell=False)
-        counters = {'bytes': 0}
-        overflow = threading.Event()
-        def drain():
-            while chunk := process.stdout.read(8192):
-                counters['bytes'] += len(chunk)
-                if counters['bytes'] > MAX_LOG_BYTES:
-                    overflow.set()
-        reader = threading.Thread(target=drain, daemon=True)
-        reader.start()
+                                   stderr=subprocess.STDOUT, shell=False, bufsize=0)
+        owned = None
+        log_bytes = 0
         reason = None
         try:
-            while process.poll() is None:
-                if overflow.is_set() or time.monotonic() - started > timeout:
-                    reason = 'output_limit' if overflow.is_set() else 'timeout'
-                    _kill_tree(process)
+            import psutil
+            try:
+                owned = psutil.Process(process.pid)
+                owned.create_time()  # Capture identity before the process can exit.
+            except psutil.NoSuchProcess:
+                pass
+            # Nonblocking pipes are supported on Windows and Unix in Python 3.12+.
+            # A descendant can inherit stdout after the runner exits. A reader
+            # thread followed by BufferedReader.close() could then wait forever.
+            os.set_blocking(process.stdout.fileno(), False)
+            while True:
+                if time.monotonic() - started > timeout:
+                    reason = 'timeout'
+                    _kill_tree(process, owned)
                     break
-                time.sleep(0.05)
-            process.wait(timeout=5)
-        finally:
-            if process.poll() is None:
-                _kill_tree(process)
+                # Check for exit before reading: an empty read after exit means the runner's
+                # output is complete, even when a descendant still holds the pipe open.
+                exited = process.poll() is not None
+                chunk = process.stdout.read(8192)  # None without data, b'' at EOF
+                if chunk:
+                    log_bytes += len(chunk)
+                    if log_bytes > MAX_LOG_BYTES:
+                        reason = 'output_limit'
+                        _kill_tree(process, owned)
+                        break
+                elif exited:
+                    break
+                else:
+                    time.sleep(0.05)
+            with suppress(subprocess.TimeoutExpired):
                 process.wait(timeout=5)
-            reader.join(timeout=2)
-            process.stdout.close()
+        finally:
+            try:
+                if process.poll() is None:
+                    _kill_tree(process, owned)
+                    with suppress(subprocess.TimeoutExpired):
+                        process.wait(timeout=5)
+            finally:
+                process.stdout.close()
         base = {'adapter': tool, 'exit_code': process.returncode,
-                'duration_seconds': round(time.monotonic() - started, 3), 'log_bytes': counters['bytes']}
-        if reason or overflow.is_set():
-            return {**base, 'status': 'error', 'reason': reason or 'output_limit'}
+                'duration_seconds': round(time.monotonic() - started, 3), 'log_bytes': log_bytes}
+        if reason:
+            return {**base, 'status': 'error', 'reason': reason}
         if not result_path.is_file():
             return {**base, 'status': 'inconclusive', 'reason': 'No machine-readable test result produced'}
         result = json.loads(read_bytes(result_path))

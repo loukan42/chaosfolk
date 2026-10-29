@@ -10,6 +10,12 @@ Each entry explains what the change helps you do and gives an example.
 
 ### Added
 
+- Release a finished user's browser with `release h01` after coordinated checks
+  are complete. Cookies and local storage are saved first; traces and counters
+  remain available while other users continue.
+- Use `usage --dedup-storage disk` for large exports with many unique requests.
+  A temporary SQLite index preserves exact duplicate checks while reducing RAM
+  use. The default memory mode remains faster for small exports.
 - Verified fixture preparation before every replay trial and divergence retry.
   Configure bounded preparation and verification commands with `--environment`;
   trials run sequentially, and an unavailable or mismatched fixture is invalid.
@@ -25,12 +31,108 @@ Each entry explains what the change helps you do and gives an example.
 
 ### Changed
 
+- Open large reports with a compact event index and load full event and proof
+  details from local files when needed. Reports still work directly from
+  `file://`; the detail cache retains at most four chunks and 1 MiB of serialized
+  data. Small reports keep their inline format.
+- Spill large live error, request and message collections to private SQLite
+  files. Small collections stay in memory; larger ones keep exact counts,
+  ordering and values while trading disk writes for lower RAM use.
+- Index fault windows once per affected user instead of scanning each journey
+  again for every fault. Report generation uses a disk index with a bounded page
+  cache; the scoring rules remain unchanged.
+- Record campaign journals in one pass and retain only referenced action URLs.
+  Serialize recovery snapshots progressively and reuse the validated snapshots
+  during publication.
+- Generate English and French reports progressively through a temporary SQLite
+  journal index. Analysis rereads indexed sections, and multi-user extraction
+  reads the source journal once while retaining replay evidence.
+- Index playback counters, per-user positions, screenshots and finding times.
+  Seeking through long reports no longer rescans all preceding events; imported
+  journals with unordered timestamps keep their recorded event references.
+- Reports separate confirmed defects from reproducible behaviors awaiting an
+  expectation, product decisions and suggestions. Findings need
+  `qualification: defect` and a sourced `expected_basis` before confirmation or
+  default fix selection. Older findings await review. Complete passing replays
+  and raw flags no longer add defect penalties.
+- Repeated replay action failures remain invalid instead of counting as product
+  failures. Page audits exclude inert and disabled controls from keyboard
+  signals, check several points for covered controls, and correct small-target
+  spacing measurements.
+- Resume sessions, filter user traces and export redacted journals progressively,
+  avoiding whole-file copies. Campaign recording shares one event index across
+  findings. Reproducible CPU and memory comparisons are available in `scripts/`.
+- Bound captured hook output to 64 KiB and scheduled job logs to 10 MiB per
+  attempt by default. Jobs accept `max_log_bytes` and return 125 on overflow.
+- Replay large reports without passing every timestamp as a JavaScript function
+  argument. Chronological playback locates visible events with binary search
+  and reuses the current view between events. Page audits reuse geometry within
+  each synchronous inspection.
+- Run all Pyflakes checks in Ruff, audit dependencies in CI, and cancel obsolete
+  CI runs when a newer revision is pushed to the same branch or pull request.
+- Generate both report languages and the default copy from one escaped JSON
+  body, and project scoring fields and playback summaries once when the journal
+  is indexed. Report generation reads each event once and no longer reopens a
+  freshly written report to copy it. The `usage` summary totals cost in its single
+  ingestion pass.
+- Accept Pillow 13 for the `visual` extra; Pillow 12.3 carries known
+  vulnerabilities that the dependency audit in CI rejects.
 - Replay results, CLI and English/French reports show failures / valid trials,
   percentage, invalid trials and requested trials, including small and incomplete
   series. For example, distinguish `1/5` from `5/5` without treating execution
   errors as successful trials. Severity and reproduced-badge rules stay separate.
 
 See [the replay guide](docs/replay.md) and [issue #13](https://github.com/loukan42/chaosfolk/issues/13).
+
+### Fixed
+
+- Fail report generation with a clear error when evidence contains `NaN` or
+  `Infinity` instead of writing a report whose JSON cannot be parsed and
+  displays nothing.
+- Redact credentials in any URL scheme (`wss://`, `postgres://`, `redis://`)
+  and in signature, key, OTP, SAML and OAuth query parameters during privacy
+  exports, without swallowing the closing quote or bracket after a value.
+- Return a hook's or external runner's own result as soon as it exits, even
+  when a descendant it started keeps standard output open; the previous
+  behavior reported a timeout and lost the attempt.
+- Keep `save-state` from waiting behind a gesture in progress: it reports the
+  busy user after ten seconds. `network` lists the other users when one user's
+  evidence storage failed, and an action is journaled before its evidence
+  flush can fail. A released user's saved state is recorded before the browser
+  closes, so a failed close is retried without a second state file.
+- Report an unusable campaign lock file or a read-only project folder as a
+  command error instead of a traceback, keep the file mode of replaced project
+  files on POSIX, and tolerate a map aggregate missing a recorded route.
+- Score fault windows from the disk index when a journey carries integer
+  timestamps beyond SQLite's range, instead of failing with an overflow error.
+- Parse report data as JSON so a supplied `__proto__` field cannot inject
+  inherited qualification or replay proof fields into the displayed finding.
+  Inline and progressively loaded evidence both preserve that field as data.
+- Publish privacy exports only after report generation succeeds. Relocate
+  summarized proof sources and reviewed captures under generated filenames,
+  and exclude private live-evidence paths from the public copy.
+- Synchronize campaign files before replacement and retain pending recovery
+  snapshots until publication completes. Clean up command processes when their
+  identity lookup fails, and avoid blocked wait threads after hook cancellation.
+- Keep MCP registry reads consistent with interrupted campaign recovery. Reject
+  usage output paths that are hard links to their input and journal symlinks
+  that escape the source folder during privacy export.
+- Close browser contexts and cancel pending tasks after initialization failures,
+  replay failures and action timeouts. Preserve Unicode line separators inside
+  JSONL event text when reading saved evidence.
+- Serialize campaign updates across processes, replace each JSON file atomically,
+  and count a session's map contribution once. Preserve observations recorded
+  during replay and prevent explicit fingerprints from escaping output folders.
+  A recovery journal completes interrupted campaign publication on the next
+  locked project command, including the archived scenarios and all three indexes.
+- Refresh scheduled-job leases between attempts and prevent an old attempt from
+  releasing the lease of a newer one.
+- Reject malformed MCP tool names without stopping the server. Redact OAuth
+  credentials in URL queries and fragments during privacy exports.
+- Identify installed skills by their exact frontmatter name and stage a complete
+  replacement before publishing it, with rollback on publication failure.
+- Honor external-runner timeouts when a descendant keeps stdout open. Opening a
+  report card now selects its displayed event even in an out-of-order journal.
 
 ## [0.7.0] - 2026-10-27
 

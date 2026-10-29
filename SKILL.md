@@ -152,10 +152,22 @@ reset and sign-up pages, prove enumeration with `compare` on a known and an unkn
 email. Extract several users (`extract h01,h02`) to prove conflicts between sessions. Use `--sequential` when a
 backend shares state between trials, and reset test data between trials as needed.
 
+Before calling a candidate a defect, identify the expected behavior and its basis:
+a supplied requirement, a documented or visible promise, a previously working
+behavior, or an applicable standard with its exceptions checked. A desired feature,
+personal preference or deliberate tradeoff belongs in `product-decision` or
+`suggestion`. Reproducing a behavior alone does not establish a defect.
+An injected error, validation rejection, development-server reload or stale engine
+reference is not itself a product failure. Verify its user-visible consequence.
+Keep each finding limited to what its assertion proves: a JavaScript error does
+not prove lost server data, and one field does not prove all preferences are lost.
+
 Three treatment failures and three passing controls support “reproduced”. An
 unconditional bug needs three failures without an injected condition. Incomplete
-or invalid trials do not count as application failures. Keep weaker evidence
-labelled “observed” or “intermittent”. Retry an inconclusive series once.
+or invalid trials do not count as application failures, including repeated replay
+divergences at the same step. Keep weaker evidence labelled “observed” or
+“intermittent”. A complete passing replay is “not reproduced”, not a correction to
+queue. Retry an inconclusive series once within the chosen budget.
 
 Repair only if requested. Follow the target repository's instructions and git
 identity rules. Use a separate branch and isolated working copy when there are
@@ -165,7 +177,11 @@ checkout commands on the user's working files. Do not push without authorization
 Leave product choices for the owner.
 
 Write `constats.json` using the documented report contract, referencing actual
-replay results. Write English narrative fields and their French equivalents under
+replay results. Set `qualification` to `defect`, `product-decision`, `suggestion`
+or `unverified`. For a defect, write `expected_basis` with the source of the expected
+behavior; an invented assertion is not a source. Leave ambiguous cases unverified.
+Never describe suggestions or product decisions as confirmed bugs in the summary.
+Write English narrative fields and their French equivalents under
 `translations.fr`; match findings by id and translate only prose, never counts,
 proof paths or recorded reactions. Every unresolved finding should include a concrete next step.
 Write `coverage.json` for the selected themes using the schema in `docs/workflow.md`:

@@ -125,6 +125,41 @@ Commands return a nonzero exit status when the engine rejects the action. Do not
 retry the same failure more than once. Authorized fixture uploads must be inside
 `.horde/run/uploads/`.
 
+After a user has finished with `done` or `giveup`, the coordinator can release
+that user's browser while other users continue:
+
+```bash
+chaosfolk release h01
+```
+
+This leader command saves cookies and local storage under
+`etats/released/`, closes the context and frees its page references. Recorded
+actions, screenshots, error counts and request counts remain available. A later
+`save-state h01 ...` copies the saved release state; while a gesture is in
+progress, `save-state` reports the busy user after ten seconds instead of
+waiting. The saved state can contain
+credentials and must stay local; it does not contain open tabs, session storage
+or JavaScript memory. `inspect` and `audit` require a live browser and return an
+explicit error after release. Use `trace` and `replay` for recorded evidence.
+
+Release users only after all coordinated checks involving them are complete.
+The engine refuses release while the user is active, a download is running, or
+a pending/active fault targets that user or the whole session. End those faults
+first. Releasing an already released browser is harmless. There is no automatic
+release on `done`, so existing post-session inspection workflows keep working.
+
+Long-running users keep growing error lists, request counters and notices in
+private SQLite files under `evidence/`. Each collection starts in memory and
+spills after 512 entries or 256 KiB of estimated string storage. Values, order
+and counts are preserved. The journal records the spill path, and replay
+results include `live_evidence` references in their output folder. Keep these
+databases and their temporary WAL files private, like the session journal.
+Writes commit in batches of 256 operations and at command/close boundaries;
+abrupt process termination can lose the last uncommitted batch. A storage error
+stops collection and invalidates affected assertions instead of reporting a
+successful check from incomplete evidence. Complete dumps still require memory
+for their returned text.
+
 ## Extract evidence
 
 ```bash
@@ -150,8 +185,15 @@ See [replay.md](replay.md) for more assertions and the report contract.
 
 ## Write and inspect the report
 
-Create `.horde/run/constats.json` using the contract in the replay guide. Record
-the coverage actually reviewed in `.horde/run/coverage.json`:
+Create `.horde/run/constats.json` using the contract in the replay guide. Include
+each finding's `qualification` and, for a defect, the source of its expectation
+in `expected_basis`. Reproducing a deliberate behavior does not make it a defect.
+Keep suggestions and product decisions out of the confirmed-defect summary; a
+complete passing replay is not reproduced and should not be queued for correction.
+Do not expand a claim beyond its assertions, for example from a JavaScript error
+to unverified server data loss. Repeated replay action failures are invalid trials.
+
+Record the coverage actually reviewed in `.horde/run/coverage.json`:
 
 ```json
 {
@@ -178,6 +220,16 @@ Open `.horde/run/rapport.html`. Check that the named findings refer to real
 screenshots and that proof counts match their replay files. The report includes
 the cast, finding filters and an action timeline. Keep its `assets/`, `captures/`
 and `reproductions/` folders with it when sharing a reviewed copy.
+
+When projected journal and report metadata exceed 4 MiB, the HTML contains a
+compact event index. Full event text and proof details load on demand from
+`assets/journal/`, including when opening the HTML directly with `file://`.
+Keep that directory with the report. The browser retains at most four detail
+chunks and 1 MiB of serialized detail data in its cache. An oversized event or
+proof is displayed without retaining it in the cache; visible text, images and
+the initial event index still use memory. Missing detail files show an error
+with a retry button. Generation keeps content-addressed chunks so previously
+opened reports can continue to read their evidence.
 
 The coordinator asks the user whether the report should open in English or
 French when no preference was given. Pass `--lang en` or `--lang fr`. An

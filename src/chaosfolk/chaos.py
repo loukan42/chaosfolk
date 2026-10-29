@@ -10,6 +10,7 @@ import math
 import os
 from pathlib import Path
 import sqlite3
+import subprocess
 import time
 import tomllib
 from urllib.parse import urlsplit
@@ -246,32 +247,86 @@ def identity_for(proc):
         return None
 
 
+class OutputLimitExceeded(ValueError):
+    """A command exceeded its output budget; scheduled jobs use exit code 125."""
+    exit_code = 125
+
+
+async def bounded_output(proc, timeout, limit, destination):
+    """Drain a pipe without blocking the loop or writing beyond its byte limit."""
+    fd = proc.stdout.fileno()
+    os.set_blocking(fd, False)  # Pipe support on Windows requires Python 3.12+.
+    written = 0
+    async with asyncio.timeout(timeout):
+        while True:
+            # Check for exit before reading: anything the root wrote is then in the pipe,
+            # and an empty read means its output is complete. Waiting for EOF instead would
+            # block on a descendant that inherited stdout and outlived the command.
+            exited = proc.poll() is not None
+            try:
+                chunk = os.read(fd, min(65536, limit - written + 1))
+            except BlockingIOError:
+                chunk = None
+            if chunk:
+                accepted = chunk[:limit - written]
+                destination.write(accepted)
+                written += len(accepted)
+                if len(chunk) != len(accepted):
+                    raise OutputLimitExceeded(f"output-limit: command output exceeds {limit} bytes")
+                await asyncio.sleep(0)
+            elif exited:
+                return proc.returncode
+            else:
+                await asyncio.sleep(0.02)
+
+
+async def finish_process(proc, identity):
+    """Stop an owned command tree, reap the root and close its output pipe."""
+    from .engine import stop_owned_process
+    try:
+        if identity:
+            try:
+                await asyncio.to_thread(stop_owned_process, identity)
+            except (OSError, ValueError):
+                pass
+    finally:
+        try:
+            if proc.poll() is None:
+                proc.kill()
+            try:
+                await asyncio.to_thread(proc.wait, timeout=5)
+            except subprocess.TimeoutExpired:
+                pass  # Still exiting after kill; the recorded identity keeps its PID from being trusted again.
+        finally:
+            if proc.stdout is not None:
+                proc.stdout.close()
+
+
 async def execute(argv, payload, timeout, env=None, capture=False):
     """Bounded, shell-free hook; never copy hook output or credentials into evidence."""
     import subprocess
     import tempfile
-    from .engine import charger_moteur, options_detache, stop_owned_process
+    import io
+    from .engine import charger_moteur, options_detache
     charger_moteur()
-    with tempfile.TemporaryFile() as input_file, tempfile.TemporaryFile() as output_file:
+    with tempfile.TemporaryFile() as input_file:
         input_file.write(json.dumps(payload).encode("utf-8"))
         input_file.seek(0)
-        proc = subprocess.Popen(argv, stdin=input_file, stdout=output_file if capture else subprocess.DEVNULL,
+        proc = subprocess.Popen(argv, stdin=input_file, stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
                                 stderr=subprocess.DEVNULL, env=env, **options_detache())
-        identity = identity_for(proc)
+        identity = None
+        output = io.BytesIO()
         try:
-            await asyncio.wait_for(asyncio.to_thread(proc.wait), timeout)
-        except (TimeoutError, asyncio.CancelledError):
-            if identity and proc.poll() is None:
-                await asyncio.to_thread(stop_owned_process, identity)
-            if proc.poll() is None:
-                proc.kill()
-            await asyncio.to_thread(proc.wait)
-            raise
-        output_file.seek(0)
-        data = output_file.read(65537) if capture else b""
-        if len(data) > 65536:
-            raise ValueError("Hook output exceeds 64 KiB")
-        return proc.returncode, data.decode("utf-8").strip()
+            identity = identity_for(proc)
+            if capture:
+                await bounded_output(proc, timeout, 65536, output)
+            else:
+                async with asyncio.timeout(timeout):
+                    while proc.poll() is None:
+                        await asyncio.sleep(0.02)
+            return proc.returncode, output.getvalue().decode("utf-8").strip()
+        finally:
+            await finish_process(proc, identity)
 
 
 class Controller:
