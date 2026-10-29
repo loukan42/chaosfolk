@@ -77,6 +77,7 @@ def main(argv=None):
                     "attendu": "Le projet est enregistré ou la saisie d'origine reste disponible."}}]}},
             "resume": "Twelve real browser trials: the original loses a draft when storage is full; the corrected version preserves it. This deterministic demo uses no simulated users.",
             "constats": [{"id": "QH-001", "titre": "A storage failure clears the unsaved project name", "gravite": "bloquant",
+                "qualification": "defect", "expected_basis": "The demo save contract requires retaining the original draft when a save fails.",
                 "statut": "réparé", "resume": "The form clears the name before saving it to browser storage. If storage is full, the draft is lost.",
                 "condition": "storage-full", "preuves": {"avant": "reproductions/before.json", "temoin": "reproductions/before-temoin.json",
                 "apres": "reproductions/after.json", "after_control": "reproductions/after-temoin.json"},

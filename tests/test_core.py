@@ -332,7 +332,9 @@ def embedded_report_data(path):
     html = path.read_text(encoding="utf-8")
     assignment = re.search(r"\bconst\s+data\s*=\s*", html)
     assert assignment, "Report has no embedded evidence assignment"
-    return json.JSONDecoder().raw_decode(html[assignment.end():])[0]
+    encoded = html[assignment.end():]
+    assert encoded.startswith("JSON.parse(")
+    return json.loads(json.JSONDecoder().raw_decode(encoded[len("JSON.parse("):])[0])
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])
@@ -389,7 +391,6 @@ def test_install_browser_uses_the_engine_interpreter(monkeypatch):
 
 def test_sheet_command_leaves_out_the_default_state_directory(tmp_path, monkeypatch):
     import shlex
-    from pathlib import Path
     executable = tmp_path / "python"
     monkeypatch.setattr(engine.sys, "executable", str(executable))
     monkeypatch.setattr(engine, "FICHIER_ACTIF", Path.home() / ".chaosfolk" / "active.json")

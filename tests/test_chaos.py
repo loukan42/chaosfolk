@@ -2,7 +2,6 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 import json
-from pathlib import Path
 import sys
 import time
 from types import SimpleNamespace

@@ -1,12 +1,13 @@
 """Behavioral checks for the portable bilingual evidence report."""
-import json
 from pathlib import Path
 import shutil
+from copy import deepcopy
 
 import pytest
 from playwright.sync_api import sync_playwright
 
-from chaosfolk import engine
+from chaosfolk import engine, reporting
+from chaosfolk.scoring import finding_info
 
 pytestmark = pytest.mark.browser
 
@@ -16,6 +17,7 @@ def report_page(tmp_path):
     shutil.copyfile(Path(engine.__file__).parent / "templates/mascot.png", tmp_path / "shot.png")
     (tmp_path / "assets").mkdir()
     shutil.copyfile(Path(engine.__file__).parent / "templates/room.js", tmp_path / "assets/room.js")
+    shutil.copyfile(Path(engine.__file__).parent / "templates/playback.js", tmp_path / "assets/playback.js")
     proof = {"fois": 3, "demandes": 3, "casses": 3, "mode": "traitement", "captures": ["shot.png"]}
     control = dict(proof, casses=0, mode="temoin")
     payload = {
@@ -29,6 +31,7 @@ def report_page(tmp_path):
                     {"type": "action", "h": "h02", "n": 1, "action": "look", "resultat": "ok", "capture": "shot.png"}],
         "constats": {"titre": "Session title", "resume": "Evidence from a test fixture.", "constats": [
             {"id": "C1", "titre": "Draft lost", "condition": "storage-full", "gravite": "bloquant",
+             "qualification": "defect", "expected_basis": "Documented draft retention on failed saves.",
              "preuves": {"avant": proof, "temoin": control},
              "correctif": {"consigne": "Keep the draft.", "attendu": "Draft remains available."}},
             {"id": "C2", "titre": "Unconfirmed issue", "condition": "offline", "gravite": "genant", "preuves": {}}
@@ -38,10 +41,9 @@ def report_page(tmp_path):
         ]}}}
     }
     def create(value=payload):
-        encoded = json.dumps(value, ensure_ascii=False).replace("<", "\\u003c")
-        output = tmp_path / "report.html"
-        output.write_text(engine.MODELE_RAPPORT.read_text(encoding="utf-8").replace("/*__DONNEES__*/null", encoded), encoding="utf-8")
-        return output
+        reporting.write_reports(tmp_path, engine.MODELE_RAPPORT.read_text(encoding="utf-8"),
+                                value, value["journal"], value.get("lang", "en"))
+        return tmp_path / "rapport.html"
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
@@ -63,7 +65,7 @@ def test_bilingual_score_compact_findings_and_proof_integrity(report_page):
     assert "45 / 50" in page.locator("#score-detail").inner_text()
     assert "45.241" not in page.locator("#score-detail").inner_text()
     assert page.locator("#title").inner_text() == "2 points à vérifier"
-    assert page.locator("#findings-title").inner_text() == "À corriger"
+    assert page.locator("#findings-title").inner_text() == "Constats et pistes à vérifier"
     assert page.locator(".finding-toggle").first.get_attribute("aria-expanded") == "false"
     assert page.locator("#findings-section").bounding_box()["y"] < page.locator("#room").bounding_box()["y"]
     page.locator(".finding-toggle").first.click()
@@ -99,6 +101,47 @@ def test_matrix_and_incomplete_rates_remain_separate_from_proven_badge(report_pa
     assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
 
 
+def test_product_decisions_and_unreproduced_findings_need_review_not_automatic_fixes(report_page):
+    page, payload, create = report_page
+    decision = payload["constats"]["constats"][0]
+    decision["qualification"] = "product-decision"
+    pending = payload["constats"]["constats"][1]
+    pending["preuves"] = {"avant": {"fois": 3, "demandes": 3, "casses": 0, "mode": "traitement"}}
+    pending["correctif"] = {"consigne": "Blindly replace the application.", "attendu": "Invented expectation."}
+    page.goto(create().as_uri())
+    assert page.locator(".finding-status").all_inner_texts() == ["Décision produit", "Non reproduit"]
+    assert page.get_by_role("checkbox", name="Sélectionner C1", exact=True).is_checked() is False
+    assert page.get_by_role("checkbox", name="Sélectionner C2", exact=True).is_checked() is False
+    page.get_by_role("checkbox", name="Sélectionner C2", exact=True).check()
+    page.get_by_role("button", name="Voir le prompt", exact=True).click()
+    prompt = page.locator("#prompt-text").input_value()
+    assert "Vérifier le comportement attendu" in prompt
+    assert "Blindly replace" not in prompt
+    assert "Invented expectation" not in prompt
+    page.set_viewport_size({"width": 375, "height": 812})
+    assert page.evaluate("document.documentElement.scrollWidth<=innerWidth")
+
+
+def test_browser_and_score_agree_on_confirmation(report_page):
+    page, payload, _ = report_page
+    original = payload["constats"]["constats"][0]
+    variants = [original]
+    for updates in [{"qualification": "product-decision"}, {"qualification": "suggestion"},
+                    {"expected_basis": ""}, {"qualification": None}, {"statut": "à décider"},
+                    {"statut": "écarté"}, {"statut": "not reproduced"}]:
+        variants.append(dict(deepcopy(original), **updates))
+    for mutate in (lambda f: f["preuves"].pop("temoin"),
+                   lambda f: f["preuves"]["avant"].update(trial_integrity=False),
+                   lambda f: f["preuves"]["avant"].update(essais=[{"ok": None}] * 3),
+                   lambda f: f["preuves"]["avant"].update(demandes=4),
+                   lambda f: f["preuves"]["avant"].update(casses=0)):
+        value = deepcopy(original)
+        mutate(value)
+        variants.append(value)
+    for value in variants:
+        assert page.evaluate("f=>!!proven(f)", value) == (finding_info(value)["stage"] in ("proven", "fixed"))
+
+
 def test_mosaic_filters_timeline_and_bulk_copy_fallback(report_page):
     page, _, _ = report_page
     assert page.locator(".screen-card").count() == 2
@@ -109,7 +152,7 @@ def test_mosaic_filters_timeline_and_bulk_copy_fallback(report_page):
     assert "Événement 2 sur 2" in page.locator("#narrative").inner_text()
     page.get_by_role("button", name="Événement précédent").click()
     assert "Événement 1 sur 2" in page.locator("#narrative").inner_text()
-    page.get_by_role("button", name="Observés", exact=True).click()
+    page.get_by_role("button", name="À vérifier", exact=True).click()
     assert page.locator(".finding").count() == 1
     assert "Unconfirmed issue" in page.locator(".finding").inner_text()
     page.get_by_role("button", name="Tous les constats", exact=True).click()
@@ -160,6 +203,39 @@ def test_synchronized_room_faults_markers_and_languages(report_page):
     assert "Saved reaction" in page.locator(".screen-card").first.inner_text()
     page.get_by_role("button", name="Start over", exact=True).click()
     assert page.locator("#room-range").input_value() == "0"
+
+
+def test_room_handles_large_journals_and_backward_seeks(report_page):
+    page, payload, create = report_page
+    payload["journal"] = [
+        {"type": "action", "h": "h01", "n": n + 1, "t": n * 1000,
+         "action": "click", "resultat": "ok", "pense": f"Step {n + 1}"}
+        for n in range(150_000)
+    ]
+    page.goto(create(payload).as_uri())
+    assert page.locator("#room-range").get_attribute("max") == "149999000"
+    for at, count in [(149999000, 150000), (0, 1), (1000, 2)]:
+        page.locator("#room-range").evaluate(
+            "(e, at)=>{e.value=at;e.dispatchEvent(new Event('input',{bubbles:true}))}", at)
+        assert page.locator("#room-stats strong").first.inner_text() == str(count)
+        assert f"Step {count}" in page.locator(".screen-card").first.inner_text()
+
+
+def test_room_preserves_imported_order_with_nonmonotonic_times(report_page):
+    page, payload, create = report_page
+    payload["journal"] = [
+        {"type": "action", "h": "h01", "n": n, "t": at, "action": "click",
+         "resultat": "ok", "pense": f"Recorded {n}"}
+        for n, at in [(1, 3000), (2, 1000), (3, 2000), (4, 2000)]
+    ]
+    page.goto(create(payload).as_uri())
+    for at, count, last in [(0, 1, 2), (1000, 3, 4), (2000, 4, 4), (0, 1, 2)]:
+        page.locator("#room-range").evaluate(
+            "(e, at)=>{e.value=at;e.dispatchEvent(new Event('input',{bubbles:true}))}", at)
+        assert page.locator("#room-stats strong").first.inner_text() == str(count)
+        assert f"Recorded {last}" in page.locator(".screen-card").first.inner_text()
+        page.locator(".screen-card").first.click()
+        assert f"Recorded {last}" in page.locator("#narrative").inner_text()
 
 
 def test_review_button_focuses_session_playback(report_page):

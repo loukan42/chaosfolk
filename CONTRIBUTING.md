@@ -9,6 +9,38 @@ For local development, create a virtual environment, install `.[dev]`, then run
 `python -m ruff check .` before submitting a change. `python -m build` verifies
 the distributable package; runtime templates must be included in the wheel.
 
+Ruff includes all Pyflakes checks. CI also audits installed dependencies and
+optional integrations with `pip-audit`. Use a current pip when creating a local
+environment; the audit found vulnerabilities in an older local pip during the
+October 2026 review.
+
+For journal or campaign performance changes, run
+`python scripts/benchmark_journal.py --events 20000 --repeat 3` and
+`python scripts/benchmark_resources.py`. Both use synthetic data and verify
+equivalent outputs before reporting timings or peak Python allocations. These
+measurements do not represent Chromium memory, energy use or model token costs.
+
+For large-report changes, run `python scripts/benchmark_reporting.py` and
+`python scripts/benchmark_playback.py`. The first compares report generation in
+separate processes; the second isolates playback aggregation from DOM rendering.
+`python scripts/benchmark_usage.py` compares exact memory and disk deduplication.
+For browser lifecycle changes, run
+`python scripts/benchmark_browser_resources.py --users 4 --repeat 3` alone,
+without other browser tests. It measures descendant Chromium working sets and
+CPU on a synthetic polling page, including an active user's continued operation.
+Shared memory can be counted in more than one process. None of these benchmarks
+measures model token costs or energy consumption.
+
+`python scripts/benchmark_browser_reports.py --events 12000 --text-bytes 2048`
+compares inline and progressive reports in fresh Chromium processes, including
+heap after every detail chunk has been visited. Run it without other browser
+workloads. `python scripts/benchmark_live_evidence.py` measures real engine
+callbacks and journal writes in isolated Python processes.
+`python scripts/benchmark_campaigns.py` verifies campaign results and published
+files; `python scripts/benchmark_scoring.py` compares the same fault judgments
+with repeated scans, memory indexes and disk indexes. Report memory, elapsed
+time and disk costs separately rather than treating them as interchangeable.
+
 Keep model decisions in the skill and deterministic behavior in the engine.
 Browser tests should use loopback servers, never real accounts or production
 systems. New faults need a passing control and a reproducible treatment. Invalid

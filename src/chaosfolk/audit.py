@@ -19,8 +19,11 @@ DEFAULT_VIEWPORTS = "320x640,375x812,768x1024,1440x900"
 AUDIT_JS = r"""(target) => {
   const W = innerWidth, H = innerHeight, LIMIT = 8;
   const clip = (s, n = 60) => (s || '').replace(/\s+/g, ' ').trim().slice(0, n);
-  const style = el => getComputedStyle(el);
-  const shown = el => { const r = el.getBoundingClientRect(), s = style(el);
+  // This synchronous, read-only pass sees one layout snapshot. Reuse each measurement.
+  const styles = new WeakMap(), boxes = new WeakMap();
+  const style = el => { if (!styles.has(el)) styles.set(el, getComputedStyle(el)); return styles.get(el); };
+  const box = el => { if (!boxes.has(el)) boxes.set(el, el.getBoundingClientRect()); return boxes.get(el); };
+  const shown = el => { const r = box(el), s = style(el);
     return r.width > 1 && r.height > 1 && s.visibility !== 'hidden' && s.display !== 'none' && parseFloat(s.opacity) > 0; };
   const nameOf = el => {
     const ids = (el.getAttribute('aria-labelledby') || '').split(/\s+/).filter(Boolean);
@@ -36,41 +39,45 @@ AUDIT_JS = r"""(target) => {
     return clip(el.title || el.getAttribute('placeholder') || '');
   };
   const describe = el => {
-    const r = el.getBoundingClientRect();
+    const r = box(el);
     return {element: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (el.classList[0] ? '.' + el.classList[0] : ''),
             name: nameOf(el), box: [Math.round(r.left), Math.round(r.top), Math.round(r.width), Math.round(r.height)]};
   };
   const inScroller = el => { for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
     const s = style(p); if (/(auto|scroll)/.test(s.overflowX) && p.scrollWidth > p.clientWidth + 1) return true; } return false; };
   const INTERACTIVE = 'a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[role=checkbox],[role=tab],[role=menuitem],[role=switch],[tabindex]:not([tabindex="-1"])';
-  const controls = [...document.querySelectorAll(INTERACTIVE)].filter(el => shown(el) && !el.disabled);
+  const controls = [...document.querySelectorAll(INTERACTIVE)].filter(el => shown(el) && !el.matches(':disabled') && !el.closest('[inert]'));
   const result = {viewport: W + 'x' + H};
 
   const docWidth = document.documentElement.scrollWidth;
   if (docWidth > W + 1) {
     const wide = [...document.body.querySelectorAll('*')].slice(0, 4000).filter(el => shown(el)
-      && el.getBoundingClientRect().right > W + 1 && !inScroller(el)
-      && !(el.parentElement && el.parentElement !== document.body && el.parentElement.getBoundingClientRect().right > W + 1));
+      && box(el).right > W + 1 && !inScroller(el)
+      && !(el.parentElement && el.parentElement !== document.body && box(el.parentElement).right > W + 1));
     result.horizontal_overflow = {document_width: docWidth, causes: wide.slice(0, LIMIT).map(describe)};
   }
-  result.offscreen_controls = controls.filter(el => { const r = el.getBoundingClientRect();
+  result.offscreen_controls = controls.filter(el => { const r = box(el);
     return (r.right > W + 1 || r.left < -1) && !inScroller(el); }).slice(0, LIMIT).map(describe);
-  result.covered_controls = controls.filter(el => { const r = el.getBoundingClientRect();
+  result.covered_controls = controls.filter(el => { const r = box(el);
     if (r.top < 0 || r.bottom > H || r.left < 0 || r.right > W) return false;
-    const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-    return top && !el.contains(top) && !top.contains(el) && !(top.tagName === 'LABEL' && top.control === el);
-  }).slice(0, LIMIT).map(el => { const r = el.getBoundingClientRect();
+    // A covered centre alone does not make a control unreachable (icons, badges, overlays).
+    return [[.5,.5],[.2,.2],[.8,.2],[.2,.8],[.8,.8]].every(([x,y]) => {
+      const top = document.elementFromPoint(r.left + r.width * x, r.top + r.height * y);
+      return top && !el.contains(top) && !top.contains(el) && !(top.tagName === 'LABEL' && top.control === el);
+    });
+  }).slice(0, LIMIT).map(el => { const r = box(el);
     const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
     return Object.assign(describe(el), {covered_by: describe(top).element}); });
   const inline = el => el.tagName === 'A' && el.parentElement && clip(el.parentElement.innerText, 400).length > clip(el.innerText, 400).length + 20;
   // WCAG 2.5.8: an undersized target fails only when a 24 px circle on its centre reaches another target.
   const pointers = controls.filter(el => !inline(el) && !['text', 'email', 'tel', 'password', 'search', 'number', 'url', 'date']
     .includes(el.type) && !['TEXTAREA', 'SELECT'].includes(el.tagName));
-  const small = el => { const r = el.getBoundingClientRect(); return r.width < target || r.height < target; };
-  const reach = (el, other) => { const r = el.getBoundingClientRect(), o = other.getBoundingClientRect();
+  const small = el => { const r = box(el); return r.width < target || r.height < target; };
+  const reach = (el, other) => { const r = box(el), o = box(other);
     const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    if (small(other) && Math.hypot(cx - o.left - o.width / 2, cy - o.top - o.height / 2) < target) return true;
     const dx = Math.max(o.left - cx, 0, cx - o.right), dy = Math.max(o.top - cy, 0, cy - o.bottom);
-    return Math.hypot(dx, dy) < target / 2 + (small(other) ? target / 2 : 0); };
+    return Math.hypot(dx, dy) < target / 2; };
   result.small_targets = pointers.filter(el => small(el) && pointers.some(o => o !== el && !o.contains(el) && !el.contains(o) && reach(el, o)))
     .slice(0, LIMIT).map(describe);
   result.clipped_text = [...document.querySelectorAll('button,a,label,th,td,h1,h2,h3,[role=button],[role=tab]')].filter(el => {
@@ -79,7 +86,7 @@ AUDIT_JS = r"""(target) => {
   }).slice(0, LIMIT).map(describe);
   result.unreachable_submit = [...document.forms].map(form => {
     const submit = form.querySelector('[type=submit],button:not([type])');
-    if (!submit || !shown(submit)) return null; const r = submit.getBoundingClientRect();
+    if (!submit || !shown(submit)) return null; const r = box(submit);
     return (r.right > W + 1 || r.left < -1) && !inScroller(submit) ? describe(submit) : null;
   }).filter(Boolean).slice(0, LIMIT);
 
@@ -96,11 +103,11 @@ AUDIT_JS = r"""(target) => {
     .map(h => ({level: +(h.getAttribute('aria-level') || h.tagName.slice(1)), text: clip(h.innerText)}));
   result.h1_count = headings.filter(h => h.level === 1).length;
   result.heading_skips = headings.slice(1).map((h, i) => h.level > headings[i].level + 1 ? `h${headings[i].level} "${headings[i].text}" then h${h.level} "${h.text}"` : null).filter(Boolean).slice(0, LIMIT);
-  const ids = {}; document.querySelectorAll('[id]').forEach(el => { ids[el.id] = (ids[el.id] || 0) + 1; });
+  const ids = Object.create(null); document.querySelectorAll('[id]').forEach(el => { ids[el.id] = (ids[el.id] || 0) + 1; });
   result.duplicate_ids = Object.keys(ids).filter(id => ids[id] > 1).slice(0, LIMIT);
   result.positive_tabindex = [...document.querySelectorAll('[tabindex]')].filter(el => el.tabIndex > 0).slice(0, LIMIT).map(describe);
   result.aria_hidden_focusable = [...document.querySelectorAll('[aria-hidden=true]')].flatMap(el => [...el.querySelectorAll(INTERACTIVE)])
-    .filter(el => shown(el) && el.tabIndex >= 0).slice(0, LIMIT).map(describe);
+    .filter(el => shown(el) && el.tabIndex >= 0 && !el.matches(':disabled') && !el.closest('[inert]')).slice(0, LIMIT).map(describe);
   result.frames_without_title = [...document.querySelectorAll('iframe')].filter(f => shown(f) && !f.title && !f.getAttribute('aria-label')).slice(0, LIMIT).map(describe);
   const meta = (document.querySelector('meta[name=viewport]') || {}).content || '';
   const maxScale = /maximum-scale\s*=\s*([\d.]+)/i.exec(meta);
@@ -155,7 +162,7 @@ UNREACHED_JS = r"""() => {
   const shown = el => { const r = el.getBoundingClientRect(), s = getComputedStyle(el);
     return r.width > 1 && r.height > 1 && s.visibility !== 'hidden' && s.display !== 'none'; };
   return [...document.querySelectorAll('a[href],button,input:not([type=hidden]),select,textarea,summary,[role=button],[role=link],[tabindex]:not([tabindex="-1"])')]
-    .filter(el => shown(el) && !el.disabled && !store.keys.has(el)
+    .filter(el => shown(el) && !el.matches(':disabled') && !el.closest('[inert]') && el.tabIndex >= 0 && !store.keys.has(el)
       && !(el.type === 'radio' && el.name && document.querySelector(`input[type=radio][name="${CSS.escape(el.name)}"]:checked`) !== el && [...document.querySelectorAll(`input[type=radio][name="${CSS.escape(el.name)}"]`)].some(r => store.keys.has(r))))
     .slice(0, 8).map(el => el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + ' "' + (el.getAttribute('aria-label') || el.innerText || el.value || '').replace(/\s+/g, ' ').trim().slice(0, 50) + '"');
 }"""
@@ -242,7 +249,7 @@ async def audit_world(m, viewports, keyboard, folder, name=None):
         if original and page.viewport_size != original:
             await page.set_viewport_size(original)
     audit = {"url": page.url, "viewports": results, "keyboard": keys,
-             "javascript_errors": m.erreurs_page[errors_before:][:10], "errors_before_audit": errors_before,
+             "javascript_errors": m.erreurs_page[errors_before:errors_before + 10], "errors_before_audit": errors_before,
              "note": "Review signals measured in Chromium. Confirm each one; this is not a conformance audit."}
     target = folder / f"{name}.json"
     target.write_text(json.dumps(audit, ensure_ascii=False, indent=2), encoding="utf-8")

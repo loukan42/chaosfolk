@@ -37,6 +37,12 @@ chaosfolk draw --level medium --seed 7 --objectives "Order a product" --project 
 Each user receives three other routes to visit before its goals, which widens
 exploration from one campaign to the next and reduces repetition.
 
+Repeated merges of the same session replace its previous route and transition
+counts. Running `map` before `campaign record` therefore counts the session once.
+The map keeps compact per-session counters in `_campaigns` for this purpose.
+Maps created before this tracking was added retain their aggregate totals;
+historical duplicates cannot be reconstructed or removed automatically.
+
 ## Record and compare campaigns
 
 After writing `constats.json` and generating the report:
@@ -53,6 +59,26 @@ fingerprint from its check id, route and title words. When the same finding is
 described with another title, set `"fingerprint"` in `constats.json` to the value
 shown by `campaign status`. The proven scenarios are copied into the project's
 memory, so they stay replayable after the session folder is deleted.
+
+Project updates use a local SQLite lock and replace each JSON file atomically.
+Concurrent commands wait up to ten seconds for the current update, then report
+that the project is busy. Keep this state on a local filesystem. Before publishing
+a recorded campaign, Chaosfolk stages its scenarios, history, findings and map in
+`.campaign-pending.json`. If a write fails or the process stops between file
+replacements, the next campaign or map command finishes that publication under
+the lock before reading project memory. An already recovered label remains
+recorded; it is not counted again.
+
+The pending batch is limited to 64 MiB and 10,003 JSON files, including the three
+project indexes. Oversized batches are rejected before publication. Keep a pending
+journal when investigating an error: removing it discards the recovery snapshots.
+Serialization enforces this byte limit while writing UTF-8. Files are flushed
+and synchronized before replacement; directory entries are synchronized on
+POSIX filesystems that support it. A pending transaction must be recovered
+before another can be published.
+This mechanism handles interrupted publication on the local filesystem. It does
+not guarantee recovery from storage failure, lost filesystem caches or corrupted
+files after a power loss; back up project memory when it must survive those events.
 
 `compare` lists new findings, findings still present and findings not seen again
 between the last two campaigns (or `--before` and `--after`). A finding that was
@@ -71,6 +97,11 @@ sequence, with `--url` when the app moved, and updates its status: three passes
 mark it `fixed`, three failures keep it `open`, anything else is recorded as
 inconclusive. Scenarios without an assertion are skipped. This is the existing
 replay engine, chosen automatically; nothing is re-explored.
+
+Replays release the project lock while the browser runs. If another campaign or
+replay changes a selected finding before completion, `select` preserves that
+newer state, reports the conflict and returns a nonzero exit code. The replay
+evidence remains in the project's `replays` folder for review.
 
 ## Independent and coordinated sessions
 

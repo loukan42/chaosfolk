@@ -75,12 +75,12 @@ def charger_moteur():
 COMMANDES_CHEF = {
     "check", "launch", "start", "serve", "humans", "fault", "faults", "fault-end", "status",
     "network", "stop", "stop-app", "save-state", "inspect", "analyze", "trace", "extract", "replay", "report",
-    "draw", "drawn-faults", "sheets", "install-agent", "fields", "vary", "compare", "audit", "chaos-control",
+    "draw", "drawn-faults", "sheets", "install-agent", "fields", "vary", "compare", "audit", "chaos-control", "release",
 }
 # commandes qui exigent le jeton du chef (un humain n'en a pas besoin et ne doit pas pouvoir les lancer).
 # Le client ne l'envoie que si la variable d'environnement CHAOSFOLK_LEADER_TOKEN le porte : un humain qui lirait
 # serveur.json n'obtient rien en lançant la commande sans elle
-COMMANDES_RESERVEES = {"stop", "fault", "fault-end", "inspect", "save-state", "humans", "audit", "chaos-control"}
+COMMANDES_RESERVEES = {"stop", "fault", "fault-end", "inspect", "save-state", "humans", "audit", "chaos-control", "release"}
 COMMANDES_LOURDES = {"check", "launch", "start", "serve", "stop-app", "analyze", "trace", "extract", "replay", "report",
                      "vary", "compare"}
 # "draw" ne charge que tirage.py ; "drawn-faults" et "sheets" n'ont besoin que du client
@@ -426,21 +426,27 @@ def ecrire_json(chemin, donnees):
     os.replace(temporaire, chemin)
 
 
-def lire_journal(dossier, obligatoire=True):
-    """Événements du journal.jsonl d'une horde (les lignes illisibles sont ignorées)."""
+def iterer_journal(dossier, obligatoire=True):
+    """Yield normalized events without retaining the journal or its source lines."""
     fichier = Path(dossier) / "journal.jsonl"
-    if not fichier.exists():
+    try:
+        source = fichier.open(encoding="utf-8", errors="replace")
+    except FileNotFoundError:
         if obligatoire:
             raise SystemExit(f"pas de journal dans {dossier}")
-        return []
-    evts = []
+        return
     # errors="replace" : une ligne coupée en plein caractère (arrêt brutal) est ignorée, pas un plantage
-    for ligne in fichier.read_text(encoding="utf-8", errors="replace").splitlines():
-        with suppress(json.JSONDecodeError):
-            e = json.loads(ligne)
-            if isinstance(e, dict) and "type" in e:
-                evts.append(normaliser_evenement(e))
-    return evts
+    with source:
+        for ligne in source:
+            with suppress(json.JSONDecodeError):
+                e = json.loads(ligne)
+                if isinstance(e, dict) and "type" in e:
+                    yield normaliser_evenement(e)
+
+
+def lire_journal(dossier, obligatoire=True):
+    """Événements du journal.jsonl d'une horde (les lignes illisibles sont ignorées)."""
+    return list(iterer_journal(dossier, obligatoire))
 
 
 def lire_personas(dossier):
@@ -642,11 +648,20 @@ async def nouveau_monde(navigateur, hid, fiche, url, base, **monde):
         locale=fiche.get("locale", "en-US"), timezone_id=fiche.get("timezone", "UTC"),
         ignore_https_errors=bool(fiche.get("ignore_https_errors", False)), storage_state=etat,
         accept_downloads=True, **APPAREILS[nom_appareil])
-    await ctx.add_init_script(script=INIT_JS)
-    m = Monde(hid, ctx, url, **monde)
-    if fiche.get("horloge"):
-        await m.installer_horloge()
-    return m
+    m = None
+    try:
+        await ctx.add_init_script(script=INIT_JS)
+        m = Monde(hid, ctx, url, **monde)
+        if fiche.get("horloge"):
+            await m.installer_horloge()
+        return m
+    except BaseException:
+        with suppress(Exception):
+            if m is not None:
+                await m.fermer()
+            else:
+                await asyncio.wait_for(ctx.close(), 10)
+        raise
 
 
 # --------------------------------------------------------------------------
@@ -695,9 +710,12 @@ def methodes_visees(panne):
 class Monde:
     """Le navigateur isolé d'un humain : onglets, boîtes, pannes subies, compteurs des garde-fous."""
 
-    def __init__(self, hid, ctx, url_app, journal=None, captures=None, dossier=None):
+    def __init__(self, hid, ctx, url_app, journal=None, captures=None, dossier=None, evidence_dir=None):
         self.id = hid
         self.ctx = ctx
+        self.closed = False
+        self.releasing = False
+        self.released_state = None
         self.url_app = url_app
         self.origine = urlparse(url_app).netloc
         self.journal = journal or (lambda e: None)
@@ -719,9 +737,15 @@ class Monde:
         self.evt_dialogue = asyncio.Event()
         self.tache_suspendue = None
         # ce que le navigateur annonce à l'humain
-        self.erreurs_page = []
-        self.messages = []
-        self.requetes = {}
+        from .evidence import EvidenceStore
+        evidence_dir = evidence_dir if evidence_dir is not None else (Path(dossier) / "evidence" if dossier else None)
+        self.evidence = EvidenceStore(evidence_dir, hid, self._evidence_spilled)
+        self.erreurs_page = self.evidence.errors
+        self.messages = self.evidence.messages
+        self.requetes = self.evidence.requests
+        self.evidence_failed = False
+        self.fermeture = None             # fermeture en cours (partagée entre appels concurrents)
+        self.attentes_fermeture = set()   # tâches qui attendent cette fermeture
         self.taches = set()
         self.delai_geste = DELAI_GESTE_MS
         # références [rN] : mémoire par page, pour ne jamais redonner une référence à un autre élément
@@ -762,13 +786,71 @@ class Monde:
         tache.add_done_callback(self.taches.discard)
         return tache
 
+    async def fermer(self):
+        """Close browser resources while retaining recorded counters and evidence."""
+        if self.closed:
+            self.evidence.close()
+            return
+        # Concurrent callers (evidence failure, release, horde stop) share one
+        # close; a waiting caller is never cancelled by the close it waits for.
+        current = asyncio.current_task()
+        self.attentes_fermeture.add(current)
+        try:
+            if self.fermeture is None:
+                self.fermeture = asyncio.ensure_future(self._fermer())
+            await asyncio.shield(self.fermeture)
+        finally:
+            self.attentes_fermeture.discard(current)
+
+    async def _fermer(self):
+        tasks = set(self.taches) - {asyncio.current_task()} - self.attentes_fermeture
+        if self.tache_suspendue is not None:
+            tasks.add(self.tache_suspendue)
+        for task in tasks:
+            task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        try:
+            await asyncio.wait_for(self.ctx.close(), 10)
+            self.closed = True
+            self.ctx = None
+            self.taches.clear()
+            self.tache_suspendue = self.dialogue = None
+            self.pages.clear()
+            self.refs.clear()
+            self.ecrans.clear()
+            self.vues.clear()
+            self.dernier_complet = None
+        finally:
+            self.fermeture = None
+            self.evidence.close()
+
+    def _evidence_spilled(self, details):
+        details = dict(details, path=chemin_relatif(details["path"], self.dossier) if self.dossier else details["path"])
+        self.journal({"type": "evidence-spilled", "h": self.id, **details})
+
+    def _record_evidence(self, operation, *args):
+        """A disk error stops collection visibly instead of dropping records unnoticed."""
+        try:
+            operation(*args)
+        except Exception as error:
+            if not self.evidence_failed:
+                self.evidence_failed = True
+                async def stop_collection():
+                    with suppress(Exception):
+                        await self.fermer()
+                self.lancer(stop_collection())
+                with suppress(Exception):
+                    self.journal({"type": "evidence-storage-error", "h": self.id, "message": premiere_ligne(error),
+                                  "collection_stopped": True})
+
     # -- pages et événements --
     def _nouvelle_page(self, page):
         if page in self.pages:
             return
         self.pages.append(page)
         if len(self.pages) > 1:
-            self.messages.append(f"Un nouvel onglet s'est ouvert (onglet {len(self.pages)}).")
+            self._record_evidence(self.messages.append, f"Un nouvel onglet s'est ouvert (onglet {len(self.pages)}).")
             self.onglet = len(self.pages) - 1
         page.on("console", lambda m: self._console(page, m))
         page.on("pageerror", lambda e: self._anomalie(page, "erreur-js", str(e)))
@@ -798,7 +880,7 @@ class Monde:
 
     def _anomalie(self, page, genre, message, url=None):
         if genre == "erreur-js":
-            self.erreurs_page.append(message[:300])
+            self._record_evidence(self.erreurs_page.append, message[:300])
         self.journal({"type": "anomalie", "h": self.id, "genre": genre, "message": message[:500],
                       "url": url or (page.url if page else None), "induite": self.pannes_en_cours(),
                       "apres": list(self.apres)})
@@ -819,7 +901,7 @@ class Monde:
             adresse = urlparse(requete.url)
             chemin = re.sub(r"/\d+(?=/|$)", "/{id}", adresse.path)
             cle = f"{requete.method} {adresse.netloc}{chemin}"
-            self.requetes[cle] = self.requetes.get(cle, 0) + 1
+            self._record_evidence(self.requetes.increment, cle)
 
     def _dialogue(self, dialogue):
         self.dialogue = dialogue
@@ -833,7 +915,7 @@ class Monde:
                 destination = Path(self.dossier) / "telechargements" / f"{self.id}-{nom}"
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 await telechargement.save_as(destination)
-        self.messages.append(f'Un fichier a été téléchargé : "{nom}".')
+        self._record_evidence(self.messages.append, f'Un fichier a été téléchargé : "{nom}".')
         self.journal({"type": "telechargement", "h": self.id, "fichier": nom})
 
     @property
@@ -994,15 +1076,21 @@ class Monde:
         self.evt_dialogue.clear()
         tache = asyncio.ensure_future(coroutine)
         attente = asyncio.ensure_future(self.evt_dialogue.wait())
-        fini, _ = await asyncio.wait({tache, attente}, timeout=delai, return_when=asyncio.FIRST_COMPLETED)
-        attente.cancel()
-        if tache in fini:
-            return tache.result()
-        if self.dialogue is not None:
-            self.tache_suspendue = tache
-            return "boite"
-        tache.cancel()
-        raise TimeoutError("le navigateur ne répond plus")
+        try:
+            fini, _ = await asyncio.wait({tache, attente}, timeout=delai, return_when=asyncio.FIRST_COMPLETED)
+            if tache in fini:
+                return tache.result()
+            if self.dialogue is not None:
+                self.tache_suspendue = tache
+                return "boite"
+            raise TimeoutError("le navigateur ne répond plus")
+        finally:
+            pending = [attente]
+            if tache is not self.tache_suspendue:
+                pending.append(tache)
+            for task in pending:
+                task.cancel()
+            await asyncio.gather(*pending, return_exceptions=True)
 
     async def repondre_boite(self, accepter, texte=None):
         """Répond à la boîte du navigateur ouverte, puis laisse finir le geste qu'elle suspendait."""
@@ -1386,7 +1474,7 @@ class Horde:
         self.n_repris = {}
         self.n_panne = 0
         dernier_t = 0
-        for e in lire_journal(self.dossier, obligatoire=False):
+        for e in iterer_journal(self.dossier, obligatoire=False):
             dernier_t = max(dernier_t, e.get("t", 0))
             if e.get("type") == "action":
                 self.n_repris[e["h"]] = max(self.n_repris.get(e["h"], 0), e.get("n", 0))
@@ -1495,6 +1583,7 @@ class Horde:
     async def lancer_horde(self):
         from playwright.async_api import async_playwright
         veille = None
+        app = None
         try:
             app = asyncio.ensure_future(self.app_au_demarrage())
             self.pw = await async_playwright().start()
@@ -1520,8 +1609,11 @@ class Horde:
             async with serveur:
                 await self.arret.wait()
         finally:
-            if veille:
-                veille.cancel()
+            pending = [task for task in (veille, app) if task is not None]
+            for task in pending:
+                task.cancel()
+            if pending:
+                await asyncio.gather(*pending, return_exceptions=True)
             await self.fermer()
 
     async def fermer(self):
@@ -1531,10 +1623,8 @@ class Horde:
         if self.taches:
             await asyncio.gather(*list(self.taches), return_exceptions=True)
         for m in self.humains.values():
-            for tache in list(m.taches):
-                tache.cancel()
             with suppress(Exception):
-                await asyncio.wait_for(m.ctx.close(), 10)
+                await m.fermer()
         with suppress(Exception):
             await asyncio.wait_for(self.navigateur.close(), 10)
         with suppress(Exception):
@@ -1607,7 +1697,7 @@ class Horde:
         commandes = {"humans": self.creer_humains, "action": self.action, "fault": self.programmer_panne,
                      "fault-end": self.terminer_panne, "save-state": self.sauver_etat,
                      "inspect": self.inspecter, "stop": self.demander_arret, "erreur_commande": self.noter_erreur_commande,
-                     "audit": self.auditer, "chaos-control": self.controler_chaos}
+                     "audit": self.auditer, "chaos-control": self.controler_chaos, "release": self.liberer_humain}
         if cmd not in commandes:
             return {"ok": False, "texte": f"commande inconnue : {cmd}"}
         return await commandes[cmd](req)
@@ -1672,8 +1762,57 @@ class Horde:
         m = self.humains[req["h"]]
         fichier = sous_dossier(req["fichier"], self.dossier, "fichier")
         fichier.parent.mkdir(parents=True, exist_ok=True)
-        await borne(m.ctx.storage_state(path=str(fichier)), DELAI_PANNE)
+        verrou = self.verrous[req["h"]]
+        try:
+            await asyncio.wait_for(verrou.acquire(), DELAI_LECTURE)
+        except asyncio.TimeoutError:
+            return {"ok": False, "texte": "l'humain est occupé (un geste est en cours) ; réessaie save-state ensuite"}
+        try:
+            if m.closed:
+                if m.released_state is None:
+                    return {"ok": False, "texte": "The browser is closed and has no saved release state."}
+                saved = lire_json(m.released_state, None)
+                if not isinstance(saved, dict):
+                    return {"ok": False, "texte": f"The saved release state is missing or unreadable: {m.released_state.as_posix()}"}
+                ecrire_json(fichier, saved)
+            else:
+                await borne(m.ctx.storage_state(path=str(fichier)), DELAI_PANNE)
+        finally:
+            verrou.release()
         return {"ok": True, "texte": f"état de {req['h']} enregistré dans {fichier.as_posix()}"}
+
+    async def liberer_humain(self, req):
+        """Release a finished user's browser only after preserving its storage state."""
+        hid = req["h"]
+        m = self.humains.get(hid)
+        if m is None:
+            return {"ok": False, "texte": f"Unknown user: {hid}"}
+        async with self.verrous[hid]:
+            if m.closed:
+                return {"ok": True, "texte": f"Browser already released for {hid}."}
+            if m.statut not in ("fini", "abandon"):
+                return {"ok": False, "texte": "Finish the user with done or giveup before releasing its browser."}
+            blocking = [p["id"] for p in self.pannes
+                        if p.get("h") in (None, hid)
+                        and p.get("phase") in {"programmee", "admission", "active", "redemarrage"}]
+            if blocking:
+                return {"ok": False, "texte": "End pending or active faults before release: " + ", ".join(blocking)}
+            if any(not task.done() for task in m.taches):
+                return {"ok": False, "texte": "Wait for this user's background downloads before release."}
+            target = self.dossier / "etats" / "released" / f"{hid}-{secrets.token_hex(8)}.json"
+            target.parent.mkdir(parents=True, exist_ok=True)
+            m.releasing = True
+            try:
+                await borne(m.ctx.storage_state(path=str(target)), DELAI_PANNE)
+                # The state file exists: record it before closing, so a failed
+                # close can be retried without saving a second file.
+                m.released_state = target
+                self.journal({"type": "browser-released", "h": hid,
+                              "state": chemin_relatif(target, self.dossier)})
+                await m.fermer()
+            finally:
+                m.releasing = False
+            return {"ok": True, "texte": f"Browser released for {hid}; storage state saved in {target.as_posix()}."}
 
     async def inspecter(self, req):
         m = self.humains.get(req["h"])
@@ -1685,6 +1824,8 @@ class Horde:
         except asyncio.TimeoutError:
             return {"ok": False, "texte": "l'humain est occupé (un geste est en cours)"}
         try:
+            if m.closed:
+                return {"ok": False, "texte": "This user's browser was released; use trace or replay for recorded evidence."}
             if m.dialogue is not None:
                 return {"ok": False, "texte": "une boîte du navigateur est ouverte"}
             if m.page is None:
@@ -1705,6 +1846,8 @@ class Horde:
         except asyncio.TimeoutError:
             return {"ok": False, "texte": "l'humain est occupé (un geste est en cours)"}
         try:
+            if m.closed:
+                return {"ok": False, "texte": "This user's browser was released; use trace or replay for recorded evidence."}
             if m.dialogue is not None:
                 return {"ok": False, "texte": "une boîte du navigateur est ouverte"}
             if m.page is None:
@@ -1750,7 +1893,7 @@ class Horde:
                               "induite": []})
                 if m is not None:
                     with suppress(Exception):
-                        await m.ctx.close()
+                        await m.fermer()
                 continue
             m.globales = self.globales_actives
             m.n = self.n_repris.get(hid, 0)
@@ -1938,8 +2081,9 @@ class Horde:
                 sortie.append(f"Geste fait ({message.rstrip('.')})." if message else "Geste fait.")
             else:
                 sortie.append(f"Geste raté : {message}")
-        while m.messages:
-            sortie.append(">> " + m.messages.pop(0))
+        if m.messages:
+            sortie.extend(">> " + message for message in m.messages)
+            m._record_evidence(m.messages.clear)
         complet = False
         nouvelle_url = ecran.get("url") != obs["url_avant"]
         full = bool(args.get("complet"))
@@ -1997,6 +2141,7 @@ class Horde:
     async def jouer_action(self, hid, verbe, args, req):
         """Un geste, une parole ou un regard d'un humain : garde-fous, geste, lecture, capture, journal, réponse."""
         m = self.humains[hid]
+        m.evidence.check()
         m.dernier = time.time()
         if not m.debut_reel:
             m.debut_reel = m.dernier
@@ -2061,6 +2206,8 @@ class Horde:
                     "capture": chemin_relatif(m.derniere_capture, self.dossier) if m.derniere_capture else None,
                     "ecran": lignes[:LIGNES_JOURNAL], "pannes": m.pannes_en_cours()})
         self.journal(evt)
+        m._record_evidence(m.evidence.flush)
+        m.evidence.check()
         if verbe not in PAROLES:
             # après une parole ("Noté."), l'humain n'a pas vu l'écran : le diff suivant part de ce qu'il a vu
             m.ecrans[m.page] = lignes
@@ -2101,6 +2248,9 @@ class Horde:
             inconnus = [x for x in ids if x not in self.humains]
             if inconnus:
                 raise ValueError(f"humains inconnus : {', '.join(inconnus)}")
+            released = [hid for hid in ids if self.humains[hid].closed or self.humains[hid].releasing]
+            if released:
+                raise ValueError("Browser already released for: " + ", ".join(released))
         self.n_panne += 1
         lot = f"p{self.n_panne}"
         commun = {"type": t, "lot": lot, "a": self.horodatage() + int(float(quand_a) * 1000) if quand_a not in (None, "") else None,
@@ -2266,10 +2416,23 @@ class Horde:
             lignes.append(f"{hid} {nom:<22} {m.statut:<9} {m.n:>3} actions  "
                           f"dernière il y a {int(time.time() - m.dernier):>3} s  humeur {m.humeur or '-'}  "
                           f"{m.signalements} signalement(s)  {m.refus} refus  {len(m.erreurs_page)} erreur(s) js")
+            if m.evidence.failure is not None:
+                lignes.append("  browser stopped after evidence storage failure; evidence may be incomplete")
+            elif m.closed:
+                lignes.append("  browser released; recorded evidence retained")
         return "\n".join(lignes)
 
     def texte_reseau(self):
-        lignes = [f"{hid} {v:>4}  {k}" for hid, m in self.humains.items() for k, v in sorted(m.requetes.items())]
+        lignes = []
+        for hid, m in self.humains.items():
+            try:
+                m.evidence.check()
+                lignes.extend(f"{hid} {v:>4}  {k}" for k, v in m.requetes.sorted_items())
+            except Exception as error:
+                lignes.append(f"{hid}  évidence réseau indisponible : {premiere_ligne(error)}")
+            finally:
+                if m.closed:
+                    m.evidence.close()
         return "\n".join(lignes) or "aucun appel réseau de données (fetch, xhr) observé : l'application semble sans serveur"
 
 
@@ -2301,12 +2464,12 @@ def envoyer(req, delai=180):
     try:
         with socket.create_connection(("127.0.0.1", int(info["port"])), timeout=delai) as s:
             s.sendall((json.dumps(req, ensure_ascii=False) + "\n").encode("utf-8"))
-            tampon = b""
+            tampon = bytearray()
             while not tampon.endswith(b"\n"):
                 bloc = s.recv(65536)
                 if not bloc:
                     break
-                tampon += bloc
+                tampon.extend(bloc)
     except OSError as e:
         raise SystemExit(f"la horde ne répond pas sur le port {info['port']} ({e}). Est-elle lancée ?") from e
     try:
@@ -2480,107 +2643,144 @@ def grouper_anomalies(evts):
 
 def analyser(dossier):
     """Imprime le tri d'une horde : humains, signalements, anomalies regroupées, pannes, garde-fous, boîtes."""
-    evts = lire_journal(dossier)
+    from chaosfolk.reporting import JournalSpool
+    source = iterer_journal(dossier)
+    try:
+        with JournalSpool(source, collapse_anomalies=False) as journal:
+            return _analyser(dossier, journal)
+    finally:
+        source.close()
+
+
+def _analyser(dossier, evts):
     personas = lire_personas(dossier)
-    actions = [e for e in evts if e["type"] == "action"]
-    duree = max((e["t"] for e in evts), default=0) / 1000
-    print(f"Horde : {len(personas)} humains, {len(actions)} actions, {duree / 60:.1f} min")
-    mal_ecrites = [e for e in evts if e["type"] == "erreur_commande"]
-    if mal_ecrites:
-        par_humain = {}
-        for e in mal_ecrites:
+    actions, maximum, par_humain, summaries = 0, 0, {}, {}
+    for e in evts:
+        maximum = max(maximum, e["t"])
+        if e["type"] == "erreur_commande":
             par_humain[e.get("h")] = par_humain.get(e.get("h"), 0) + 1
-        print(f"Commandes mal écrites par les humains : {len(mal_ecrites)} ("
+        if e["type"] == "action":
+            actions += 1
+            summary = summaries.setdefault(e["h"], {"count": 0, "failed": 0, "failures": [], "end": None, "mood": "-", "said": None})
+            summary["count"] += 1
+            if e["resultat"] == "echec":
+                summary["failed"] += 1
+                if len(summary["failures"]) < 6:
+                    summary["failures"].append({key: e[key] for key in ("n", "action", "message")})
+            if e["action"] in FINS:
+                summary["end"] = {"action": e["action"], "n": e["n"], "args": {"texte": e["args"].get("texte", "")}}
+            if e.get("humeur"):
+                summary["mood"] = e["humeur"]
+            if e.get("dit"):
+                summary["said"] = e["dit"]
+    print(f"Horde : {len(personas)} humains, {actions} actions, {maximum / 60000:.1f} min")
+    if par_humain:
+        print(f"Commandes mal écrites par les humains : {sum(par_humain.values())} ("
               + ", ".join(f"{h} x{n}" for h, n in sorted(par_humain.items(), key=lambda x: str(x[0]))) + ")")
     print("\nHUMAINS")
     for hid, fiche in personas.items():
-        siennes = [e for e in actions if e["h"] == hid]
-        rates = [e for e in siennes if e["resultat"] == "echec"]
-        fin = next((e for e in reversed(siennes) if e["action"] in FINS), None)
+        summary = summaries.get(hid, {"count": 0, "failed": 0, "failures": [], "end": None, "mood": "-", "said": None})
+        fin = summary["end"]
         statut = "abandon" if fin and fin["action"] == "giveup" else ("fini" if fin else "pas terminé")
-        humeur = next((e["humeur"] for e in reversed(siennes) if e.get("humeur")), "-")
-        print(f"\n{hid} {fiche.get('nom', '')} ({fiche.get('profil', '')}) : {statut}, {len(siennes)} actions, "
-              f"{len(rates)} gestes ratés, humeur finale {humeur}")
+        print(f"\n{hid} {fiche.get('nom', '')} ({fiche.get('profil', '')}) : {statut}, {summary['count']} actions, "
+              f"{summary['failed']} gestes ratés, humeur finale {summary['mood']}")
         if fin:
             print(f'   {"abandon" if statut == "abandon" else "bilan"} (n{fin["n"]}) : "{fin["args"].get("texte", "")}"')
-        for e in (x for x in siennes if x["action"] == "flag"):
+        for e in (x for x in evts.events(kind="action", human=hid) if x["action"] == "flag"):
             print(f'   signalement {e.get("gravite", "")} n{e["n"]} {urlparse(e.get("url") or "").path} : "{e["args"].get("texte", "")}"')
-        for e in rates[:6]:
+        for e in summary["failures"]:
             print(f'   raté n{e["n"]} {e["action"]} : {e["message"]}')
-        paroles = [e["dit"] for e in siennes if e.get("dit")]
-        if paroles:
-            print(f'   a dit : "{paroles[-1]}"')
+        if summary["said"]:
+            print(f'   a dit : "{summary["said"]}"')
     print("\nANOMALIES TECHNIQUES (regroupées)")
     etiquettes = {"sans": "SANS PANNE", "apres": "après une panne instantanée", "pendant": "induite par une panne",
                   "bruit": "bruit du serveur de dev"}
-    for categorie, genre, message, n, humains in grouper_anomalies(evts):
+    for categorie, genre, message, n, humains in grouper_anomalies(evts.events(kind="anomalie")):
         print(f'  [{etiquettes[categorie]}] {genre} x{n} ({", ".join(humains)}) : {message}')
     print("\nPANNES")
-    for e in (x for x in evts if x["type"] in ("panne-debut", "panne-fin")):
+    for e in evts.events(kind=("panne-debut", "panne-fin")):
         print(f'  {e["t"] / 1000:>6.0f} s {e["type"]:<11} {e["id"]:<10} {e["panne"]}'
               + (f' ERREUR {e["erreur"]}' if e.get("erreur") else ""))
-    refus = [e for e in evts if e["type"] == "garde-fou" and e.get("refus")]
-    if refus:
-        print("\nGARDE-FOUS (gestes refusés : souvent là où l'application bloque l'humain)")
-        for e in refus:
+    first = True
+    for e in evts.events(kind="garde-fou"):
+        if e.get("refus"):
+            if first:
+                print("\nGARDE-FOUS (gestes refusés : souvent là où l'application bloque l'humain)")
+                first = False
             print(f'  {e["h"]} {e["action"]} {json.dumps(e.get("args") or {}, ensure_ascii=False)[:60]} : {e["message"][:90]}')
-    boites = [e for e in evts if e["type"] == "boite"]
-    if boites:
-        print("\nBOÎTES DU NAVIGATEUR")
-        for e in boites:
-            print(f'  {e["h"]} {e["genre"]} : "{e["message"]}"')
+    first = True
+    for e in evts.events(kind="boite"):
+        if first:
+            print("\nBOÎTES DU NAVIGATEUR")
+            first = False
+        print(f'  {e["h"]} {e["genre"]} : "{e["message"]}"')
 
 
 def extraire(dossier, hid, jusqua=None):
     """Scénario rejouable d'un humain : ses gestes (avec la description de leurs cibles) et les pannes qu'il a
     subies, ancrées sur le numéro d'action d'origine (debut_n, fin_n). L'arrêt de l'application (app-stop)
     devient, pour le rejeu, une coupure du serveur de l'application dans ce navigateur."""
-    evts = lire_journal(dossier)
-    fiche = lire_personas(dossier).get(hid, {})
-    config = lire_json(Path(dossier) / "config.json", {})
-    etapes, pannes, ouvertes, ecrans = [], [], {}, {}
-    depart, dernier_n = None, 0
-    for e in evts:
+    state = _ExtractionState(dossier, hid, lire_personas(dossier).get(hid, {}),
+                             lire_json(Path(dossier) / "config.json", {}), jusqua)
+    for e in iterer_journal(dossier):
+        state.accept(e)
+    return state.result()
+
+
+class _ExtractionState:
+    """One user's replay state; retain output evidence and the latest tab screens."""
+    def __init__(self, dossier, hid, fiche, config, jusqua=None):
+        self.dossier, self.hid, self.fiche, self.config, self.jusqua = dossier, hid, fiche, config, jusqua
+        self.etapes, self.pannes, self.ouvertes, self.ecrans = [], [], {}, {}
+        self.depart, self.dernier_n, self.finished = None, 0, False
+        self.fault_events = []
+
+    def accept(self, e):
         genre = e["type"]
-        if genre in ("panne-debut", "panne-fin") and e.get("h") in (None, hid) and e.get("panne") == "app-stop":
+        if genre in ("panne-debut", "panne-fin") and e.get("h") in (None, self.hid):
+            self.fault_events.append(e)
+        if self.finished:
+            return
+        if genre in ("panne-debut", "panne-fin") and e.get("h") in (None, self.hid) and e.get("panne") == "app-stop":
             type_panne, params = "server-down", {"note": "traduit de app-stop : coupure du serveur de l'application"}
-        elif e.get("h") == hid:
+        elif e.get("h") == self.hid:
             type_panne, params = e.get("panne"), e.get("params") or {}
         else:
-            continue
+            return
         if genre == "arrivee":
             # une nouvelle arrivée repart de zéro : le navigateur a été recréé avec son état de départ
-            depart = e.get("url")
-            etapes, pannes, ouvertes, ecrans, dernier_n = [], [], {}, {}, 0
+            self.depart = e.get("url")
+            self.etapes, self.pannes, self.ouvertes, self.ecrans, self.dernier_n = [], [], {}, {}, 0
         elif genre == "panne-debut" and not e.get("erreur"):
-            ouvertes[e["id"]] = {"type": type_panne, "debut_n": dernier_n, **params}
-            pannes.append(ouvertes[e["id"]])
-        elif genre == "panne-fin" and e["id"] in ouvertes:
-            ouvertes[e["id"]]["fin_n"] = dernier_n
+            self.ouvertes[e["id"]] = {"type": type_panne, "debut_n": self.dernier_n, **params}
+            self.pannes.append(self.ouvertes[e["id"]])
+        elif genre == "panne-fin" and e["id"] in self.ouvertes:
+            self.ouvertes[e["id"]]["fin_n"] = self.dernier_n
         elif genre == "action":
-            if jusqua is not None and e["n"] > jusqua:
-                break
-            dernier_n = e["n"]
+            if self.jusqua is not None and e["n"] > self.jusqua:
+                self.finished = True
+                return
+            self.dernier_n = e["n"]
             cle = e.get("onglet")
             change = e.get("change")
             if change is None:
                 # journal d'avant le champ `change` : on compare à l'écran précédent du même onglet
-                change = (e.get("ecran"), e.get("url")) != ecrans.get(cle)
-            ecrans[cle] = (e.get("ecran"), e.get("url"))
+                change = (e.get("ecran"), e.get("url")) != self.ecrans.get(cle)
+            self.ecrans[cle] = (e.get("ecran"), e.get("url"))
             if e["action"] in GESTES:
-                etapes.append({"n": e["n"], "t": e.get("t"), "action": e["action"], "args": e.get("args") or {},
+                self.etapes.append({"n": e["n"], "t": e.get("t"), "action": e["action"], "args": e.get("args") or {},
                                "cible": e.get("cible"), "echec_original": e["resultat"] == "echec",
                                "effet": bool(change), "pense": e.get("pense"), "dit": e.get("dit")})
-    etat = fiche.get("etat")
-    if isinstance(etat, str):
-        etat = chemin_relatif(Path(dossier) / etat, dossier)
-    return {"nom": f"{hid}-jusqu-a-{jusqua or 'fin'}", "humain": hid, "url": config.get("url"),
-            "dossier_horde": Path(dossier).resolve().as_posix(), "depart": depart, "appareil": alias(fiche.get("appareil") or "desktop", ALIAS_APPAREILS), "etat": etat,
-            "horloge": bool(fiche.get("horloge")), "etapes": etapes, "pannes": pannes,
-            "fault_events": [e for e in evts if e.get("type") in ("panne-debut", "panne-fin")
-                             and e.get("h") in (None, hid)],
-            "attendu": [{"type": "no-page-error"}],
-            "a_completer": "Écrire dans 'attendu' la propriété qui doit tenir (voir references/reproduction.md)."}
+    def result(self):
+        etat = self.fiche.get("etat")
+        if isinstance(etat, str):
+            etat = chemin_relatif(Path(self.dossier) / etat, self.dossier)
+        return {"nom": f"{self.hid}-jusqu-a-{self.jusqua or 'fin'}", "humain": self.hid, "url": self.config.get("url"),
+                "dossier_horde": Path(self.dossier).resolve().as_posix(), "depart": self.depart,
+                "appareil": alias(self.fiche.get("appareil") or "desktop", ALIAS_APPAREILS), "etat": etat,
+                "horloge": bool(self.fiche.get("horloge")), "etapes": self.etapes, "pannes": self.pannes,
+                "fault_events": self.fault_events, "attendu": [{"type": "no-page-error"}],
+                "a_completer": "Écrire dans 'attendu' la propriété qui doit tenir (voir references/reproduction.md)."}
 
 
 # --------------------------------------------------------------------------
@@ -2678,13 +2878,19 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
             if autre.exists():
                 fiche["etat"] = autre.as_posix()
         monde = await nouveau_monde(navigateur, f"rejeu-{session}" if session else "rejeu", fiche, url, dossier_horde,
-                                    captures=dossier_sortie, dossier=dossier_horde)
+                                    captures=dossier_sortie, dossier=dossier_horde,
+                                    evidence_dir=Path(dossier_sortie) / "evidence")
         mondes[session] = monde
         await monde.nouvelle_page(fiche.get("depart") or url)
         await monde.calme()
         return monde
 
-    m = await ouvrir(principale)
+    def live_evidence():
+        return [{"session": session, "path": chemin_relatif(world.evidence.path, dossier_sortie),
+                 "collections": [name for name in ("errors", "messages", "requests")
+                                 if getattr(world.evidence, name).disk]}
+                for session, world in mondes.items() if world.evidence.path is not None]
+
     journal_etapes = []
     fault_events = []
     started = time.monotonic()
@@ -2693,6 +2899,7 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
                              "id": fault.get("id"),
                              "elapsed_ms": round((time.monotonic() - started) * 1000)})
     try:
+        m = await ouvrir(principale)
         plan, avertissements = planifier_pannes(sc) if avec_pannes else ([], [])
         principal = m
         calme_fait = True                 # la page vient d'être attendue : pas de second calme en fin d'essai
@@ -2742,7 +2949,7 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
             except Exception as e:
                 capture = await m.capturer(nom)
                 return {"ok": None, "raisons": [], "rejeu_impossible": f"recette {sc['recette']} impossible : {traduire_erreur(e)}",
-                        "fault_events": fault_events,
+                        "fault_events": fault_events, "live_evidence": live_evidence(),
                         "capture": capture.as_posix() if capture else None, "etapes": journal_etapes}
             if m.dialogue is not None:
                 await m.repondre_boite(False)
@@ -2759,7 +2966,7 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
             # l'attendu n'a pas pu être contrôlé : l'essai ne dit rien, ce n'est pas une casse
             capture = await m.capturer(nom)
             return {"ok": None, "raisons": [], "rejeu_impossible": "attendu invérifiable : " + inverifiable,
-                    "fault_events": fault_events,
+                    "fault_events": fault_events, "live_evidence": live_evidence(),
                     "capture": capture.as_posix() if capture else None, "etapes": journal_etapes,
                     "avertissements": avertissements}
         capture = await m.capturer(nom)
@@ -2767,23 +2974,31 @@ async def rejouer_un(navigateur, sc, avec_pannes, dossier_sortie, nom, dossier_h
         # un geste qui ne s'exécute pas alors qu'il avait marché à l'origine : le rejeu a quitté le parcours
         divergence = next((x for x in journal_etapes if not x["ok"]), None)
         resultat = {"ok": not raisons, "raisons": raisons, "capture": capture.as_posix() if capture else None,
-                    "fault_events": fault_events,
+                    "fault_events": fault_events, "live_evidence": live_evidence(),
                     "erreurs_page": m.erreurs_page[:10], "etapes": journal_etapes, "ecran": ecran["lignes"][:40],
                     "divergence": divergence, "avertissements": avertissements}
+        if divergence:
+            resultat.update(ok=None, raisons=[], rejeu_impossible=
+                            f"le rejeu a quitté le parcours à l'étape {divergence['etape']} "
+                            f"({divergence['action']} : {divergence['message']})")
         if observer and m.page is not None:
             try:
                 resultat["observation"] = await borne(m.page.evaluate(observer), DELAI_LECTURE)
             except Exception as e:
                 return {"ok": None, "raisons": [], "rejeu_impossible": f"observation impossible ({traduire_erreur(e)})",
-                        "fault_events": fault_events,
+                        "fault_events": fault_events, "live_evidence": live_evidence(),
                         "capture": resultat["capture"], "etapes": journal_etapes}
+        for world in mondes.values():
+            world._record_evidence(world.evidence.flush)
+            if world.evidence.failure is not None:
+                resultat.update(ok=None, raisons=[], rejeu_impossible="Live evidence storage failed; trial is incomplete")
         return resultat
     finally:
         for monde in mondes.values():
             for fault in monde.pannes:
                 record_fault("context-closed", fault, len(journal_etapes))
             with suppress(Exception):
-                await monde.ctx.close()
+                await monde.fermer()
 
 
 CHAMPS_ATTENDU = {
@@ -2832,6 +3047,8 @@ async def verifier_attendu(m, attendu):
     """Contrôle les propriétés attendues à la fin d'un rejeu. Renvoie (raisons des échecs, invérifiable) :
     invérifiable est le message d'une règle qui n'a pas pu être contrôlée (erreur JavaScript, page fermée,
     contexte détruit), auquel cas l'essai ne compte pas, ou une chaîne vide."""
+    if getattr(m, "evidence", None) is not None and m.evidence.failure is not None:
+        return [], "Live evidence storage failed; trial is incomplete"
     page = m.page
     raisons = []
     for regle in attendu:
@@ -3042,14 +3259,10 @@ async def rejouer(opts):
                 continue
             r2 = await essai(navigateur, *t)
             d1, d2 = r["divergence"], r2.get("divergence")
-            if d2 and d2["etape"] == d1["etape"]:
-                # bloqué deux fois au même geste : ce n'est pas un aléa, c'est un effet à compter
-                r2 = dict(r2, ok=False, bloque=True, raisons=(r2.get("raisons") or []) + [
-                    f"le parcours bloque à l'étape {d2['etape']} ({d2['action']} : {d2['message']})"])
-            elif d2:
-                r2 = {"ok": None, "raisons": [], "capture": r2.get("capture"), "etapes": r2.get("etapes"),
-                      "preparation": r2.get("preparation"),
-                      "rejeu_impossible": f"le rejeu a quitté le parcours à des étapes différentes ({d1['etape']}, puis {d2['etape']})"}
+            if d2:
+                # Repeating a locator/action failure does not prove the product assertion.
+                r2 = dict(r2, ok=None, raisons=[],
+                          rejeu_impossible=f"le rejeu a quitté le parcours deux fois (étapes {d1['etape']}, {d2['etape']})")
             resultats[k] = r2
         await navigateur.close()
 
@@ -3111,14 +3324,25 @@ def preuve_resolue(dossier, chemin):
     for e in essais:
         if e.get("capture"):
             e["capture"] = chemin_relatif(e["capture"], dossier)
-    return {**{k: resultat.get(k) for k in ("nom", "mode", "fois", "demandes", "casses", "verdict", "manifest", "reproducibility")}, "source": chemin,
+    from chaosfolk.scoring import complete
+    integrity = complete(resultat, resultat.get("mode"))
+    return {**{k: resultat.get(k) for k in ("nom", "mode", "fois", "demandes", "casses", "verdict", "manifest", "reproducibility")},
+            "trial_integrity": integrity, "source": chemin,
             "captures": [e.get("capture") for e in essais], "raisons": [e.get("raisons") for e in essais]}
 
 
 def infos_constats(dossier, constats, evts, personas):
     """Pour chaque constat (par identifiant) : l'URL et l'appareil de son premier événement, et le chemin du
     scénario de sa première preuve. Un champ inconnu vaut None. Les preuves doivent déjà être résumées."""
-    actions = {(e.get("h"), e.get("n")): e for e in evts if e.get("type") == "action"}
+    if hasattr(evts, "action_urls"):
+        references = set()
+        for constat in constats.get("constats", []):
+            if isinstance(constat, dict) and constat.get("id"):
+                first = next((x for x in constat.get("evenements") or [] if isinstance(x, dict)), {})
+                references.add((first.get("h"), first.get("n")))
+        actions = evts.action_urls(references)
+    else:
+        actions = {(e.get("h"), e.get("n")): e for e in evts if e.get("type") == "action"}
     fiches = {h.get("id"): h for h in personas.get("humains", []) if isinstance(h, dict)}
     infos = {}
     for constat in constats.get("constats", []):
@@ -3151,38 +3375,30 @@ def rapport(dossier, langue="en"):
     if langue not in ("en", "fr"):
         raise ValueError("Report language must be en or fr")
     dossier = Path(dossier)
-    evts = lire_journal(dossier)
+    from chaosfolk.reporting import JournalSpool
+    source = iterer_journal(dossier)
+    try:
+        with JournalSpool(source) as journal:
+            return _rapport(dossier, langue, journal)
+    finally:
+        source.close()
+
+
+def _rapport(dossier, langue, journal):
     constats = lire_json(dossier / "constats.json", {})
     introuvables = []
+    proof_summaries = {}
     for constat in constats.get("constats", []):
         for cle, valeur in list((constat.get("preuves") or {}).items()):
             if isinstance(valeur, str) and valeur.endswith(".json"):
-                resume = preuve_resolue(dossier, valeur)
+                if valeur not in proof_summaries:
+                    proof_summaries[valeur] = preuve_resolue(dossier, valeur)
+                resume = proof_summaries[valeur]
                 if resume is None:
                     introuvables.append(f"{constat.get('id', '?')} / {cle} : {valeur}")
                     resume = {"introuvable": valeur, "nom": Path(valeur).stem, "mode": None, "fois": 0, "casses": 0,
                               "verdict": "introuvable", "captures": [], "raisons": []}
                 constat["preuves"][cle] = resume
-    allege, anomalies = [], {}
-    for e in evts:
-        e = dict(e)
-        if e["type"] == "action":
-            # le texte des écrans ne sert pas à la page (45 % du poids) : il reste dans journal.jsonl,
-            # comme les mesures du moteur (duree_ms, taille_reponse)
-            for cle in ("ecran", "duree_ms", "taille_reponse"):
-                e.pop(cle, None)
-            e["cible_nom"] = (e.pop("cible", None) or {}).get("nom")
-        elif e["type"] == "anomalie":
-            # anomalies identiques regroupées (une console qui répète la même erreur 200 fois) : la première
-            # garde sa place dans le journal, avec le nombre d'occurrences
-            cle = (e.get("h"), e.get("genre"), e.get("message"), json.dumps(e.get("induite") or []),
-                   json.dumps(e.get("apres") or []))
-            if cle in anomalies:
-                anomalies[cle]["nombre"] += 1
-                continue
-            e["nombre"] = 1
-            anomalies[cle] = e
-        allege.append(e)
     config = lire_json(dossier / "config.json", {})
     tirage = lire_json(dossier / "tirage.json", {})
     if tirage:
@@ -3200,28 +3416,22 @@ def rapport(dossier, langue="en"):
             matrices.append(matrix)
     donnees = {"config": config, "personas": personas, "coverage": coverage,
                "replay_matrices": matrices,
-               "journal": allege, "constats": constats, "genere": datetime.now().isoformat(timespec="seconds"),
+               "journal": None, "constats": constats, "genere": datetime.now().isoformat(timespec="seconds"),
                # ce dont le prompt de correction a besoin, à un seul endroit
                "application": {"nom": application.get("nom") or constats.get("application") or None,
                                "version": constats.get("version") or None, "url": config.get("url"),
                                "commande": None},
                "horde": "chaosfolk",
-               "constats_infos": infos_constats(dossier, constats, evts, personas)}
+               "constats_infos": infos_constats(dossier, constats, journal, personas)}
     from chaosfolk.branding import report_branding
     donnees["branding"] = report_branding(dossier)
     from chaosfolk.scoring import score_report
-    donnees["score"] = score_report(donnees)
+    donnees["score"] = score_report(donnees, journal_metrics=journal.scoring_metrics())
     # tout "<" est échappé : aucune saisie (</script>, <!--<script>) ne peut casser la page
     template = MODELE_RAPPORT.read_text(encoding="utf-8")
-    rendered = {}
-    for language, filename in (("en", "report-en.html"), ("fr", "rapport-fr.html")):
-        localized = dict(donnees, lang=language)
-        js = json.dumps(localized, ensure_ascii=False).replace("<", "\\u003c").replace("\u2028", "\\u2028").replace("\u2029", "\\u2029")
-        html = template.replace("/*__DONNEES__*/null", js).replace('<html lang="en">', f'<html lang="{language}">', 1)
-        rendered[language] = html
-        (dossier / filename).write_text(html, encoding="utf-8")
+    from chaosfolk.reporting import write_reports
+    write_reports(dossier, template, donnees, journal, langue)
     cible = dossier / "rapport.html"
-    cible.write_text(rendered[langue], encoding="utf-8")
     print(f"Report ({langue}): {cible.as_posix()}")
     for x in introuvables:
         print(f"attention : preuve introuvable, {x}")
@@ -3505,7 +3715,7 @@ def commande_trace(opts):
     """trace : les gestes d'un humain, une ligne chacun, lus dans le journal (le chef ne lit pas journal.jsonl).
     Avec --around N : les gestes N-3 à N+3 et l'écran du geste N."""
     dossier = dossier_courant(opts.dossier)
-    evts = [e for e in lire_journal(dossier) if e.get("h") == opts.humain]
+    evts = [e for e in iterer_journal(dossier) if e.get("h") == opts.humain]
     actions = [e for e in evts if e["type"] == "action"]
     if not actions:
         raise SystemExit(f"aucun geste de {opts.humain} dans le journal de {dossier.as_posix()}")
@@ -3658,7 +3868,17 @@ def lire_attendu(texte):
 def extraire_plusieurs(dossier, hids):
     """Scénario coordonné : les gestes de plusieurs humains dans l'ordre du journal, chacun dans sa session
     (son état et son appareil). Les pannes ne sont pas reprises, leur ancrage par numéro d'action serait ambigu."""
-    parts = {hid: extraire(dossier, hid) for hid in hids}
+    personas = lire_personas(dossier)
+    config = lire_json(Path(dossier) / "config.json", {})
+    states = {hid: _ExtractionState(dossier, hid, personas.get(hid, {}), config) for hid in hids}
+    for event in iterer_journal(dossier):
+        human = event.get("h")
+        if human is None:
+            for state in states.values():
+                state.accept(event)
+        elif human in states:
+            states[human].accept(event)
+    parts = {hid: state.result() for hid, state in states.items()}
     etapes = sorted(((dict(e, session=hid)) for hid, sc in parts.items() for e in sc["etapes"]),
                     key=lambda e: e.get("t") or 0)
     premier = parts[hids[0]]
@@ -3782,6 +4002,7 @@ def construire_parseur():
     p = commande("stop", lambda a: relayer({"cmd": "stop", "garder_app": a.garder_app}))
     p.add_argument("--keep-app", dest="garder_app", action="store_true", help="arrêter la horde mais laisser l'application tourner")
     commande("stop-app", commande_arreter_app).add_argument("--folder", dest="dossier")
+    commande("release", lambda a: relayer({"cmd": "release", "h": a.humain})).add_argument("humain")
     p = commande("save-state", lambda a: relayer({"cmd": "save-state", "h": a.humain,
                                                    "fichier": str(Path(a.fichier).resolve())}))
     p.add_argument("humain")

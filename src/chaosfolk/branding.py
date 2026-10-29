@@ -8,7 +8,7 @@ def report_branding(folder):
     source = Path(__file__).parent
     destination = Path(folder) / "assets"
     destination.mkdir(exist_ok=True)
-    for name in ("mascot.png", "companions.png", "logo.png", "room.js"):
+    for name in ("mascot.png", "companions.png", "logo.png", "evidence.js", "playback.js", "room.js"):
         shutil.copyfile(source / "templates" / name, destination / name)
     profiles = json.loads((source / "profiles.json").read_text(encoding="utf-8"))["profils"]
     french = [

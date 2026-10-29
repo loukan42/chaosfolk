@@ -9,11 +9,18 @@ messages, creates tickets or reaches a remote host you did not name.
 chaosfolk privacy --folder .horde/run --output .horde/run-public --lang en --redact-file qa/private-strings.json
 ```
 
-The copy drops browser state and typed values, redacts bearer tokens, secret URL
-parameters, emails and the exact strings listed in the redaction file, and
-excludes screenshots unless you add `--include-reviewed-captures` after looking
+The copy drops browser state and typed values, redacts bearer tokens, user
+information in any URL scheme, credential-like URL parameters (tokens, secrets,
+signatures, keys, one-time codes, SAML and OAuth values), emails and the exact
+strings listed in the redaction file, and excludes screenshots unless you add `--include-reviewed-captures` after looking
 at each one. Automatic redaction is incomplete: read `PRIVACY-REVIEW.txt` and
 the copy before sharing. The original session is left untouched.
+
+Exports are prepared in a temporary sibling folder and published only after
+report generation succeeds. A failed generation leaves the destination absent
+or empty, so the same command can be retried. Existing nonempty output folders
+are never replaced. Internal proof paths are relocated into the exported copy;
+proofs outside the source session are rejected before reading them.
 
 During exploration, password, card and one-time code fields and elements with
 `data-chaosfolk-private` are masked in screenshots. Add selectors with
@@ -35,6 +42,22 @@ chaosfolk usage --input usage.jsonl --max-tokens 500000 --max-cost 2
 Exit code 0 means continue, 1 means a limit is reached, 2 means a limit was set
 but a value is missing. Run it before each batch of simulated users. It does
 not stop a model request already running, and it never converts currencies.
+
+For large exports with many distinct request IDs, add `--dedup-storage disk`:
+
+```bash
+chaosfolk usage --input usage.jsonl --max-tokens 500000 --dedup-storage disk
+```
+
+The default keeps complete measurements in memory to compare repeated IDs.
+Disk mode keeps those records in a temporary SQLite index, with a 2 MiB page
+cache. Both modes count identical events once and reject conflicting events
+with the same ID. Disk mode trades extra disk space and processing time for
+lower memory use; it still needs enough memory for one JSON record. The index
+is removed when the command finishes, including validation failures. A forced
+process termination can leave a `chaosfolk-usage-*` folder in the system
+temporary directory containing the supplied measurements. This option does
+not reduce model token usage.
 
 ## Test mailbox (Mailpit)
 
@@ -97,3 +120,10 @@ bodies or file paths. Example client configuration:
 ```json
 {"mcpServers": {"chaosfolk": {"command": "chaosfolk", "args": ["mcp", "--project-dir", "/home/me/.chaosfolk/projects/shop-front"]}}}
 ```
+
+Each metadata request waits for the project writer lock. If a prior campaign
+publication was interrupted, it finishes that pending publication before
+reading, using the same recovery checks as the campaign CLI. This prevents
+counts from combining an updated history with an older findings registry.
+The process needs write access to the selected project folder for this lock
+and recovery step.

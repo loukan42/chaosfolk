@@ -1,12 +1,16 @@
 """Read-only MCP stdio access to one explicitly selected Chaosfolk project."""
 import argparse
 import hashlib
+from itertools import islice
 import json
+import os
 from pathlib import Path
 import re
+import sqlite3
 import sys
 
 from . import __version__
+from .campaigns import project_lock
 
 PROTOCOL_VERSION = '2025-06-18'
 MAX_FRAME_BYTES = 1024 * 1024
@@ -44,8 +48,9 @@ class ProjectReader:
         return json.loads(raw)
 
     def status(self):
-        history = self.read('campaigns.json', {})
-        findings = self.read('findings.json', {})
+        with project_lock(self.root):
+            history = self.read('campaigns.json', {})
+            findings = self.read('findings.json', {})
         if not isinstance(history, dict) or not isinstance(findings, dict):
             raise ValueError('Invalid project data')
         campaigns = history.get('campaigns', [])
@@ -62,11 +67,12 @@ class ProjectReader:
                 'scope': 'Metadata only; no browser, authentication state, titles or scenario payloads are exposed.'}
 
     def findings(self, offset=0, limit=20):
-        findings = self.read('findings.json', {})
+        with project_lock(self.root):
+            findings = self.read('findings.json', {})
         if not isinstance(findings, dict):
             raise ValueError('Invalid findings registry')
         result = []
-        for key, item in list(findings.items())[offset:offset + limit]:
+        for key, item in islice(findings.items(), offset, offset + limit):
             if not isinstance(item, dict):
                 continue
             state = item.get('state')
@@ -80,6 +86,10 @@ class ProjectReader:
                 'next_offset': offset + limit if offset + limit < len(findings) else None}
 
     def scenarios(self, offset=0, limit=20):
+        with project_lock(self.root):
+            return self._scenarios(offset, limit)
+
+    def _scenarios(self, offset, limit):
         folder = self.root / 'scenarios'
         if not folder.exists():
             return {'scenarios': [], 'total': 0, 'offset': offset, 'next_offset': None}
@@ -87,11 +97,15 @@ class ProjectReader:
             raise ValueError('Scenario directory must be inside the selected project')
         # Return names only. Raw scenarios contain authentication and typed input.
         names = []
-        for file in folder.iterdir():
-            if len(names) >= 10000:
-                raise ValueError('Scenario directory exceeds the listing limit')
-            if file.suffix == '.json' and file.is_file() and not file.is_symlink() and file.resolve().parent == folder.resolve():
-                names.append(identifier(file.stem))
+        resolved = folder.resolve()
+        with os.scandir(folder) as entries:
+            for count, entry in enumerate(entries, 1):
+                if count > 10000:
+                    raise ValueError('Scenario directory exceeds the listing limit')
+                file = Path(entry.path)
+                if (file.suffix == '.json' and entry.is_file(follow_symlinks=False)
+                        and file.resolve().parent == resolved):
+                    names.append(identifier(file.stem))
         names.sort()
         return {'scenarios': names[offset:offset + limit], 'total': len(names), 'offset': offset,
                 'next_offset': offset + limit if offset + limit < len(names) else None}
@@ -145,7 +159,7 @@ class Server:
             name, arguments = params.get('name'), params.get('arguments', {})
             if not isinstance(arguments, dict):
                 return error(-32602, 'Tool arguments must be an object', request_id)
-            if name not in {'campaign_status', 'list_findings', 'list_scenarios'}:
+            if not isinstance(name, str) or name not in {'campaign_status', 'list_findings', 'list_scenarios'}:
                 return error(-32602, 'Unknown tool', request_id)
             permitted = set() if name == 'campaign_status' else {'offset', 'limit'}
             if set(arguments) - permitted:
@@ -162,7 +176,7 @@ class Server:
                     data = self.reader.scenarios(offset, limit)
                 result = {'content': [{'type': 'text', 'text': json.dumps(data, ensure_ascii=False)}],
                           'structuredContent': data, 'isError': False}
-            except (OSError, ValueError, TypeError, RecursionError):
+            except (OSError, ValueError, TypeError, RecursionError, sqlite3.Error):
                 result = {'content': [{'type': 'text', 'text': 'Cannot read the configured project metadata.'}], 'isError': True}
         else:
             return error(-32601, 'Method not found', request_id)

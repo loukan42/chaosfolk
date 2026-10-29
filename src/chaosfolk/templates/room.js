@@ -1,22 +1,24 @@
 /* Synchronized session playback. Reports and screenshots remain local. */
 (() => {
   'use strict';
-  const journal = array(data?.journal).filter(e => e && typeof e === 'object' && !/^e\d+$/.test(String(e.h || '')));
+  const journal = array(data?.journal);
   const isDemo = Boolean(data?.config?.demo);
   const timed = !isDemo && events.length > 0 && events.every(e => Number.isFinite(e.t));
-  const rawStart = timed ? Math.min(...journal.filter(e => Number.isFinite(e.t)).map(e => e.t)) : 0;
-  const timedEvents = events.map((e, i) => ({event: e, at: timed ? Math.max(0, e.t - rawStart) : i * 1000}));
+  const rawStart = timed ? journal.reduce((start, e) => e && !/^e\d+$/.test(String(e.h || '')) && Number.isFinite(e.t) ? Math.min(start, e.t) : start, Infinity) : 0;
+  const playback = buildPlaybackIndex(events, {timed, start:rawStart, findings,
+    validCapture:localImage, blocking:value=>severityLabelKey(value)==='blocking'});
   const faults = new Map();
   if (timed) for (const e of journal) {
-    if (!Number.isFinite(e.t) || e.id == null) continue;
+    if (!e || /^e\d+$/.test(String(e.h || '')) || !Number.isFinite(e.t) || e.id == null) continue;
     if (e.type === 'panne-debut' && !e.erreur) faults.set(String(e.id), {id: String(e.id), user: e.h || null, type: e.panne || '', start: Math.max(0, e.t - rawStart), end: null});
     else if (e.type === 'panne-fin' && faults.has(String(e.id))) faults.get(String(e.id)).end = Math.max(0, e.t - rawStart);
   }
   const faultList = [...faults.values()];
-  const end = Math.max(0, ...timedEvents.map(e => e.at), ...faultList.map(f => f.end ?? f.start));
+  const end = faultList.reduce((last, f) => Math.max(last, f.end ?? f.start), playback.end);
   const marks = [];
-  const refs = new Set(findings.flatMap(f => array(f.evenements).map(e => `${e.h}/${e.n}`)));
-  for (const {event: e, at} of timedEvents) {
+  const refs = new Set(findings.flatMap(f => array(f.evenements).filter(e => e && typeof e === 'object').map(e => `${e.h}/${e.n}`)));
+  for (const [index, e] of events.entries()) {
+    const at = playback.at(index);
     if (e.action === 'flag') marks.push({at, type: severityLabelKey(e.gravite), user: e.h, event: e});
     if (e.action === 'giveup' || e.action === 'done') marks.push({at, type: e.action, user: e.h, event: e});
     if (refs.has(`${e.h}/${e.n}`)) marks.push({at, type: 'finding', user: e.h, event: e});
@@ -32,7 +34,6 @@
   function active(f, at = state.at) {return f.start <= at && (f.end === null || f.end > at);}
   function faultFor(id, at = state.at) {return faultList.some(f => active(f, at) && (!f.user || f.user === id));}
   function time(at) {const seconds = Math.floor(at / 1000); return `${String(Math.floor(seconds / 60)).padStart(2,'0')}:${String(seconds % 60).padStart(2,'0')}`;}
-  function visibleEntries() {return timedEvents.filter(x => x.at <= state.at);}
   function stopRoom() {state.playing = false; state.previous = 0; cancelAnimationFrame(state.frame); $('#room-play').textContent = tr('play'); $('#room-play').setAttribute('aria-pressed','false');}
   function seek(at) {state.at = Math.max(0, Math.min(end, at)); renderRoom();}
   function tick(now) {if (!state.playing) return; if (state.previous) state.at = Math.min(end, state.at + (now - state.previous) * state.speed); state.previous = now; renderRoom(); if (state.at >= end) stopRoom(); else state.frame = requestAnimationFrame(tick);}
@@ -61,28 +62,27 @@
     for(const [id,key] of filters) {const b=node('button',tr(key));b.setAttribute('aria-pressed',String(state.filter===id));b.addEventListener('click',()=>{state.filter=id;renderControls();renderRoom();});filter.append(b);}
   }
   function renderRoom() {
-    const shown=visibleEntries(), shownEvents=shown.map(x=>x.event), activeFaults=faultList.filter(f=>active(f));
-    $('#room-range').value=Math.round(state.at); $('#room-range').setAttribute('aria-valuetext',timed?`${time(state.at)} / ${time(end)}`:`${tr('trial')} ${Math.min(timedEvents.length,Math.floor(state.at/1000)+1)} ${tr('of')} ${timedEvents.length}`);
-    $('#room-time').textContent=timed?`${time(state.at)} / ${time(end)}`:`${tr('trial')} ${timedEvents.length?Math.min(timedEvents.length,Math.floor(state.at/1000)+1):0} ${tr('of')} ${timedEvents.length}`;
-    const signature=[lang,state.filter,shown.length,activeFaults.map(f=>f.id).join(','),$('#person').value].join('|');if(signature===state.signature)return;state.signature=signature;
-    const seen=new Set(shownEvents.map(e=>`${e.h}/${e.n}`)), found=findings.filter(f=>array(f.evenements).some(e=>seen.has(`${e.h}/${e.n}`))).length;
-    const finishes=new Set(shownEvents.filter(e=>e.action==='done').map(e=>e.h)).size;
-    const counts=[[shownEvents.filter(e=>!['look','think','flag','giveup','done'].includes(e.action)).length,'actions'],[shownEvents.filter(e=>e.action==='flag').length,'flags'],[found,'found'],[activeFaults.length,'active'],[`${finishes} / ${people.length}`,'finished']];
+    const count=playback.count(state.at), activeFaults=faultList.filter(f=>active(f));
+    $('#room-range').value=Math.round(state.at); $('#room-range').setAttribute('aria-valuetext',timed?`${time(state.at)} / ${time(end)}`:`${tr('trial')} ${Math.min(events.length,Math.floor(state.at/1000)+1)} ${tr('of')} ${events.length}`);
+    $('#room-time').textContent=timed?`${time(state.at)} / ${time(end)}`:`${tr('trial')} ${events.length?Math.min(events.length,Math.floor(state.at/1000)+1):0} ${tr('of')} ${events.length}`;
+    const signature=[lang,state.filter,count,activeFaults.map(f=>f.id).join(','),$('#person').value].join('|');if(signature===state.signature)return;state.signature=signature;
+    const snapshot=playback.snapshot(state.at);
+    const counts=[[snapshot.actions,'actions'],[snapshot.flags,'flags'],[snapshot.found,'found'],[activeFaults.length,'active'],[`${snapshot.finished} / ${people.length}`,'finished']];
     const stats=$('#room-stats');stats.replaceChildren();stats.hidden=isDemo;if(isDemo)counts.splice(0);for(const [value,key] of counts){const box=node('div',undefined,'room-stat');box.append(node('strong',value),node('span',tr(key)));stats.append(box);}
     const host=$('#mosaic');host.replaceChildren();if(!ids.length){host.append(node('div',t('noActions'),'empty'));return;}
-    for(const id of ids){const person=peopleById.get(id), prior=shownEvents.filter(e=>e.h===id),last=prior.at(-1), shot=[...prior].reverse().find(e=>localImage(e.capture));
-      if(state.filter==='fault'&&!faultFor(id))continue;if(state.filter==='blocking'&&!prior.some(e=>e.action==='flag'&&severityLabelKey(e.gravite)==='blocking'))continue;
+    for(const id of ids){const person=peopleById.get(id), user=snapshot.users.get(id)||{},last=user.last, shot=user.shot;
+      if(state.filter==='fault'&&!faultFor(id))continue;if(state.filter==='blocking'&&!user.blocking)continue;
       const card=node('button',undefined,'screen-card'),heading=node('div',undefined,'screen-person'),preview=node('div',undefined,'mini-screen'),name=person?.nom||seriesName(id);
       card.type='button';card.dataset.person=id;card.setAttribute('aria-pressed',String($('#person').value===id));card.setAttribute('aria-label',t('openReplay')+' '+name);
       if(person)heading.append(avatar(person.skin,true));const text=node('div');text.append(node('strong',name),node('small',person?profileText(person).name:t('series')));heading.append(text);
       if(shot)preview.append(picture(shot.capture,`${t('screenFor')} ${name}`));else preview.append(node('p',tr('noScreen'),'muted'));
-      const status=node('div',undefined,'room-card-status');status.append(node('strong',last?(lang==='fr'?({replay:'Rejeu',click:'Clic',type:'Saisie',look:'Observation',done:'Terminé',giveup:'Abandon',flag:'Signalement'})[last.action]||last.action:last.action):tr('waiting')));if(faultFor(id))status.append(node('span',' · '+tr('fault'),'bad'));if(last?.dit||last?.pense)status.append(node('div',last.dit||last.pense));
-      card.append(heading,preview,status);card.addEventListener('click',()=>{selectPerson(id,true);if(prior.length){index=prior.length-1;renderEvent();}});host.append(card);
+      const status=node('div',undefined,'room-card-status');status.append(node('strong',last?(lang==='fr'?({replay:'Rejeu',click:'Clic',type:'Saisie',look:'Observation',done:'Terminé',giveup:'Abandon',flag:'Signalement'})[last.action]||last.action:last.action):tr('waiting')));if(faultFor(id))status.append(node('span',' · '+tr('fault'),'bad'));
+      card.append(heading,preview,status);card.addEventListener('click',()=>{selectPerson(id,true);if(last){index=selected.indexOf(last);renderEvent();}});host.append(card);appendReaction(status,last,()=>card.isConnected&&state.signature===signature);
     }
     if(!host.children.length)host.append(node('div',lang==='fr'?'Aucun testeur pour ce filtre.':'No testers match this filter.','empty'));
   }
   $('#room-play').addEventListener('click',toggle);$('#room-reset').addEventListener('click',()=>{stopRoom();seek(0);});
-  function neighbor(direction){const points=[...new Set([0,...marks.map(m=>m.at),...timedEvents.map(e=>e.at),end])].sort((a,b)=>a-b);const target=direction>0?points.find(n=>n>state.at+1):points.filter(n=>n<state.at-1).at(-1);stopRoom();seek(target??(direction>0?end:0));}
+  function neighbor(direction){const target=direction>0?playback.next(state.at):playback.previous(state.at);stopRoom();seek(target??(direction>0?end:0));}
   $('#room-prev').addEventListener('click',()=>neighbor(-1));$('#room-next').addEventListener('click',()=>neighbor(1));
   $('#room-range').addEventListener('input',e=>{stopRoom();seek(Number(e.target.value));});
   $('#room-moments').addEventListener('change',e=>{if(e.target.value!==''){stopRoom();seek(marks[Number(e.target.value)].at);}});
