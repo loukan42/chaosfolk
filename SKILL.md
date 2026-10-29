@@ -23,6 +23,32 @@ live controls, shared-environment limits, hooks and finite recurring jobs.
 
 ## Choose the work the user requested
 
+For a new product audit, use [docs/audit-runs.md](docs/audit-runs.md). Offer three
+depths: **Rapide / quick**, **Standard / standard**, **Approfondi / deep**.
+All three inspect the whole product; priority determines the selected checks.
+Use Standard when asked to choose. Open the local audit dashboard so the user can
+remove tests and edit limits. Keep the saved selection as the authority for every
+worker and coordinator tool. A deep selection includes every test definition;
+it is complete only when every applicable selected task has a recorded result.
+Missing access, dependencies, time or budget must remain visible as unfinished work.
+
+Create the audit session **before launch**, then start it before reconnaissance.
+Use the durable queue in repeated small batches, never a single random draw as a
+claim of full coverage. Load only the docs needed by the next tasks. Group `fields`
+and `audit` work by page; review their measured signals. Assign agent work through
+`draw --checks auto`; give each new agent its sheet and require `check-start` and
+`check-result`. The coordinator executes the remaining queue with `audit-run execute`
+and records outcomes with evidence. Do not run a disabled test via another tool.
+Re-read session status before each batch; stop scheduling on user stop or budget
+exhaustion, interrupt active host agents where supported, and finish the partial
+report. Never restart automatically after a limit or a user stop.
+
+Import actual coordinator and worker usage when the host exposes it. Dashboard
+polling makes no model calls. Without host measurements, report tokens as unavailable;
+never infer them from actions or time. A configured token limit blocks work when
+complete measurements are missing or older than 30 seconds. Requests already
+running at the host can still consume tokens; only the host can cancel them.
+
 Keep optional chaos controls out of ordinary runs unless the project already
 has a policy or the user requests them. A policy never calls for extra users,
 model calls, scouting, replays or retries. Honor the chosen run budget. Do not
@@ -43,7 +69,7 @@ OS schedule or run every fault merely because these options exist.
   copy, since automatic redaction is incomplete.
 - When the host reports token usage and the user set a limit, run `usage` before
   each batch of users and stop at exit code 1; with 2, say the cost is unknown.
-- New exploration: choose the requested consumption level: `low` (2 users,
+- Explicit free exploration without a product-audit ledger: choose the requested consumption level: `low` (2 users,
   12 actions each), `medium` (4 users, 20 actions each), or `high` (12 users,
   40 actions each). Default to `medium`. `chaosfolk plan --level low|medium|high`
   displays the settings. Honor explicit user counts or budgets instead.
@@ -121,6 +147,12 @@ record unfinished goals instead of claiming full coverage. Run `humans`,
 then `drawn-faults`, then `sheets`. Give each subagent only its sheet path and this
 request: “Play the fictional user described in this sheet. Follow its browser
 commands and finish with the outcome and flagged action numbers.”
+
+In a full product audit, the saved queue overrides legacy theme/check sampling.
+Use at most three users per wave and start only the new user ids printed by `draw`.
+Run further waves only while pending tasks and the session budget remain. A worker
+finishing without a check result returns that task to the queue; do not repeatedly
+assign an inaccessible task. Record its blocking reason instead.
 
 Use at most three active subagents. Users only read screens and act: when the
 host lets you choose, run them on its faster, lower-cost model tier and keep the

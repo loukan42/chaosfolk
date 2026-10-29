@@ -10,6 +10,19 @@ Each entry explains what the change helps you do and gives an example.
 
 ### Added
 
+- Choose Quick, Standard or Deep for a full-product scan, uncheck individual
+  tests and keep those choices when changing depth or reopening the dashboard.
+  Deep selects every test; the app's features and available accounts/tools
+  determine which ones can run. See the release notes in
+  [English](docs/release-notes/product-audit-scans.md) or
+  [French](docs/release-notes/product-audit-scans.fr.md).
+- Follow tests and elapsed time in the local dashboard, set limits and stop new
+  work. AI usage appears when the coding tool provides measurements. A model
+  request already in progress may continue consuming after the stop.
+- Keep unfinished tests across agent batches and record each outcome with
+  evidence. Reports show tests the user removed, blocked checks and work still
+  to do. The [audit guide](docs/audit-runs.md) covers the commands.
+
 - Release a finished user's browser with `release h01` after coordinated checks
   are complete. Cookies and local storage are saved first; traces and counters
   remain available while other users continue.

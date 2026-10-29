@@ -55,6 +55,16 @@ def command_fields(opts):
     if opts.save:
         saved = catalog.save_page(opts.save, analysis)
         print(f"Saved to {saved.as_posix()}", file=sys.stderr)
+        if saved.name == "fields.json":
+            from .audit_session import existing
+            session = existing(saved.parent)
+            if session:
+                session.refresh()
+                import hashlib
+                payload = json.dumps(analysis, ensure_ascii=False, sort_keys=True)
+                relative = "audit-evidence/fields-" + hashlib.sha256(payload.encode()).hexdigest()[:16] + ".json"
+                engine.ecrire_json(session.folder / relative, analysis)
+                session.measure("fields", analysis["url"], [relative])
     print(json.dumps(analysis, ensure_ascii=False, indent=2) if opts.json else catalog.page_report(analysis))
     return 0
 

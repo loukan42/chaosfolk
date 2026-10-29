@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Chaosfolk · Audit</title><link rel="stylesheet" href="/audit-live.css"><script src="/audit-live.js" defer></script></head>
+<body><main>
+<header><a class="brand" href="/">chaosfolk<span> / audit du produit</span></a><span id="connection" role="status">Connexion…</span></header>
+<section class="intro"><div><p class="eyebrow">VOTRE PÉRIMÈTRE, VOTRE BUDGET</p><h1>Un audit à votre mesure.</h1><p>Choisissez la profondeur, retirez les tests inutiles, puis suivez le travail des agents.</p></div><div class="actions"><button id="start" disabled>Autoriser l’audit</button><button id="stop" class="stop" disabled>Arrêter l’audit</button></div></section>
+<p id="message" role="alert" hidden></p>
+<fieldset class="depths"><legend>Profondeur de l’audit</legend>
+<label><input type="radio" name="depth" value="quick"><strong>Rapide</strong><span>Les contrôles prioritaires · P1</span></label>
+<label><input type="radio" name="depth" value="standard"><strong>Standard</strong><span>Le parcours et ses variantes · P1 + P2</span></label>
+<label><input type="radio" name="depth" value="deep"><strong>Approfondi</strong><span>Tous les tests applicables · P1 + P2 + P3</span></label>
+</fieldset>
+<section class="metrics" aria-label="Suivi de l’audit"><article><span>État</span><strong id="state">—</strong></article><article><span>Temps actif</span><strong id="elapsed">—</strong></article><article><span>Actions navigateur</span><strong id="actions">—</strong></article><article><span>Tokens mesurés</span><strong id="tokens">Indisponible</strong></article></section>
+<p id="progress" role="status">Lecture de la session…</p><p id="usage-note" class="muted"></p>
+<details class="budget"><summary>Limiter la consommation</summary><form id="limits"><label>Durée maximale (minutes)<input name="minutes" type="number" min="1" step="1" placeholder="Sans limite"></label><label>Actions maximales<input name="actions" type="number" min="1" step="1" placeholder="Sans limite"></label><label>Tokens maximaux<input name="tokens" type="number" min="1" step="1" placeholder="Sans limite"></label><button type="submit">Enregistrer les limites</button></form><p class="muted">Une limite de tokens exige des mesures récentes de l’hôte. L’arrêt bloque les nouvelles actions et attributions ; le coordinateur doit interrompre les agents encore actifs. Une requête modèle en cours peut continuer à consommer.</p></details>
+<section class="selection"><div class="section-title"><div><h2>Les tests de cet audit</h2><p id="selection-count" class="muted"></p></div><button id="reset" class="secondary">Rétablir la sélection du niveau</button></div>
+<div class="filters"><label>Rechercher un test<input id="search" type="search" placeholder="Formulaire, clavier, offline…"></label><label>Afficher<select id="filter"><option value="all">Tous les tests</option><option value="selected">Sélectionnés</option><option value="excluded">Retirés par vous</option><option value="blocked">Bloqués / à explorer</option></select></label></div>
+<p class="muted">Décochez un test pour le retirer. Vos choix sont conservés quand vous changez de niveau. La découverte de l’application précise ensuite ce qui est applicable.</p>
+<div id="tests" class="tests" aria-label="Tests configurables"></div><nav class="pagination" aria-label="Pages de tests"><button id="previous" class="secondary">Précédent</button><span id="page"></span><button id="next" class="secondary">Suivant</button></nav>
+</section>
+<details class="methods"><summary id="methods-count">Méthodes et outils disponibles</summary><p>Les profils, méthodes d’exploration et outils de preuve servent à exécuter les tests. Leur disponibilité ne compte pas comme un test réussi.</p><ul id="methods"></ul></details>
+<footer>Les résultats restent partiels tant que des tests sont en attente, bloqués ou à confirmer. Un résultat observé ne vaut pas une preuve de défaut reproduit.</footer>
+</main></body></html>

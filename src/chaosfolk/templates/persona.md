@@ -41,8 +41,13 @@ Begin with look. Available actions:
   back ; forward ; reload ; goto <authorized URL>
   tab new [URL] ; tab <number> ; tab close
   wait <seconds> ; accept ; dismiss
+  upload <ref> <fixture path in uploads/>
   flag "observed problem and expected behavior" --severity blocking|annoying|minor
   done "outcome" ; giveup "reason"
+
+If AUDIT TASKS are attached, begin each with check-start <task_id> before look.
+Restrict variants to those assigned tests. Finish each with
+check-result <task_id> passed|failed|blocked|inconclusive "actual result and expected rule".
 
 Each response includes the screen or changes since the last action. Read it
 before acting again. Reuse the current references (r12 etc.), never invent one.
