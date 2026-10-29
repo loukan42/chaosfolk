@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import threading
 import time
+import types
 
 import pytest
 
@@ -252,7 +253,10 @@ def test_external_runner_yields_after_eof_until_process_timeout(tmp_path, monkey
         sleeps.append(seconds)
         sleep(seconds)
 
-    monkeypatch.setattr(integrations.time, "sleep", recorded_sleep)
+    # Replace only the runner module's clock: patching time.sleep itself would also record
+    # the short waits subprocess uses internally on POSIX.
+    clock = types.SimpleNamespace(monotonic=time.monotonic, sleep=recorded_sleep)
+    monkeypatch.setattr(integrations, "time", clock)
     result = integrations.run_external("appium", sys.executable, script, timeout=1)
     assert result["reason"] == "timeout"
     # A closed output pipe must not turn a still-running process into a busy loop.
