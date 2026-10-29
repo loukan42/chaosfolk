@@ -75,6 +75,8 @@ Each entry explains what the change helps you do and gives an example.
   is indexed. Report generation reads each event once and no longer reopens a
   freshly written report to copy it. The `usage` summary totals cost in its single
   ingestion pass.
+- Accept Pillow 13 for the `visual` extra; Pillow 12.3 carries known
+  vulnerabilities that the dependency audit in CI rejects.
 - Replay results, CLI and English/French reports show failures / valid trials,
   percentage, invalid trials and requested trials, including small and incomplete
   series. For example, distinguish `1/5` from `5/5` without treating execution
