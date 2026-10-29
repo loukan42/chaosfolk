@@ -411,13 +411,14 @@ Gemini CLI, OpenCode and Windsurf). You don't need Python, Node.js or Git.
 **macOS and Linux**
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/loukan42/chaosfolk/v0.8.0/install.sh | CHAOSFOLK_SOURCE=https://github.com/loukan42/chaosfolk/archive/refs/tags/v0.8.0.zip sh
 ```
 
 **Windows**, in PowerShell
 
 ```powershell
-powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.ps1 | iex"
+$env:CHAOSFOLK_SOURCE = 'https://github.com/loukan42/chaosfolk/archive/refs/tags/v0.8.0.zip'
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/loukan42/chaosfolk/v0.8.0/install.ps1 | iex"
 ```
 
 **With the [Skills CLI](https://github.com/vercel-labs/skills)** ([skills.sh](https://skills.sh))
@@ -430,7 +431,8 @@ The Skills CLI installs the skill, not the engine it drives. Run the macOS and
 Linux or Windows command above as well.
 
 Then restart your coding agent and ask it: `Run chaosfolk check and tell me if
-anything is missing.` Run the same command again to update.
+anything is missing.` These commands install version 0.8.0. To update later,
+use the commands in the newer release's README.
 
 If your agent can start subagents, testers run in parallel. Otherwise the agent
 plays them one after another, which takes longer and makes them less
