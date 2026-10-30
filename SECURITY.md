@@ -91,7 +91,8 @@ change application state. App startup commands run with your permissions.
 Every change goes through a pull request with required status checks: tests on
 Linux and Windows, ruff, bandit, pip-audit on hash-locked requirements, CodeQL,
 gitleaks, zizmor, dependency review and OpenSSF Scorecard. GitHub Actions are
-pinned to commit SHAs and run with read-only tokens. Dependabot keeps the lock
-file and the actions current. Installers pin the release version and verify an
+pinned to commit SHAs and run with read-only tokens. Dependabot keeps the
+actions current and opens Python security updates; the lock file is refreshed
+with uv at each release. Installers pin the release version and verify an
 archive checksum when you provide one. Details, roles and the control mapping:
 [docs/security.md](docs/security.md).

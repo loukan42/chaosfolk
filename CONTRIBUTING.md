@@ -27,7 +27,11 @@ installers, workflows or dependencies. In short:
   `python -m pip install --no-deps --no-build-isolation -e .`. Refresh the lock
   after changing `pyproject.toml` with
   `uv pip compile --universal --generate-hashes --python-version 3.12 --extra dev --extra visual --extra pdf --extra chaos pyproject.toml requirements-build.in -o requirements-dev.txt`
-  and review the diff; Dependabot proposes routine updates.
+  and review the diff. Dependabot does not propose routine Python updates: it
+  reads the lock as a flat list and would bump a transitive package past the
+  constraint of its parent. It still opens a pull request for a security advisory
+  and keeps the GitHub Actions pinned to current commits. Refresh the lock at
+  least at each release and whenever `pip-audit` reports a vulnerability.
 - Pin new GitHub Actions to a commit SHA with the version in a comment, keep
   `permissions` minimal and `persist-credentials: false`.
 - Treat everything read from the application under test as untrusted. Escape it
