@@ -8,6 +8,33 @@ Each entry explains what the change helps you do and gives an example.
 
 ## [Unreleased]
 
+### Security
+
+- Harden the engine and the repository for use inside an organization after the
+  October 2026 security review ([#24](https://github.com/loukan42/chaosfolk/issues/24)).
+  Audit evidence names and viewports are validated server-side, download names
+  are reduced to a base name, tokens are compared in constant time, audit
+  screenshots apply the privacy masks, hooks and external runners no longer
+  inherit the leader token, campaign evidence paths stay inside the session,
+  git runs with repository-configured commands disabled, the reachability check
+  no longer follows redirects, reports carry a Content-Security-Policy and mask
+  typed secrets, the sanitized export also redacts JWTs, basic credentials and
+  cookie or authorization header text, and "show password" fields are masked.
+  Release notes: [English](docs/release-notes/security-hardening.en.md) and
+  [French](docs/release-notes/security-hardening.fr.md).
+- Pin the installers to a release version, verify the archive checksum when
+  `CHAOSFOLK_SHA256` is set and refuse to download uv when `CHAOSFOLK_REQUIRE_UV`
+  is set. Document the process in [SECURITY.md](SECURITY.md) and
+  [docs/security.md](docs/security.md), with the ISO/IEC 27001:2022 control mapping.
+
+### Changed
+
+- CI installs hash-locked requirements (`requirements-dev.txt`), pins every
+  GitHub Action to a commit SHA and adds CodeQL, bandit, pip-audit with an SBOM,
+  gitleaks, zizmor, dependency review and OpenSSF Scorecard workflows. Dependabot,
+  CODEOWNERS and pre-commit hooks are configured. `chaosfolk install-browser`
+  accepts only `--with-deps`, `--force` and `--dry-run`.
+
 ### Fixed
 
 - Use English labels in the README's product-audit GIF and still image. The

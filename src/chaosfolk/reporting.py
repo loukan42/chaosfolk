@@ -199,7 +199,11 @@ class JournalSpool:
             if kind == "action":
                 for key in ("ecran", "duree_ms", "taille_reponse"):
                     event.pop(key, None)
-                event["cible_nom"] = (event.pop("cible", None) or {}).get("nom")
+                target = event.pop("cible", None) or {}
+                event["cible_nom"] = target.get("nom")
+                if event.get("action") == "type" and target.get("sensitive") is True and isinstance(event.get("args"), dict):
+                    # Password and one-time-code values stay in the private journal only, never in a report.
+                    event["args"] = {**event["args"], "texte": "[masked]"}
                 action_key = dumps([event.get("h"), event.get("n")])
             elif kind == "anomalie" and collapse_anomalies:
                 anomaly = dumps([event.get("h"), event.get("genre"), event.get("message"),
@@ -327,6 +331,9 @@ def data_chunks(data, journal):
 
 
 def write_reports(folder, template, data, journal, default_language):
+    filenames = {"en": "report-en.html", "fr": "rapport-fr.html"}
+    if default_language not in filenames:
+        raise ValueError("Report language must be en or fr")  # The value is interpolated into <html lang>.
     marker = "/*__DONNEES__*/null"
     if template.count(marker) != 1:
         raise ValueError("Report template must contain exactly one data marker")
@@ -334,7 +341,6 @@ def write_reports(folder, template, data, journal, default_language):
     folder = Path(folder)
     data, journal = prepare_browser_data(folder, data, journal)
     data = {key: value for key, value in data.items() if key != "lang"}
-    filenames = {"en": "report-en.html", "fr": "rapport-fr.html"}
     body = None
     try:
         # Parse JSON instead of evaluating an object literal: __proto__ must

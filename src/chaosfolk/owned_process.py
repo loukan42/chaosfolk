@@ -82,7 +82,7 @@ class OwnedProcess:
         try:
             secure(self.status.parent, directory=True)
             self.process = subprocess.Popen(
-                [getattr(sys, "_base_executable", sys.executable), str(Path(__file__).resolve()), str(self.status)],
+                [getattr(sys, "_base_executable", sys.executable), "-I", str(Path(__file__).resolve()), str(self.status)],
                 cwd=cwd, env=env, stdin=subprocess.PIPE, stdout=stdout, stderr=stderr, bufsize=bufsize,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), start_new_session=os.name != "nt")
             if os.name == "nt":

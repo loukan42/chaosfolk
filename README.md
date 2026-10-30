@@ -7,8 +7,10 @@
 [![Tests](https://github.com/loukan42/chaosfolk/actions/workflows/tests.yml/badge.svg)](https://github.com/loukan42/chaosfolk/actions/workflows/tests.yml)
 [![Python 3.12+](https://img.shields.io/badge/python-3.12%2B-blue)](https://www.python.org/)
 [![MIT license](https://img.shields.io/badge/license-MIT-dcf78b)](LICENSE)
+[![Security](https://github.com/loukan42/chaosfolk/actions/workflows/security.yml/badge.svg)](https://github.com/loukan42/chaosfolk/actions/workflows/security.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/loukan42/chaosfolk/badge)](https://scorecard.dev/viewer/?uri=github.com/loukan42/chaosfolk)
 
-[Choose a scan](#choose-a-scan) · [What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Demo](#try-the-demo) · [Changelog](CHANGELOG.md)
+[Choose a scan](#choose-a-scan) · [What it checks](#what-it-checks) · [What you get](#what-you-get) · [Install](#install) · [Demo](#try-the-demo) · [Security](#security) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -413,14 +415,14 @@ Gemini CLI, OpenCode and Windsurf). You don't need Python, Node.js or Git.
 **macOS and Linux**
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/loukan42/chaosfolk/v0.8.0/install.sh | CHAOSFOLK_SOURCE=https://github.com/loukan42/chaosfolk/archive/refs/tags/v0.8.0.zip sh
+curl -LsSf https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.sh | CHAOSFOLK_VERSION=0.8.0 CHAOSFOLK_SHA256=d04d7800059d7ff1cdc2e9ae5b4d591f061e84c8d7752a921b92b815845f6460 sh
 ```
 
 **Windows**, in PowerShell
 
 ```powershell
-$env:CHAOSFOLK_SOURCE = 'https://github.com/loukan42/chaosfolk/archive/refs/tags/v0.8.0.zip'
-powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/loukan42/chaosfolk/v0.8.0/install.ps1 | iex"
+$env:CHAOSFOLK_VERSION = '0.8.0'; $env:CHAOSFOLK_SHA256 = 'd04d7800059d7ff1cdc2e9ae5b4d591f061e84c8d7752a921b92b815845f6460'
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.ps1 | iex"
 ```
 
 **With the [Skills CLI](https://github.com/vercel-labs/skills)** ([skills.sh](https://skills.sh))
@@ -433,8 +435,9 @@ The Skills CLI installs the skill, not the engine it drives. Run the macOS and
 Linux or Windows command above as well.
 
 Then restart your coding agent and ask it: `Run chaosfolk check and tell me if
-anything is missing.` These commands install version 0.8.0. To update later,
-use the commands in the newer release's README.
+anything is missing.` These commands install release 0.8.0 and stop if the
+downloaded archive does not match the checksum published with the release. To
+update later, use the commands in the newer release's README.
 
 If your agent can start subagents, testers run in parallel. Otherwise the agent
 plays them one after another, which takes longer and makes them less
@@ -453,7 +456,10 @@ independent.
    with only the shell and file reading.
 
 You can read [install.sh](install.sh) and [install.ps1](install.ps1) before
-running them. Set `CHAOSFOLK_NO_MODIFY_PATH=1` to keep your PATH unchanged.
+running them. Set `CHAOSFOLK_NO_MODIFY_PATH=1` to keep your PATH unchanged,
+`CHAOSFOLK_REQUIRE_UV=1` to refuse downloading uv, and `CHAOSFOLK_SOURCE` to
+install from an internal mirror. The [security guide](docs/security.md) lists the
+settings for managed environments.
 
 </details>
 
@@ -611,6 +617,29 @@ Other commands:
 - `chaosfolk benchmark run` checks the harness on apps with known defects ([benchmark](docs/benchmark.md)).
 - Optional adapters cover a Mailpit test mailbox, downloaded files, axe-core,
   k6, Appium and a read-only MCP server ([integrations](docs/integrations.md)).
+
+## Security
+
+Chaosfolk is built to be run inside an organization: the engine listens on
+loopback only, every command carries a random session token, session folders are
+owner-only, secrets typed by simulated users never reach a report, and shared
+exports are redacted before they leave the machine. The repository follows a
+documented secure development process: required reviews, SHA-pinned CI with
+tests on Linux and Windows, static analysis (bandit, CodeQL), dependency audit on
+hash-locked requirements, secret scanning, workflow lint and OpenSSF Scorecard.
+
+- [SECURITY.md](SECURITY.md): how to report a vulnerability, supported versions,
+  response targets and the threat model in short.
+- [Security guide](docs/security.md): assets and data classification, trust
+  boundaries, engine controls, the secure development lifecycle, the
+  ISO/IEC 27001:2022 Annex A control mapping, the hardening checklist for
+  managed environments and the accepted-risk register.
+
+Before running it at work: test only applications you are authorized to test,
+with synthetic data, from an isolated workstation or container; install a pinned
+release with its checksum (see [Install](#install)); keep the session folder on
+an encrypted disk and delete it when the investigation is over; share the
+sanitized export (`chaosfolk privacy`) rather than the raw session.
 
 ## Limits
 

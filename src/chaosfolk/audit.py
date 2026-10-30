@@ -12,6 +12,7 @@ import re
 from pathlib import Path
 
 from chaosfolk import engine
+from chaosfolk.privacy import screenshot_masks
 
 TARGET_MIN = 24  # WCAG 2.2 AA target size (2.5.8), in CSS pixels
 DEFAULT_VIEWPORTS = "320x640,375x812,768x1024,1440x900"
@@ -168,6 +169,30 @@ UNREACHED_JS = r"""() => {
 }"""
 
 
+def validate_name(name):
+    """Evidence names become file names inside the session folder; accept a portable subset only."""
+    if name is None:
+        return None
+    if not isinstance(name, str) or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}", name):
+        raise ValueError("Audit name must contain only letters, digits, _ or - (at most 64 characters)")
+    return name
+
+
+def validate_viewports(sizes):
+    """Server-side check of client-supplied sizes: at most eight pairs of integers in a sane range."""
+    if not isinstance(sizes, list) or len(sizes) > 8:
+        raise ValueError("Give between zero and eight viewports")
+    checked = []
+    for item in sizes:
+        if not isinstance(item, (list, tuple)) or len(item) != 2 or any(type(x) is not int for x in item):
+            raise ValueError("Each viewport must be a [width, height] pair of integers")
+        width, height = item
+        if not (100 <= width <= 9999 and 100 <= height <= 9999):
+            raise ValueError("Viewport sizes must be between 100 and 9999 pixels")
+        checked.append((width, height))
+    return checked
+
+
 def parse_viewports(text):
     sizes = []
     for item in (text or "").split(","):
@@ -226,7 +251,7 @@ async def audit_world(m, viewports, keyboard, folder, name=None):
     page = m.page
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
-    name = name or slug(page.url)
+    name = validate_name(name) or slug(page.url)
     original = page.viewport_size
     errors_before = len(m.erreurs_page)
     results, keys = [], None
@@ -246,7 +271,8 @@ async def audit_world(m, viewports, keyboard, folder, name=None):
             data = await engine.borne(page.evaluate(AUDIT_JS, TARGET_MIN), engine.DELAI_LECTURE)
             shot = folder / f"{name}-{width}x{height}.jpg"
             try:
-                await page.screenshot(path=str(shot), type="jpeg", quality=55, full_page=True, timeout=8000)
+                await page.screenshot(path=str(shot), type="jpeg", quality=55, full_page=True, timeout=8000,
+                                      mask=screenshot_masks(page))
                 data["screenshot"] = shot.as_posix()
             except Exception:
                 data["screenshot"] = None

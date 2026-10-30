@@ -62,8 +62,8 @@ def copy_skill(source, target):
     """Stage a complete skill before replacement, restoring the old copy if publishing fails."""
     source, target = Path(source), Path(target)
     linked = target.is_symlink() or target.is_junction()
-    if target.exists() and not linked and not is_chaosfolk(target):
-        return f"skipped: {target.as_posix()} holds another skill"
+    if target.exists() and not is_chaosfolk(target):
+        return f"skipped: {target.as_posix()} {'links to' if linked else 'holds'} another skill"
     target.parent.mkdir(parents=True, exist_ok=True)
     # Siblings stay on the same filesystem, where directory rename is atomic.
     staging = Path(tempfile.mkdtemp(prefix=".chaosfolk-setup-", dir=target.parent)).resolve()

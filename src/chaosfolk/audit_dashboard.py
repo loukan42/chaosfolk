@@ -33,14 +33,27 @@ def request_local(record, path, body=None):
     return build_opener(ProxyHandler({}), NoRedirect()).open(request, timeout=2)
 
 
+def client_message(error):
+    """Validation messages are written for the client; OS and type errors may quote local paths or signatures."""
+    if type(error) is ValueError:
+        return str(error)
+    print(f"audit dashboard: {type(error).__name__}: {error}", file=sys.stderr)
+    return "Request could not be processed"
+
+
 def make_server(session, port=0, token=None, idle_seconds=900):
     token = token or secrets.token_urlsafe(32)
 
     class Handler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
+        error_message_format = '{"error": "%(code)d %(message)s"}'
+        error_content_type = "application/json; charset=utf-8"
 
         def log_message(self, *_):
             pass  # Never put bearer tokens or local evidence in access logs.
+
+        def version_string(self):
+            return "chaosfolk"  # No Python or stdlib version in the Server header.
 
         def setup(self):
             super().setup()
@@ -95,7 +108,7 @@ def make_server(session, port=0, token=None, idle_seconds=900):
                     value = session.snapshot(after=after)
                     return self.reply(204 if value is None else 200, b"" if value is None else value)
                 except (ValueError, OSError) as error:
-                    return self.reply(400, {"error": str(error)})
+                    return self.reply(400, {"error": client_message(error)})
             return self.reply(404, {"error": "Not found"})
 
         def do_POST(self):
@@ -141,7 +154,7 @@ def make_server(session, port=0, token=None, idle_seconds=900):
                     return self.reply(404, {"error": "Not found"})
                 return self.reply(200, result)
             except (ValueError, OSError, TypeError) as error:
-                return self.reply(400, {"error": str(error)})
+                return self.reply(400, {"error": client_message(error)})
 
     class Server(ThreadingHTTPServer):
         def service_actions(self):

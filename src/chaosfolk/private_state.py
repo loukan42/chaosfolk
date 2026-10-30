@@ -105,7 +105,10 @@ def read_json(path, *, encoding="utf-8"):
 def write_json(path, value):
     path = Path(path)
     encoded = json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False)
-    path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.parent.exists():
+        # A state directory created here (for example ~/.chaosfolk) holds token files: seal it like the files.
+        path.parent.mkdir(parents=True, exist_ok=True)
+        secure(path.parent, directory=True)
     temporary = None
     try:
         with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=path.parent, prefix=".private-", delete=False) as stream:

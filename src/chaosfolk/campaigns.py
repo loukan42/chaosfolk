@@ -357,7 +357,8 @@ def fingerprint(finding, events=(), *, actions=None):
     check = re.match(r"\s*\[([a-z0-9-]+)\]", title)
     words = " ".join(catalog.normalize(re.sub(r"^\s*\[[^\]]*\]", "", title)).split()[:8])
     basis = "|".join([check.group(1) if check else str(finding.get("condition") or ""), where, words])
-    return hashlib.sha1(basis.encode("utf-8")).hexdigest()[:12]
+    # Non-cryptographic identity for deduplication across campaigns; kept stable for existing findings.json files.
+    return hashlib.sha1(basis.encode("utf-8"), usedforsecurity=False).hexdigest()[:12]
 
 
 def git_revision(folder):
@@ -368,8 +369,21 @@ def git_revision(folder):
         return None
 
 
+def inside(folder, path):
+    """Resolve a session-relative evidence path and refuse anything outside the session folder."""
+    if not isinstance(path, str) or not path:
+        return None
+    folder = Path(folder).resolve()
+    try:
+        target = (folder / path).resolve()
+    except (OSError, ValueError):
+        return None
+    return target if target.is_relative_to(folder) else None
+
+
 def proof_summary(folder, path):
-    data = read(Path(folder) / path, None) if path else None
+    source = inside(folder, path)
+    data = read(source, None) if source else None
     if not isinstance(data, dict):
         return None
     return {k: data.get(k) for k in ("nom", "mode", "fois", "demandes", "casses", "verdict", "scenario")}
@@ -402,8 +416,9 @@ def _record(opts, folder, config, project, root):
         proofs = {name: proof_summary(folder, (value or {}).get("source") if isinstance(value, dict) else value)
                   for name, value in (finding.get("preuves") or {}).items()}
         scenario = next((p["scenario"] for p in proofs.values() if p and p.get("scenario")), None)
+        scenario = inside(folder, scenario)
         kept = None
-        if scenario and Path(scenario).is_file():
+        if scenario and scenario.is_file():
             filename = fingerprint_filename(key)
             kept = root / "scenarios" / f"{filename}.json"
             data = read(scenario, {})

@@ -32,6 +32,7 @@ Only run against local or explicitly authorized test environments.
 """
 import argparse
 import fnmatch
+import hmac
 import json
 import hashlib
 import os
@@ -547,9 +548,24 @@ def traduire_erreur(erreur):
     return premiere_ligne(erreur, 200)
 
 
+def jeton_egal(candidat, attendu):
+    """Constant-time token comparison; non-string candidates never match."""
+    return isinstance(candidat, str) and hmac.compare_digest(candidat.encode("utf-8"), attendu.encode("utf-8"))
+
+
+def nom_de_fichier_sur(nom):
+    """Base name only: the tested site chooses the suggested name, never the destination folder."""
+    base = Path(str(nom or "").replace("\\", "/")).name
+    base = base.strip().strip(".") or "download"
+    return base[:150]
+
+
 def url_repond(url, delai=3):
-    """True si quelque chose répond sur l'adresse (hors proxy du système)."""
-    ouvreur = urllib_request.build_opener(urllib_request.ProxyHandler({}))
+    """True si quelque chose répond sur l'adresse (hors proxy du système, sans suivre les redirections)."""
+    class SansRedirection(urllib_request.HTTPRedirectHandler):
+        def redirect_request(self, *args, **kwargs):
+            return None  # A 3xx answer proves the address responds; never follow it to another host.
+    ouvreur = urllib_request.build_opener(urllib_request.ProxyHandler({}), SansRedirection)
     try:
         with ouvreur.open(url, timeout=delai) as r:
             return r.status < 500
@@ -911,7 +927,7 @@ class Monde:
         nom = telechargement.suggested_filename
         with suppress(Exception):
             if self.dossier:
-                destination = Path(self.dossier) / "telechargements" / f"{self.id}-{nom}"
+                destination = Path(self.dossier) / "telechargements" / f"{self.id}-{nom_de_fichier_sur(nom)}"
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 await telechargement.save_as(destination)
         self._record_evidence(self.messages.append, f'Un fichier a été téléchargé : "{nom}".')
@@ -1526,7 +1542,7 @@ class Horde:
                 self.journal({"type": "app", "etat": "deja-lancee"})
                 return True
             self.app_log = open(self.dossier / "app.log", "a", encoding="utf-8")
-            self.app = subprocess.Popen(self.opts.app_commande, shell=True, cwd=self.opts.app_dossier or None,
+            self.app = subprocess.Popen(self.opts.app_commande, shell=True, cwd=self.opts.app_dossier or None,  # nosec B602: the operator's own --app-command, never network input
                                         stdout=self.app_log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                                         **options_detache())
             self.app_identity = process_identity(self.app.pid)
@@ -1694,8 +1710,8 @@ class Horde:
         """Le jeton des humains suffit pour agir ; les commandes du chef demandent le jeton du chef."""
         jeton = req.get("jeton")
         if req.get("cmd") in COMMANDES_RESERVEES:
-            return jeton == self.jeton_chef
-        return jeton in (self.jeton, self.jeton_chef)
+            return jeton_egal(jeton, self.jeton_chef)
+        return jeton_egal(jeton, self.jeton) or jeton_egal(jeton, self.jeton_chef)
 
     def refus_jeton(self, req):
         if req.get("cmd") in COMMANDES_RESERVEES:
@@ -1874,8 +1890,13 @@ class Horde:
             if m.page is None:
                 return {"ok": False, "texte": "aucun onglet ouvert"}
             from chaosfolk import audit
-            resultat = await audit.audit_world(m, req.get("viewports") or [], bool(req.get("clavier")),
-                                            Path(self.dossier) / "audits", req.get("nom"))
+            try:
+                nom = audit.validate_name(req.get("nom"))
+                viewports = audit.validate_viewports(req.get("viewports") or [])
+            except ValueError as erreur:
+                return {"ok": False, "texte": str(erreur)}
+            resultat = await audit.audit_world(m, viewports, bool(req.get("clavier")),
+                                            Path(self.dossier) / "audits", nom)
         finally:
             verrou.release()
         return {"ok": True, "texte": resultat}

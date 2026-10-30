@@ -1,0 +1,23 @@
+# Every change needs a review by a maintainer; security-sensitive paths are listed explicitly
+# so a reviewer is requested even when the default owner changes. Keep this file in sync with
+# docs/security.md (roles) when the maintainer team grows.
+*                               @loukan42
+
+# Supply chain, CI and security policy
+/.github/                       @loukan42
+/install.sh                     @loukan42
+/install.ps1                    @loukan42
+/pyproject.toml                 @loukan42
+/requirements-dev.txt           @loukan42
+/requirements-build.in          @loukan42
+/SECURITY.md                    @loukan42
+/docs/security.md               @loukan42
+
+# Trust boundaries inside the engine
+/src/chaosfolk/engine.py        @loukan42
+/src/chaosfolk/audit_dashboard.py @loukan42
+/src/chaosfolk/privacy.py       @loukan42
+/src/chaosfolk/private_state.py @loukan42
+/src/chaosfolk/probe.py         @loukan42
+/src/chaosfolk/mcp_server.py    @loukan42
+/src/chaosfolk/install.py       @loukan42
