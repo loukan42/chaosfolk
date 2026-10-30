@@ -8,6 +8,7 @@ import socket
 import subprocess
 import sys
 import threading
+import time
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
@@ -40,6 +41,21 @@ def cli(*args, env=None, timeout=90):
     return subprocess.run([sys.executable, "-m", "chaosfolk", *map(str, args)],
                           env=env, capture_output=True, text=True, encoding="utf-8", timeout=timeout,
                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+
+
+def settled_plan(folder, timeout=15):
+    """Read chaos-plan.json once every fault has left the planned/checking states.
+
+    `fault` answers as soon as the fault is recorded; admission runs in its own task and may
+    write its decision a moment later, so a plain read right after the command races with it."""
+    deadline = time.monotonic() + timeout
+    while True:
+        plan = json.loads((folder / "chaos-plan.json").read_text(encoding="utf-8"))
+        if all(f["status"] not in ("planned", "checking") for f in plan["faults"]):
+            return plan
+        if time.monotonic() >= deadline:
+            raise AssertionError("chaos admission did not settle: " + json.dumps(plan["faults"], indent=2))
+        time.sleep(0.05)
 
 
 def ref_for(screen, label):
@@ -609,12 +625,12 @@ def test_chaos_simulation_controls_and_request_exclusions(tmp_path, fixture_url)
         assert cli("inspect", "h01", "fetch('/api/order').then(r=>r.status)", env=leader).stdout.strip() == "503"
         assert cli("inspect", "h01", "fetch('/index.html').then(r=>r.status)", env=leader).stdout.strip() == "200"
         assert cli("fault", "http-error", "--humans", "h02", "--status", "503", env=leader).returncode == 0
-        plan = json.loads((folder / "chaos-plan.json").read_text())
+        plan = settled_plan(folder)
         assert plan["faults"][-1]["reason"] == "max-active"
         assert cli("chaos", "pause", "--end-active", env=leader).returncode == 0
         assert cli("inspect", "h01", "fetch('/api/order').then(r=>r.status)", env=leader).stdout.strip() == "404"
         assert cli("fault", "http-error", "--humans", "h02", env=leader).returncode == 0
-        plan = json.loads((folder / "chaos-plan.json").read_text())
+        plan = settled_plan(folder)
         assert plan["faults"][-1]["reason"] == "injections-paused"
         assert cli("chaos", "inspect", "--folder", folder, env=env).returncode == 0
     finally:
