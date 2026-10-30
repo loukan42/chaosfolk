@@ -222,9 +222,22 @@ files in the same format. See the [QA checks guide](checks.md).
 | Inconclusive | Any requested trial is invalid or missing |
 
 Browser startup failures, unavailable pages and uncheckable assertions are invalid
-trials. A replay that blocks at the same step on its one retry can count as a
-failure; compare the control before attributing the cause. A different blocking
-step on retry remains inconclusive. A series failing only some trials is intermittent.
+trials. A recorded action that cannot execute remains invalid even if its one
+retry blocks at the same step. Prove a blocked journey with a reachable path and
+an assertion of its user-visible consequence. A series failing only some valid
+trials is intermittent. Keep weaker evidence labelled observed or intermittent;
+retry an inconclusive series at most once within the selected budget.
+
+An injected error, a validation rejection, a development-server reload or a stale
+engine reference alone does not establish a product failure. Confirm its
+user-visible consequence against a supported expectation.
+
+When repair is requested, preserve repository instructions, Git identity and
+existing edits. If the working copy already has changes, use a separate branch
+and isolated copy. Verify three valid passes with the fix, then three failures
+with only that fix removed in the isolated copy, then reapply it. Keep controls
+passing. Never use destructive reset or checkout on the user's working files.
+Push only when authorized; leave product decisions for the owner.
 
 With `--fail-on-bug`, exit `0` means the checked outcomes held; `1` means a failure;
 `2` means incomplete or invalid execution. An empty assertion set is rejected for
