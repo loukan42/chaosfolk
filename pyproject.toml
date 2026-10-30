@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77,<82"]
+requires = ["setuptools>=84.1,<86"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -16,7 +16,7 @@ keywords = ["qa", "testing", "playwright", "ai-agents", "exploratory-testing"]
 classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "Topic :: Software Development :: Testing"]
 
 [project.optional-dependencies]
-dev = ["pytest>=8,<10", "build>=1,<2", "ruff>=0.11,<1", "bandit[toml]>=1.8,<2", "pip-audit>=2,<3", "pre-commit>=4,<5"]
+dev = ["pytest>=8,<10", "build>=1,<2", "ruff>=0.11,<1", "bandit[toml,sarif]>=1.8,<2", "pip-audit>=2,<3", "pre-commit>=4,<5"]
 visual = ["Pillow>=10,<14"]
 pdf = ["pypdf>=5,<7"]
 chaos = ["tzdata>=2025.2"]
