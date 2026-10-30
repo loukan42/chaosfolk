@@ -123,8 +123,11 @@ Regression tests for these controls live in `tests/test_hardening.py`,
    release notes exist in English and French, installers are updated to the new
    version, and the archive checksum is published with the release. Releases are
    built from the locked environment.
-6. **Operate.** Dependabot opens grouped weekly updates and immediate security
-   updates. Private vulnerability reporting is enabled; triage and response
+6. **Operate.** Dependabot opens grouped weekly updates for GitHub Actions and
+   immediate security updates for Python packages; the Python lock itself is
+   refreshed with uv (see [CONTRIBUTING.md](../CONTRIBUTING.md)) at each release
+   and whenever pip-audit, which also runs weekly, reports a vulnerability.
+   Private vulnerability reporting is enabled; triage and response
    targets are in [SECURITY.md](../SECURITY.md). Fixes ship as a patch release
    with a GitHub Security Advisory.
 7. **Learn.** Each review adds its findings to this guide and its regression

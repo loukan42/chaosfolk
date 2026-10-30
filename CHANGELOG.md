@@ -31,7 +31,9 @@ Each entry explains what the change helps you do and gives an example.
 
 - CI installs hash-locked requirements (`requirements-dev.txt`), pins every
   GitHub Action to a commit SHA and adds CodeQL, bandit, pip-audit with an SBOM,
-  gitleaks, zizmor, dependency review and OpenSSF Scorecard workflows. Dependabot,
+  gitleaks, zizmor, dependency review and OpenSSF Scorecard workflows. Dependabot
+  updates the actions and opens Python security updates (routine Python bumps are
+  off: the uv lock carries transitive constraints Dependabot cannot see);
   CODEOWNERS and pre-commit hooks are configured. `chaosfolk install-browser`
   accepts only `--with-deps`, `--force` and `--dry-run`.
 
