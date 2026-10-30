@@ -86,7 +86,8 @@ def test_reachability_check_does_not_follow_redirects():
 
 # Synthetic samples are assembled from parts so secret scanners (gitleaks, push protection) do not flag the test file.
 SAMPLE_JWT = ".".join(("eyJhbGciOiJIUzI1NiJ9", "eyJzdWIiOiIxMjM0NTY3ODkwIn0", "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"))
-SAMPLE_API_HEADER = "x-api-key" + ": " + "1234567890abcdef"
+SAMPLE_API_VALUE = "aaaabbbbcccc1111"  # low entropy on purpose: scanners ignore it, the redaction must not
+SAMPLE_API_HEADER = "x-api-key" + ": " + SAMPLE_API_VALUE
 
 
 @pytest.mark.parametrize("text, forbidden", [
@@ -95,7 +96,7 @@ SAMPLE_API_HEADER = "x-api-key" + ": " + "1234567890abcdef"
     ("token " + SAMPLE_JWT, "eyJzdWIi"),
     ("password=hunter2&remember=1", "hunter2"),
     ("login error for password=hunter2 user", "hunter2"),
-    (SAMPLE_API_HEADER, "1234567890abcdef"),
+    (SAMPLE_API_HEADER, SAMPLE_API_VALUE),
 ])
 def test_sanitize_redacts_credentials_without_a_url(text, forbidden):
     redacted = privacy.sanitize(text)
@@ -153,7 +154,8 @@ def test_campaign_evidence_paths_stay_inside_the_session(tmp_path):
     inside.write_text(json.dumps({"nom": "save", "verdict": "reproduit"}), encoding="utf-8")
     assert campaigns.inside(session, "reproductions/save.json") == inside.resolve()
     assert campaigns.inside(session, str(inside)) == inside.resolve()
-    for path in ("../outside.json", str(outside), "", None, 3, "C:/Windows/system.json", "/etc/passwd"):
+    elsewhere = str((tmp_path / "elsewhere" / "system.json").resolve())  # absolute on every platform
+    for path in ("../outside.json", str(outside), "", None, 3, elsewhere, "/etc/passwd"):
         assert campaigns.inside(session, path) is None
     assert campaigns.proof_summary(session, "../outside.json") is None
     assert campaigns.proof_summary(session, "reproductions/save.json")["verdict"] == "reproduit"

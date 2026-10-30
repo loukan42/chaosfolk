@@ -3,3 +3,4 @@
 # the test now assembles them from parts so no later commit carries a scanner-shaped literal.
 a663ff1befe7a46e823a4c8b9c21f80d4123b0b6:tests/test_hardening.py:jwt:90
 a663ff1befe7a46e823a4c8b9c21f80d4123b0b6:tests/test_hardening.py:generic-api-key:93
+05853d28b9a0e6c840052baa23b148eedb5c0bc7:tests/test_hardening.py:generic-api-key:98
