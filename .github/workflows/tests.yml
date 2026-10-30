@@ -22,7 +22,9 @@ jobs:
         os: [ubuntu-latest, windows-latest]
         python: ['3.12', '3.14']
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    # The suite needs about 5 minutes on Windows, but a slow Windows runner has spent 14 minutes on
+    # checkout, pip and Playwright alone (run 41102867549). 30 minutes still catches a hung test.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
