@@ -9,6 +9,13 @@ A rejected injection is skipped immediately with a reason. The engine never
 waits for a cooldown, an available slot, a healthy environment or a future window.
 Exploration continues within the existing budget.
 
+Keep optional controls out of ordinary runs unless requested or a project policy
+already exists. Do not add users, scouting, model calls, replays or retries to
+meet an injection quota, and do not wait for skipped injections. Enable health,
+tracker or secret hooks, OS schedules and recurring jobs only within the requested
+scope. Use deterministic regression commands for recurring fix checks; the
+availability of every fault does not call for running them all.
+
 ## Start small
 
 ```bash
