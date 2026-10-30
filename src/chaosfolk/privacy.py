@@ -10,12 +10,17 @@ import tempfile
 from pathlib import Path
 from urllib.parse import unquote_plus
 
-MASKS = ['input[type="password"]', '[autocomplete^="cc-"]',
-         '[autocomplete="one-time-code"]', '[data-chaosfolk-private]']
+MASKS = ['input[type="password"]', 'input[autocomplete="current-password"]', 'input[autocomplete="new-password"]',
+         '[autocomplete^="cc-"]', '[autocomplete="one-time-code"]', '[data-chaosfolk-private]']
 SECRET = re.compile(r"password|passwd|secret|authorization|cookie|token|api.?key|jeton", re.I)
 EMAIL = re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}")
 # A value stops at the closing quote or bracket of HTML attributes, Markdown links and JSON-in-strings.
-URL_PARAMETER = re.compile(r"([?&#])([^=?&#\s]+)=([^&#\s\"'<>)\]}\\]*)")
+# Form-encoded bodies and plain "name=value" text are covered by the start-of-string, space and ";" delimiters.
+URL_PARAMETER = re.compile(r"(^|[?&#;\s])([^=?&#;\s]+)=([^&#\s\"'<>)\]}\\]*)")
+# Credentials that appear without a parameter name: JWTs, HTTP Basic and credential-bearing header lines.
+JWT = re.compile(r"eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]*")
+BASIC = re.compile(r"(?i)\bBasic\s+[A-Za-z0-9+/=]{8,}")
+HEADER = re.compile(r"(?i)\b(set-cookie|cookie|authorization|proxy-authorization|x-api-key|x-auth-token)\s*:\s*[^\r\n]+")
 # Any scheme carries credentials in its authority: wss, postgres, redis, amqp, mongodb...
 URL_CREDENTIALS = re.compile(r"(\w[\w+.-]*://)[^\s/@]+@")
 BEARER = re.compile(r"(?i)Bearer\s+[A-Za-z0-9._~+/-]+=*")
@@ -47,7 +52,10 @@ def _sanitize(value, literals):
     if isinstance(value, list):
         return [_sanitize(x, literals) for x in value]
     if isinstance(value, str):
+        value = HEADER.sub(lambda match: f"{match[1]}: [redacted]", value)
         value = BEARER.sub("Bearer [redacted]", value)
+        value = BASIC.sub("Basic [redacted]", value)
+        value = JWT.sub("[redacted]", value)
         value = URL_CREDENTIALS.sub(r"\1[redacted]@", value)
         def redact_parameter(match):
             key = unquote_plus(match[2])

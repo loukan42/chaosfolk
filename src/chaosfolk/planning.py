@@ -23,17 +23,22 @@ def write_json(path, value):
     path.write_text(json.dumps(value, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+GIT_SAFE = ("-c", "core.fsmonitor=false", "-c", "core.hooksPath=", "-c", "diff.external=")
+
+
 def git(repo, *args):
-    result = subprocess.run(["git", "-C", str(repo), *args], capture_output=True, timeout=30)
+    # A cloned repository configures nothing that runs here: no filesystem monitor, hooks or external diff driver.
+    result = subprocess.run(["git", *GIT_SAFE, "-C", str(repo), *args], capture_output=True, timeout=30)
     if result.returncode:
-        raise ValueError(result.stderr.decode("utf-8", errors="replace").strip() or "Git command failed")
+        detail = result.stderr.decode("utf-8", errors="replace").strip().splitlines()
+        raise ValueError((detail[0][:200] if detail else "") or "Git command failed")
     return result.stdout.decode("utf-8", errors="replace")
 
 
 def changed_files(repo, base):
     """Compare a resolved base commit with tracked working-tree content, plus untracked files."""
     revision = git(repo, "rev-parse", "--verify", "--end-of-options", base + "^{commit}").strip()
-    raw = git(repo, "diff", "--name-status", "-z", "--find-renames", revision, "--").split("\0")
+    raw = git(repo, "diff", "--no-ext-diff", "--name-status", "-z", "--find-renames", revision, "--").split("\0")
     changes = []
     index = 0
     while index < len(raw) and raw[index]:

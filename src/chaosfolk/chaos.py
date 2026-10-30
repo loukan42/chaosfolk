@@ -306,6 +306,14 @@ async def finish_process(proc, identity):
                 proc.stdout.close()
 
 
+PRIVATE_ENVIRONMENT = ("CHAOSFOLK_LEADER_TOKEN",)
+
+
+def hook_environment(env=None):
+    """Hooks get the operator's environment minus the engine's own credentials."""
+    return {name: value for name, value in (os.environ if env is None else env).items() if name not in PRIVATE_ENVIRONMENT}
+
+
 async def execute(argv, payload, timeout, env=None, capture=False):
     """Bounded, shell-free hook; never copy hook output or credentials into evidence."""
     import subprocess
@@ -313,6 +321,7 @@ async def execute(argv, payload, timeout, env=None, capture=False):
     import io
     from .engine import charger_moteur, options_detache
     charger_moteur()
+    env = hook_environment(env)
     with tempfile.TemporaryFile() as input_file:
         input_file.write(json.dumps(payload).encode("utf-8"))
         input_file.seek(0)

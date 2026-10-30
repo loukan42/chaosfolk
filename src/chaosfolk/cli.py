@@ -49,16 +49,13 @@ def main(argv=None):
         return setup(args[1:])
     if args and args[0] == "install-browser":
         # Use the engine's own interpreter so pipx, uv tool and venv installs all get the matching browser.
+        allowed = {"--with-deps", "--force", "--dry-run"}
+        unknown = [flag for flag in args[1:] if flag not in allowed]
+        if unknown:
+            print(f"chaosfolk install-browser accepts only {', '.join(sorted(allowed))}", file=sys.stderr)
+            return 2
         import subprocess
         return subprocess.call([sys.executable, "-m", "playwright", "install", "chromium", *args[1:]])
-    # Select a state directory before importing the engine. Each separate agent
-    # session must inherit the same CHAOSFOLK_HOME when running concurrently.
-    if args and args[0] == "--state-dir":
-        if len(args) < 3:
-            print("Usage: chaosfolk --state-dir DIRECTORY COMMAND", file=sys.stderr)
-            return 2
-        os.environ["CHAOSFOLK_HOME"] = os.path.abspath(args[1])
-        args = args[2:]
     from . import engine
     from pathlib import Path
     engine.FICHIER_ACTIF = Path(os.environ.get("CHAOSFOLK_HOME", str(Path.home() / ".chaosfolk"))) / "active.json"

@@ -146,6 +146,9 @@ def check_file(path, kind='auto', contains=(), columns=(), min_rows=None, max_ro
         text_parts = []
         for page in reader.pages:
             contents = page.get_contents()
+            encoded = getattr(contents, '_data', b'')
+            if isinstance(encoded, (bytes, bytearray)) and len(encoded) > MAX_BYTES:
+                raise ValueError('PDF page content exceeds the size limit')  # Checked before decompression.
             if contents is not None and len(contents.get_data()) > MAX_BYTES:
                 raise ValueError('PDF page content exceeds the size limit')
             text_parts.append(page.extract_text() or '')
@@ -301,6 +304,7 @@ def run_external(tool, executable, script, timeout=120):
         result_path = Path(folder) / 'result.json'
         args = [str(executable), 'run', '--summary-export', str(result_path), str(script)] if tool == 'k6' else [str(executable), str(script)]
         env = dict(os.environ, CHAOSFOLK_RESULT_PATH=str(result_path))
+        env.pop('CHAOSFOLK_LEADER_TOKEN', None)  # External runners never need the engine's leader credential.
         from .owned_process import OwnedProcess
         process = OwnedProcess(args, cwd=script.parent, env=env, stdout=subprocess.PIPE,
                                stderr=subprocess.STDOUT, bufsize=0)

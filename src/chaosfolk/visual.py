@@ -15,9 +15,10 @@ def compare(before, after, output, threshold=20, max_ratio=0.001):
     if output.exists() and any(output.iterdir()):
         raise ValueError("Choose an empty output directory")
     with Image.open(before) as a, Image.open(after) as b:
-        a, b = a.convert("RGB"), b.convert("RGB")
+        # Header sizes are known before any pixel is decoded; refuse decompression bombs first.
         if a.width * a.height > 20_000_000 or b.width * b.height > 20_000_000:
             raise ValueError("Images must contain at most 20 million pixels")
+        a, b = a.convert("RGB"), b.convert("RGB")
         output.mkdir(parents=True, exist_ok=True)
         a.save(output / "before.png")
         b.save(output / "after.png")

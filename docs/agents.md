@@ -4,17 +4,21 @@ The engine is a Python package. The skill tells your coding agent how to plan an
 exploration, delegate users and judge evidence. The installer sets up both:
 
 ```bash
-curl -LsSf https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.sh | CHAOSFOLK_VERSION=0.8.0 CHAOSFOLK_SHA256=d04d7800059d7ff1cdc2e9ae5b4d591f061e84c8d7752a921b92b815845f6460 sh
 ```
 
 ```powershell
+$env:CHAOSFOLK_VERSION = '0.8.0'; $env:CHAOSFOLK_SHA256 = 'd04d7800059d7ff1cdc2e9ae5b4d591f061e84c8d7752a921b92b815845f6460'
 powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.ps1 | iex"
 ```
 
-It installs [uv](https://docs.astral.sh/uv/) when missing, installs the engine
-with `uv tool install` (uv provides Python 3.12+ if needed), then runs
-`chaosfolk setup`. `CHAOSFOLK_SOURCE` installs from another archive or path, and
-`CHAOSFOLK_NO_MODIFY_PATH=1` leaves PATH unchanged.
+It installs a pinned [uv](https://docs.astral.sh/uv/) when missing, downloads
+the release archive, verifies its SHA-256 when `CHAOSFOLK_SHA256` is set,
+installs the engine with `uv tool install` (uv provides Python 3.12+ if needed),
+then runs `chaosfolk setup`. `CHAOSFOLK_SOURCE` installs from another archive,
+path or internal mirror, `CHAOSFOLK_REQUIRE_UV=1` refuses to download uv, and
+`CHAOSFOLK_NO_MODIFY_PATH=1` leaves PATH unchanged. The checksum of each release
+archive is published in its release notes.
 
 ## chaosfolk setup
 

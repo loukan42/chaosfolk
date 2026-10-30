@@ -14,6 +14,30 @@ optional integrations with `pip-audit`. Use a current pip when creating a local
 environment; the audit found vulnerabilities in an older local pip during the
 October 2026 review.
 
+## Security practices
+
+Read [docs/security.md](docs/security.md) before changing anything that touches
+a trust boundary: the engine protocol, the dashboard, privacy and private state,
+installers, workflows or dependencies. In short:
+
+- Install the hooks once with `pre-commit install`; they run ruff, bandit,
+  gitleaks and basic file checks before each commit.
+- Install development requirements from the lock file:
+  `python -m pip install --require-hashes -r requirements-dev.txt` then
+  `python -m pip install --no-deps --no-build-isolation -e .`. Refresh the lock
+  after changing `pyproject.toml` with
+  `uv pip compile --universal --generate-hashes --python-version 3.12 --extra dev --extra visual --extra pdf --extra chaos pyproject.toml requirements-build.in -o requirements-dev.txt`
+  and review the diff; Dependabot proposes routine updates.
+- Pin new GitHub Actions to a commit SHA with the version in a comment, keep
+  `permissions` minimal and `persist-credentials: false`.
+- Treat everything read from the application under test as untrusted. Escape it
+  in reports (`textContent` only), confine any path to the session folder, and
+  add a regression test in `tests/test_hardening.py` or next to the module.
+- Never commit tokens, session folders, screenshots of real applications or
+  customer data; use the synthetic fixtures under `tests/`.
+- A security fix gets a `Security` entry in the changelog and, when it fixes a
+  vulnerability, a GitHub Security Advisory.
+
 For journal or campaign performance changes, run
 `python scripts/benchmark_journal.py --events 20000 --repeat 3` and
 `python scripts/benchmark_resources.py`. Both use synthetic data and verify
@@ -69,9 +93,14 @@ User-facing notes for unreleased changes must also have an English/French pair.
 
 1. Move the `Unreleased` entries to a new dated version section in
    `CHANGELOG.md` and update the comparison links at the bottom.
-2. Set the same version in `pyproject.toml` and `src/chaosfolk/__init__.py`.
-3. Run the tests, ruff and `python -m build`, then commit `Release X.Y.Z`.
+2. Set the same version in `pyproject.toml`, `src/chaosfolk/__init__.py`,
+   `install.sh` and `install.ps1` (`tests/test_hardening.py` checks they match).
+3. Run the tests, ruff, bandit and `python -m build`, then commit `Release X.Y.Z`.
 4. Tag that commit `vX.Y.Z` and push the branch and the tag.
 5. Create the GitHub release from the tag, with the version's changelog section
    as notes and the wheel and source archive from `dist/` attached. Mark it as a
    pre-release while Chaosfolk is alpha.
+6. Compute `sha256sum` of the tag archive
+   (`https://github.com/loukan42/chaosfolk/archive/refs/tags/vX.Y.Z.zip`) and of
+   the attached files; publish them in the release notes and update the
+   `CHAOSFOLK_SHA256` value in the README install commands.

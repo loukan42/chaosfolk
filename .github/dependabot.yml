@@ -1,0 +1,27 @@
+# Keeps the hash-locked Python requirements and the SHA-pinned GitHub Actions current.
+# Security updates open pull requests as soon as an advisory matches; version updates are grouped weekly.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      python-dependencies:
+        patterns: ["*"]
+    labels: [dependencies]
+    commit-message:
+      prefix: "deps"
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      github-actions:
+        patterns: ["*"]
+    labels: [dependencies]
+    commit-message:
+      prefix: "ci"

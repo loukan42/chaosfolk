@@ -3,7 +3,9 @@ import asyncio
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
+import signal
 import subprocess
 from datetime import datetime, timezone
 
@@ -60,11 +62,16 @@ async def _hook(hook, directory, read_result=False):
     with tempfile.TemporaryFile() as output:
         proc = await asyncio.create_subprocess_exec(
             *hook["command"], cwd=directory, stdout=output, stderr=subprocess.DEVNULL,
-            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), start_new_session=os.name != "nt")
         try:
             await asyncio.wait_for(proc.wait(), hook.get("timeout", 30))
         except BaseException:
             if proc.returncode is None:
+                if os.name != "nt":
+                    try:
+                        os.killpg(proc.pid, signal.SIGKILL)  # The whole session, including detached grandchildren.
+                    except (OSError, ProcessLookupError):
+                        pass
                 import psutil
                 try:
                     parent = psutil.Process(proc.pid)
@@ -106,7 +113,8 @@ def git_identity(repo):
     if not repo:
         return None
     def git(*args):
-        return subprocess.run(["git", "-C", str(repo), *args], capture_output=True, text=True,
+        return subprocess.run(["git", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=", "-C", str(repo), *args],
+                              capture_output=True, text=True,
                               timeout=5, check=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout.strip()
     try:
         return {"commit": git("rev-parse", "HEAD"), "dirty": bool(git("status", "--porcelain"))}

@@ -177,7 +177,13 @@ def lazy_page(tmp_path, monkeypatch):
         page.on("pageerror", lambda error: errors.append(str(error)))
         page.on("request", lambda request: external.append(request.url) if request.url.startswith(("http:", "https:")) else None)
         page.goto((tmp_path / "report-en.html").as_uri())
-        page.wait_for_function("evidenceStore.stats().pending === 0")
+        # Poll through evaluate (CDP, exempt from the page's CSP) instead of an injected wait_for_function script.
+        for _ in range(200):
+            if page.evaluate("evidenceStore.stats().pending") == 0:
+                break
+            page.wait_for_timeout(25)
+        else:
+            raise AssertionError("evidence store never settled")
         yield page, tmp_path
         assert not errors, errors
         assert not external, external
@@ -194,7 +200,8 @@ def test_file_report_loads_details_on_seek_in_both_languages(lazy_page):
     assert page.evaluate("data.journal[39].pense") is None
     page.locator("#detail-summary").click()
     page.evaluate("document.querySelector('#timeline').value=39; document.querySelector('#timeline').dispatchEvent(new Event('input'))")
-    page.wait_for_function("document.querySelector('#narrative').textContent.includes('Reaction 39: café </script>')")
+    # Locator waits poll without injecting scripts, so the report's Content-Security-Policy stays enforced.
+    page.locator("#narrative").filter(has_text="Reaction 39: café </script>").wait_for()
     assert "Diagnostic 39" in page.locator("#narrative").inner_text()
     page.locator('[data-lang="fr"]').click()
     assert "réaction originale" in page.locator("#narrative").inner_text().casefold()
@@ -202,10 +209,12 @@ def test_file_report_loads_details_on_seek_in_both_languages(lazy_page):
     assert page.evaluate("data.journal[39].pense") is None  # Loaded objects never expand the index in place.
     page.locator(".finding-toggle").first.click()
     page.locator(".finding-body details summary").click()
-    page.wait_for_function("document.querySelectorAll('.proof-image').length === 3")
+    page.locator(".proof-image").nth(2).wait_for()
+    assert page.locator(".proof-image").count() == 3
     assert page.evaluate("data.constats.constats[0].preuves.avant.captures") is None
     page.locator(".finding-body details summary").click()
-    page.wait_for_function("document.querySelectorAll('.proof-image').length === 0")
+    page.locator(".proof-image").first.wait_for(state="detached")
+    assert page.locator(".proof-image").count() == 0
 
 
 @pytest.mark.browser
@@ -239,7 +248,7 @@ def test_late_detail_response_cannot_replace_the_current_event(lazy_page):
       slider.value=8;slider.dispatchEvent(new Event('input'));
       slider.value=20;slider.dispatchEvent(new Event('input'));
     }""")
-    page.wait_for_function("document.querySelector('#narrative').textContent.includes('Reaction 20:')")
+    page.locator("#narrative").filter(has_text="Reaction 20:").wait_for()
     page.wait_for_timeout(220)
     assert "Reaction 20:" in page.locator("#narrative").inner_text()
     assert "Reaction 8:" not in page.locator("#narrative").inner_text()
@@ -257,7 +266,7 @@ def test_missing_chunk_is_visible_and_can_be_retried(lazy_page):
     page.get_by_text("Details unavailable. Keep the report with its assets/journal folder.", exact=True).wait_for()
     path.write_bytes(original)
     page.locator("#narrative").get_by_role("button", name="Retry").click()
-    page.wait_for_function("document.querySelector('#narrative').textContent.includes('Reaction 39:')")
+    page.locator("#narrative").filter(has_text="Reaction 39:").wait_for()
 
 
 @pytest.mark.browser
