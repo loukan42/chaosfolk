@@ -68,7 +68,17 @@
           <h2 id="status-title">Waiting in line</h2>
           <p id="status-detail"></p>
           <div class="progress" id="progress"><span></span></div>
-          <a class="button" id="report-link" href="#" target="_blank" rel="noopener" hidden>Open the report</a>
+          <div class="report-actions" id="report-actions" hidden>
+            <a class="button" id="report-link" href="#" target="_blank" rel="noopener">Open the report</a>
+            <div class="report-row">
+              <a class="button ghost" id="download-link" href="#" download>Download (.zip)</a>
+              <button type="button" class="ghost" id="copy-link">Copy the link</button>
+              <button type="button" class="ghost" id="share-link" hidden>Share</button>
+            </div>
+            <p class="fine">The .zip opens offline: extract it and open rapport.html. It also holds the recorded
+              journeys, which <code>chaosfolk replay</code> can run again on your machine.
+              Anyone with the link can open the report until it is deleted.</p>
+          </div>
           <p class="fine" id="status-note">Keep this page open, or bookmark it: the address brings you back to this audit.</p>
           <button type="button" class="ghost" id="new-audit" hidden>Audit another site</button>
         </div>

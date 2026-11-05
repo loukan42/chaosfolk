@@ -6,8 +6,6 @@ set -eu
 url="$1"; lang="$2"; seconds="$3"; actions="$4"; users="$5"; project="$6"
 run=/work/run
 cd /work
-# Files belong to the container user; let the worker on the host copy and later delete them.
-trap 'chmod -R a+rwX /work 2>/dev/null || true' EXIT
 
 chaosfolk check >/work/check.log 2>&1 || true
 

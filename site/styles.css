@@ -144,7 +144,11 @@ button, .button {
 button:hover, .button:hover { filter: brightness(1.06); }
 button:disabled { opacity: .55; cursor: not-allowed; filter: none; }
 
-button.ghost { margin-top: 12px; background: transparent; color: var(--text); border: 1px solid var(--line); }
+button.ghost, .button.ghost { margin-top: 12px; background: transparent; color: var(--text); border: 1px solid var(--line); }
+
+.report-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.report-row > * { flex: 1 1 140px; width: auto; margin-top: 10px; min-height: 46px; font-size: 15px; }
+.report-actions .fine code { font-size: 13px; }
 
 .form-error { margin: 14px 0 0; padding: 12px 14px; border-radius: 10px; background: rgba(255, 138, 61, .12); border: 1px solid rgba(255, 138, 61, .4); color: var(--error); }
 

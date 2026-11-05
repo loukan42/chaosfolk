@@ -183,6 +183,30 @@ def test_report_route_blocks_traversal(client, settings):
     assert client.get(f"/reports/{audit_id}/..%2Fagent.log").status_code == 404
     assert client.get(f"/reports/{audit_id}/../agent.log").status_code == 404
     assert client.get(f"/api/audits/{audit_id}").json()["report_url"] == f"https://api.test/reports/{audit_id}/"
+    assert client.get(f"/api/audits/{audit_id}/report.zip").status_code == 404
+
+
+def test_archive_is_downloadable(client, settings):
+    import io
+    import zipfile
+    store = client.app.state.store
+    audit_id = store.create("https://example.org/a?b=1", "example.org", "en", "1.1.1.1", 5, 1)
+    public = settings.job_dir(audit_id) / "public"
+    (public / "scenarios").mkdir(parents=True)
+    (public / "rapport.html").write_text("<p>report</p>")
+    (public / "scenarios" / "save.json").write_text("{}")
+    audit = store.get(audit_id)
+    runner.archive(public, settings.job_dir(audit_id) / "report.zip", runner.archive_name(audit), audit["url"])
+    assert client.get(f"/api/audits/{audit_id}/report.zip").status_code == 404
+    store.finish(audit_id, "done")
+    body = client.get(f"/api/audits/{audit_id}").json()
+    assert body["download_url"] == f"https://api.test/api/audits/{audit_id}/report.zip"
+    response = client.get(f"/api/audits/{audit_id}/report.zip")
+    assert response.status_code == 200 and response.headers["content-type"] == "application/zip"
+    folder = runner.archive_name(audit)
+    assert folder.startswith("chaosfolk-example.org-") and folder in response.headers["content-disposition"]
+    names = sorted(zipfile.ZipFile(io.BytesIO(response.content)).namelist())
+    assert names == [f"{folder}/README.txt", f"{folder}/rapport.html", f"{folder}/scenarios/save.json"]
 
 
 def test_worker_marks_a_failed_run(settings, monkeypatch):
@@ -215,3 +239,5 @@ def test_demo_runner_produces_a_public_report(settings, monkeypatch):
     worker.loop(settings, once=True)
     assert store.get(audit_id)["status"] == "done", store.get(audit_id)["error"]
     assert (settings.job_dir(audit_id) / "public" / "rapport.html").is_file()
+    assert (settings.job_dir(audit_id) / "public" / "scenarios").is_dir()
+    assert (settings.job_dir(audit_id) / "report.zip").is_file()

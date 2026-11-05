@@ -1,5 +1,6 @@
 """Public API called by the GitHub Pages landing page, plus the report pages it links to."""
 from datetime import datetime, timedelta
+import re
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException, Request
@@ -8,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
-from . import turnstile, urls
+from . import runner, turnstile, urls
 from .config import Settings
 from .store import QuotaExceeded, Store, next_reset
 
@@ -16,6 +17,7 @@ QUOTA_MESSAGES = {
     "daily": "No free audits are left today. Come back after the reset, or install Chaosfolk to run it yourself.",
     "ip": "You have already used today's free audit. Install Chaosfolk to run more audits yourself.",
 }
+AUDIT_ID = re.compile(r"[A-Za-z0-9_-]{1,64}")
 REPORT_HEADERS = {
     "X-Robots-Tag": "noindex, nofollow",
     "Referrer-Policy": "no-referrer",
@@ -53,7 +55,9 @@ def create_app(settings=None, resolver=None):
     def view(audit):
         result = {key: audit[key] for key in ("id", "url", "status", "phase", "error", "position",
                                                 "created_at", "started_at", "finished_at")}
-        result["report_url"] = f"{settings.public_url}/reports/{audit['id']}/" if audit["status"] == "done" else None
+        done = audit["status"] == "done"
+        result["report_url"] = f"{settings.public_url}/reports/{audit['id']}/" if done else None
+        result["download_url"] = f"{settings.public_url}/api/audits/{audit['id']}/report.zip" if done else None
         result["expires_at"] = None
         if audit["finished_at"] and audit["status"] in {"done", "failed"}:
             result["expires_at"] = (datetime.fromisoformat(audit["finished_at"]) + timedelta(days=settings.report_days)).isoformat()
@@ -92,9 +96,22 @@ def create_app(settings=None, resolver=None):
             raise HTTPException(404, "This audit does not exist or has been deleted.")
         return view(audit)
 
+    @app.get("/api/audits/{audit_id}/report.zip")
+    def download(audit_id: str):
+        audit = store.get(audit_id)
+        bundle = settings.job_dir(audit_id) / "report.zip"
+        if audit is None or audit["status"] != "done" or not bundle.is_file():
+            raise HTTPException(404, "This report does not exist or has been deleted.")
+        return FileResponse(bundle, media_type="application/zip", filename=f"{runner.archive_name(audit)}.zip",
+                            headers={key: value for key, value in REPORT_HEADERS.items() if key != "X-Frame-Options"})
+
     @app.get("/reports/{audit_id}")
     def report_root(audit_id: str):
-        return RedirectResponse(f"/reports/{audit_id}/", status_code=308)
+        # Redirect only to an id read back from the ledger, never to text taken from the request.
+        audit = store.get(audit_id) if AUDIT_ID.fullmatch(audit_id) else None
+        if audit is None:
+            raise HTTPException(404, "This report does not exist or has been deleted.")
+        return RedirectResponse(f"/reports/{audit['id']}/", status_code=308)
 
     @app.get("/reports/{audit_id}/{path:path}")
     def report(audit_id: str, path: str = ""):

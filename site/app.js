@@ -93,7 +93,7 @@
     var link = $("report-link");
     progress.className = "progress";
     progress.firstElementChild.style.width = "";
-    link.hidden = true;
+    $("report-actions").hidden = true;
     $("new-audit").hidden = true;
     $("status-note").hidden = false;
     clearInterval(clockTimer);
@@ -120,7 +120,10 @@
       detail.textContent = "Keep the link: the report is deleted after 7 days.";
       progress.firstElementChild.style.width = "100%";
       link.href = audit.report_url;
-      link.hidden = false;
+      $("download-link").href = audit.download_url;
+      $("copy-link").textContent = "Copy the link";
+      $("share-link").hidden = typeof navigator.share !== "function";
+      $("report-actions").hidden = false;
       $("status-note").hidden = true;
       $("new-audit").hidden = false;
     } else {
@@ -187,6 +190,38 @@
       submit.textContent = "Start the audit";
       if ($("quota-count").textContent !== "0") submit.disabled = false;
     });
+  });
+
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    return new Promise(function (resolve, reject) {
+      var field = document.createElement("textarea");
+      field.value = text;
+      field.setAttribute("readonly", "");
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.appendChild(field);
+      field.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (error) { ok = false; }
+      document.body.removeChild(field);
+      if (ok) { resolve(); } else { reject(new Error("copy")); }
+    });
+  }
+
+  $("copy-link").addEventListener("click", function () {
+    var button = this;
+    var url = $("report-link").href;
+    copyText(url).then(function () {
+      button.textContent = "Link copied";
+    }).catch(function () {
+      window.prompt("Copy this link:", url);
+    });
+  });
+
+  $("share-link").addEventListener("click", function () {
+    navigator.share({ title: "Chaosfolk report", text: "Chaosfolk audit of " + $("status-url").textContent,
+                      url: $("report-link").href }).catch(function () {});
   });
 
   $("new-audit").addEventListener("click", function () {

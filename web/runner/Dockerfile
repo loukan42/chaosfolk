@@ -23,7 +23,9 @@ RUN pip install /src/chaosfolk \
  && python -m playwright install --with-deps chromium \
  && rm -rf /src/chaosfolk /var/lib/apt/lists/*
 
-RUN useradd --create-home --uid 10001 audit
+# Same uid as the chaosfolk-web user on the host, so the worker can read and delete /work.
+ARG AUDIT_UID=10001
+RUN useradd --create-home --uid "${AUDIT_UID}" audit
 COPY web/runner/prompt.md /opt/chaosfolk/prompt.md
 COPY web/runner/run-audit.sh /usr/local/bin/run-audit
 COPY web/runner/opencode.json /home/audit/.config/opencode/opencode.json

@@ -27,10 +27,20 @@ GitHub Pages (site/)  --HTTPS-->  Caddy  -->  API (FastAPI, SQLite)
 | Robots | Cloudflare Turnstile on the form |
 | A URL that reaches the server's network | http(s) on ports 80/443 only; local names refused; every resolved address must be public, checked at submission and again before the run; the audit network blocks private ranges, metadata and the host |
 | A hostile page | One container per audit, no capabilities, memory/CPU/process limits, removed after the run; the agent may run only `chaosfolk` and a few read commands and cannot fetch URLs itself |
-| Private data in reports | Only the report and its `assets/`, `captures/`, `reproductions/` are published; browser state, the audit database and logs stay on the server; reports are deleted after 7 days and marked `noindex` |
+| Private data in reports | Only the report and its `assets/`, `captures/`, `reproductions/`, `scenarios/` are published; browser state, the audit database and logs stay on the server; reports are deleted after 7 days and marked `noindex` |
 | Testing someone else's site | Consent checkbox, salted IP hash kept with each audit, small daily quota. Ownership is not verified. |
 
 The report link is the only key to a report: anyone who has it can open it until it expires.
+
+## Download, share and replay
+
+When an audit finishes, the page offers **Open the report**, **Download (.zip)**, **Copy the link**
+and, on devices that support it, **Share**. The worker packs the published files into
+`report.zip` once, served at `/api/audits/<id>/report.zip`. Extracted, the folder opens offline
+(`rapport.html`) and keeps the session replay screens. Its `scenarios/` folder holds the recorded
+journeys: with Chaosfolk installed, `chaosfolk replay scenarios/NAME.json --times 3` replays one
+from that folder, which the engine uses as the session folder. The archive includes a README with
+these steps. Both the link and the archive are deleted after `CHAOSFOLK_WEB_REPORT_DAYS`.
 
 ## Try it locally
 
@@ -82,7 +92,8 @@ sudo git clone https://github.com/loukan42/chaosfolk.git /opt/chaosfolk
 cd /opt/chaosfolk
 sudo docker build -f web/runner/Dockerfile -t chaosfolk-runner .
 
-sudo useradd --system --home /var/lib/chaosfolk-web --create-home chaosfolk-web
+# uid 10001 matches the audit user inside the runner image (AUDIT_UID build argument).
+sudo useradd --system --uid 10001 --home /var/lib/chaosfolk-web --create-home chaosfolk-web
 sudo python3 -m venv web/.venv
 sudo web/.venv/bin/pip install -r web/requirements.txt
 

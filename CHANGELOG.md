@@ -16,7 +16,9 @@ Each entry explains what the change helps you do and gives an example.
   a daily quota and one audit per visitor per day, and runs each audit in a
   disposable container with OpenCode on an OpenRouter model. Example: paste
   `https://staging.example.com`, wait for the report link, open the report.
-  Private and local addresses are refused. See [web/README.md](web/README.md).
+  Private and local addresses are refused. The finished report can be opened,
+  downloaded as a .zip that works offline and includes the recorded journeys for
+  `chaosfolk replay`, or shared by link. See [web/README.md](web/README.md).
 
 ### Security
 
