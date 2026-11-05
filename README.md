@@ -446,7 +446,8 @@ independent.
 <details>
 <summary>What the installer does</summary>
 
-1. Installs [uv](https://docs.astral.sh/uv/) if it is missing. uv downloads
+1. Installs a pinned [uv](https://docs.astral.sh/uv/) if it is missing, after
+   checking the SHA-256 of its installer. uv downloads
    Python 3.12 or newer into its own folder when your computer has none.
 2. Installs the Chaosfolk engine as a command-line tool, isolated from your other
    Python packages, and adds it to your PATH.
@@ -458,7 +459,8 @@ independent.
 You can read [install.sh](install.sh) and [install.ps1](install.ps1) before
 running them. Set `CHAOSFOLK_NO_MODIFY_PATH=1` to keep your PATH unchanged,
 `CHAOSFOLK_REQUIRE_UV=1` to refuse downloading uv, and `CHAOSFOLK_SOURCE` to
-install from an internal mirror. The [security guide](docs/security.md) lists the
+install from an internal mirror. When uv is missing, the installer runs the uv
+installer only after its SHA-256 matches the value pinned in the script. The [security guide](docs/security.md) lists the
 settings for managed environments.
 
 </details>

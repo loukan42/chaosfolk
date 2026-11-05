@@ -71,7 +71,7 @@ async def run_job(job, run_number):
     env = dict(os.environ, CHAOSFOLK_HOME=str(folder / f"state-{run_number}"))
     env.pop("CHAOSFOLK_LEADER_TOKEN", None)
     with (folder / f"run-{run_number}.log").open("xb") as log:
-        proc = subprocess.Popen(job["argv"], cwd=job["cwd"], env=env, stdin=subprocess.DEVNULL,
+        proc = subprocess.Popen(job["argv"], cwd=job["cwd"], env=env, stdin=subprocess.DEVNULL,  # nosec B603 # operator-scheduled argv list, no shell, leader token removed from env
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, **options_detache())
         identity = None
         try:

@@ -12,6 +12,9 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 0
+    # Security updates ignore the cooldown and open at once; it applies to version updates only.
+    cooldown:
+      default-days: 7
     labels: [dependencies, security]
     commit-message:
       prefix: "deps"
@@ -20,6 +23,10 @@ updates:
     schedule:
       interval: weekly
       day: monday
+    # A new action release waits a week before Dependabot proposes it, so a compromised tag that is
+    # pulled within days never reaches CI.
+    cooldown:
+      default-days: 7
     groups:
       github-actions:
         patterns: ["*"]

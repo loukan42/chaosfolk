@@ -325,7 +325,7 @@ async def execute(argv, payload, timeout, env=None, capture=False):
     with tempfile.TemporaryFile() as input_file:
         input_file.write(json.dumps(payload).encode("utf-8"))
         input_file.seek(0)
-        proc = subprocess.Popen(argv, stdin=input_file, stdout=subprocess.PIPE if capture else subprocess.DEVNULL,
+        proc = subprocess.Popen(argv, stdin=input_file, stdout=subprocess.PIPE if capture else subprocess.DEVNULL,  # nosec B603 # operator-configured hook argv list, no shell, bounded, credentials removed
                                 stderr=subprocess.DEVNULL, env=env, **options_detache())
         identity = None
         output = io.BytesIO()

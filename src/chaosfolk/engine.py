@@ -1542,7 +1542,7 @@ class Horde:
                 self.journal({"type": "app", "etat": "deja-lancee"})
                 return True
             self.app_log = open(self.dossier / "app.log", "a", encoding="utf-8")
-            self.app = subprocess.Popen(self.opts.app_commande, shell=True, cwd=self.opts.app_dossier or None,  # nosec B602: the operator's own --app-command, never network input
+            self.app = subprocess.Popen(self.opts.app_commande, shell=True, cwd=self.opts.app_dossier or None,  # nosec B602 # the operator's own --app-command, never network input
                                         stdout=self.app_log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                                         **options_detache())
             self.app_identity = process_identity(self.app.pid)
@@ -3601,7 +3601,7 @@ def commande_demarrer(opts):
     (dossier / "serveur.json").unlink(missing_ok=True)
     commande = [sys.executable, "-m", "chaosfolk", "serve", *opts.brut, "--folder", str(dossier)]
     with open(dossier / "serveur.log", "a", encoding="utf-8") as journal_serveur:
-        processus = subprocess.Popen(commande, stdout=journal_serveur, stderr=subprocess.STDOUT,
+        processus = subprocess.Popen(commande, stdout=journal_serveur, stderr=subprocess.STDOUT,  # nosec B603 # re-launches this package under the current interpreter, no shell
                                      stdin=subprocess.DEVNULL, close_fds=True, **options_detache())
     fin = time.time() + opts.app_attente + 60
     while time.time() < fin:

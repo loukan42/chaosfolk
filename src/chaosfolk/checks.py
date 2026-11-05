@@ -331,7 +331,7 @@ def assign(seed, pool, count, budget, selected=None):
     Uses its own random stream, so the persona draw is unchanged."""
     if not pool:
         return [[] for _ in range(count)]
-    rng = random.Random(f"checks:{seed}")
+    rng = random.Random(f"checks:{seed}")  # nosec B311 # seeded, reproducible test-value sample; not used for secrets
     order = list(pool)
     rng.shuffle(order)
     size = min(per_user(budget), len(order))

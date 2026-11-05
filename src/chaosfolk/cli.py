@@ -55,7 +55,7 @@ def main(argv=None):
             print(f"chaosfolk install-browser accepts only {', '.join(sorted(allowed))}", file=sys.stderr)
             return 2
         import subprocess
-        return subprocess.call([sys.executable, "-m", "playwright", "install", "chromium", *args[1:]])
+        return subprocess.call([sys.executable, "-m", "playwright", "install", "chromium", *args[1:]])  # nosec B603 # fixed Playwright command; extra flags are an allowlist checked above
     from . import engine
     from pathlib import Path
     engine.FICHIER_ACTIF = Path(os.environ.get("CHAOSFOLK_HOME", str(Path.home() / ".chaosfolk"))) / "active.json"

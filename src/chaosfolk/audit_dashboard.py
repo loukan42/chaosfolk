@@ -212,7 +212,7 @@ def launch(session):
         return ready
     log = session.folder / "audit-dashboard.log"
     with log.open("ab") as stream:
-        process = subprocess.Popen([sys.executable, "-m", "chaosfolk", "audit-run", "serve", "--folder", str(session.folder)],
+        process = subprocess.Popen([sys.executable, "-m", "chaosfolk", "audit-run", "serve", "--folder", str(session.folder)],  # nosec B603 # re-launches this package under the current interpreter, no shell
             stdin=subprocess.DEVNULL, stdout=stream, stderr=stream,
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             start_new_session=sys.platform != "win32")

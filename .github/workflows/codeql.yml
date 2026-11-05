@@ -23,9 +23,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      contents: read
-      actions: read
-      security-events: write
+      contents: read # check out the code
+      actions: read # CodeQL reads the workflow run to tag its results
+      security-events: write # upload the results to the Security tab
     strategy:
       fail-fast: false
       matrix:
@@ -38,6 +38,11 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           queries: security-extended
+          # tests/qa_app is a fixture application with deliberate defects (HTML injection, a session
+          # cookie set from script) that the browser tests must find; it is never packaged.
+          config: |
+            paths-ignore:
+              - tests/qa_app
       - uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
         with:
           category: /language:${{ matrix.language }}

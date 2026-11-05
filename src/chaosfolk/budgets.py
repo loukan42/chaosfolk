@@ -12,7 +12,7 @@ PRESETS = {
 
 def plan(level):
     values = PRESETS[level]
-    return {"level": level, **values, "max_user_actions": values["users"] * values["actions_per_user"],
+    return {"level": level, **values, "max_user_actions": values["users"] * values["actions_per_user"],  # nosec B105 # token_limit is a budget field, not a password
             "token_limit": None, "includes_scout": False, "includes_replay": False}
 
 

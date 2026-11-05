@@ -81,7 +81,7 @@ class OwnedProcess:
         self.process = None
         try:
             secure(self.status.parent, directory=True)
-            self.process = subprocess.Popen(
+            self.process = subprocess.Popen(  # nosec B603 # this module's own helper under the current interpreter with -I, no shell
                 [getattr(sys, "_base_executable", sys.executable), "-I", str(Path(__file__).resolve()), str(self.status)],
                 cwd=cwd, env=env, stdin=subprocess.PIPE, stdout=stdout, stderr=stderr, bufsize=bufsize,
                 creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), start_new_session=os.name != "nt")
@@ -140,7 +140,7 @@ class OwnedProcess:
 def _helper(status):
     argv = json.loads(sys.stdin.buffer.readline())
     try:
-        process = subprocess.Popen(argv, stdin=subprocess.DEVNULL,
+        process = subprocess.Popen(argv, stdin=subprocess.DEVNULL,  # nosec B603 # argv list from the trusted caller in this process, no shell
                                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
         code = process.wait()
     except OSError:

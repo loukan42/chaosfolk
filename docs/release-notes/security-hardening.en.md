@@ -30,8 +30,10 @@ company can adopt Chaosfolk with evidence rather than trust.
 - **Pinned, verifiable installers.** `install.sh` and `install.ps1` install a
   release version by default, verify the archive checksum when
   `CHAOSFOLK_SHA256` is set, can refuse to download uv (`CHAOSFOLK_REQUIRE_UV=1`)
-  and accept an internal mirror (`CHAOSFOLK_SOURCE`). The checksum of the
-  0.8.0 archive is in the README.
+  and accept an internal mirror (`CHAOSFOLK_SOURCE`). When uv is missing, they
+  download its installer, check its SHA-256 against the value pinned in the
+  script and only then run it; another uv version needs `CHAOSFOLK_UV_VERSION`
+  with `CHAOSFOLK_UV_SHA256`. The checksum of the 0.8.0 archive is in the README.
 - **A documented process.** [SECURITY.md](../../SECURITY.md) gives the reporting
   channel, response targets and supported versions. [docs/security.md](../security.md)
   holds the threat model, the engine controls, the secure development lifecycle,
@@ -44,7 +46,9 @@ CI installs hash-locked requirements, pins every GitHub Action to a commit SHA
 and adds CodeQL, bandit, pip-audit with a CycloneDX SBOM, gitleaks, zizmor,
 dependency review and OpenSSF Scorecard. Dependabot, CODEOWNERS and pre-commit
 hooks are configured. `chaosfolk install-browser` accepts only `--with-deps`,
-`--force` and `--dry-run`.
+`--force` and `--dry-run`. No CI step runs an unpinned `pip install`, Dependabot
+waits seven days before proposing a new action release, and every bandit finding,
+low severity included, is fixed or carries a `# nosec` with its reason.
 
 ## Limitations
 

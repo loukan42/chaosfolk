@@ -92,7 +92,7 @@ model provider, which is outside this tool.
 | Outbound requests | urllib clients disable proxies and refuse redirects; `probe` and the accessibility runner accept loopback origins only, GET/HEAD only, no redirects, no service workers, no WebSockets, no downloads. | `engine.url_repond`, `integrations.py`, `probe.py` |
 | Privacy | Screenshot masks for password, current/new password, one-time code, payment and `data-chaosfolk-private` fields plus `CHAOSFOLK_MASK_SELECTORS`; screen text masks the same fields; reports mask text typed into sensitive fields; the export redacts bearer and basic credentials, JWTs, cookie and authorization headers, URL credentials, credential parameters, emails and configured literals. | `privacy.py`, `screen.js`, `reporting.py` |
 | Report rendering | Data embedded as a `JSON.parse` string with `<`, U+2028 and U+2029 escaped; DOM built with `textContent`; images only from validated relative paths; CSP `default-src 'none'`; lazy chunks loaded only from `assets/journal/<sha256>.js`. | `reporting.py`, `templates/report.html`, `templates/evidence.js` |
-| Installation | Skill files copied from a constant list with staging and rollback; another skill or a link to another skill is never replaced; `install-browser` accepts an allowlist of flags; installers pin the release, verify `CHAOSFOLK_SHA256`, pin the uv version and can refuse to download uv. | `install.py`, `cli.py`, `install.sh`, `install.ps1` |
+| Installation | Skill files copied from a constant list with staging and rollback; another skill or a link to another skill is never replaced; `install-browser` accepts an allowlist of flags; installers pin the release, verify `CHAOSFOLK_SHA256`, pin the uv version, run the uv installer only after its SHA-256 matches and can refuse to download uv. | `install.py`, `cli.py`, `install.sh`, `install.ps1` |
 
 Regression tests for these controls live in `tests/test_hardening.py`,
 `tests/test_security_audit.py`, `tests/test_followup_security.py`,
@@ -113,12 +113,18 @@ Regression tests for these controls live in `tests/test_hardening.py`,
    formats or agent permissions changed.
 4. **Verify.** Required checks on Linux and Windows with Python 3.12 and 3.14:
    tests, ruff, build and installation of the wheel in a clean environment, and
-   the installer's checksum behaviour. The Security workflow runs pip-audit on the
+   the installer's checksum behaviour (a tampered uv installer and a tampered
+   archive are both refused). The Security workflow runs pip-audit on the
    locked environment and produces a CycloneDX SBOM, bandit (fails on medium and
-   high), gitleaks over the whole history, and zizmor on the workflows. CodeQL
-   analyzes Python and JavaScript with the extended security queries. Dependency
+   high), gitleaks over the whole history, and zizmor on the workflows. Bandit
+   findings of every severity, low included, are either fixed or carry an inline
+   `# nosec <test id> # reason` reviewed with the change, so the Security tab only
+   shows findings nobody has looked at. CodeQL analyzes Python and JavaScript with
+   the extended security queries; it skips `tests/qa_app`, a fixture application
+   whose defects are deliberate and which is never packaged. Dependency
    review blocks pull requests adding vulnerable or copyleft dependencies.
-   OpenSSF Scorecard measures the repository weekly.
+   OpenSSF Scorecard measures the repository weekly; its findings are fixed or
+   recorded in section 8.
 5. **Release.** Versions are tagged, the changelog carries a `Security` group,
    release notes exist in English and French, installers are updated to the new
    version, and the archive checksum is published with the release. Releases are
@@ -143,9 +149,18 @@ Regression tests for these controls live in `tests/test_hardening.py`,
   `--require-hashes` and builds with `--no-isolation` so the build backend is
   also pinned.
 - GitHub Actions are pinned to commit SHAs with the version as a comment; tokens
-  are read-only by default and widened per job only for SARIF upload or OIDC.
+  are read-only by default and widened per job only for SARIF upload or OIDC,
+  with the reason next to each permission. Dependabot waits seven days before
+  proposing a new action release (security updates are not delayed), and the
+  repository refuses actions that are not pinned to a full commit SHA.
+- pip itself is pinned with its hashes in `requirements-dev.txt`; CI never runs an
+  unpinned `pip install`.
 - The installers download a release archive, not a branch, verify its SHA-256
-  when given, pin the uv version and accept an internal mirror.
+  when given and accept an internal mirror. When uv is missing they download the
+  pinned version's installer script from the uv GitHub release, check it against
+  a SHA-256 recorded in the script and only then run it; that script verifies the
+  checksum of the uv binary it downloads. Another uv version needs
+  `CHAOSFOLK_UV_VERSION` together with `CHAOSFOLK_UV_SHA256`.
 - Browser binaries are downloaded by Playwright from its CDN; their integrity is
   Playwright's responsibility (AR-8). Organizations can pre-install Chromium or
   point `PLAYWRIGHT_BROWSERS_PATH` to a vetted copy.
@@ -242,10 +257,14 @@ Before the first run inside an organization:
 | AR-7 | Finding fingerprints use truncated SHA-1. | Non-cryptographic identity; changing it would break existing `findings.json` continuity. | `usedforsecurity=False`; SHA-256 everywhere else. | Maintainer |
 | AR-8 | Chromium is downloaded by Playwright without an application-level checksum. | Playwright owns the browser distribution. | Pre-install or vet browsers in managed environments. | Operator |
 | AR-9 | k6 and Appium executables are chosen by the operator; only shell wrappers are refused. | The adapters cannot vet arbitrary binaries. | Regular-file check, no shell wrappers, no engine tokens in their environment, bounded output. | Operator |
+| AR-10 | `main` requires no approving review, no code-owner review, no approval of the last push and no up-to-date branch (OpenSSF Scorecard Branch-Protection and Code-Review). | The project has one maintainer, who cannot approve their own pull requests; requiring an up-to-date branch would force a rebase of every Dependabot pull request. | Pull requests required; every test, security, CodeQL and dependency-review check required; resolved conversations required; stale reviews dismissed; no force-push or deletion; CODEOWNERS on every file. Raise the approval count to 1 with code-owner review when a second maintainer joins. | Maintainer, when the team grows |
+| AR-11 | No fuzzing integration (Scorecard Fuzzing). | Untrusted input is parsed by the standard library (`json`, `urllib`, `html`) and checked against allowlists, with regression tests for every finding. | Input validation tests in `tests/test_hardening.py`; the privacy redaction and session-path validation are the first candidates for property-based or Atheris fuzzing. | Maintainer, next review |
+| AR-12 | No OpenSSF Best Practices badge (Scorecard CII-Best-Practices). | The badge is a self-assessment on bestpractices.dev that the maintainer files with their own account. | The criteria it checks are covered by SECURITY.md and this guide; file the passing-level questionnaire before 1.0. | Maintainer, before 1.0 |
 
 ## 9. Review history
 
 | Date | Scope | Outcome |
 |---|---|---|
 | 2026-10-30 | Engine protocol and dashboard, probe/MCP/subprocess/git surface, reports, privacy export, installers, CI and repository settings; bandit 1.9 and pip-audit 2.10. | No critical finding. Four medium and fifteen low findings fixed with regression tests; governance gaps closed (SHA-pinned CI, lock file, CodeQL, gitleaks, zizmor, dependency review, Scorecard, Dependabot, CODEOWNERS, pre-commit, this guide). Repository settings: Dependabot alerts and security updates, private vulnerability reporting and branch deletion on merge enabled. |
+| 2026-11-05 | Code scanning alerts left open on `main` after the 2026-10-30 review: OpenSSF Scorecard, CodeQL, bandit low-severity notes and zizmor. | Unpinned `pip install` steps removed from CI (pip is in the hash lock); installers check the SHA-256 of the uv installer before running it, and the CI installer job refuses a tampered one; Dependabot cooldown; every bandit finding fixed or annotated with a reason (0 findings at any severity); CodeQL skips the deliberately defective `tests/qa_app` fixture; SECURITY.md links the reporting page; zizmor pedantic clean. Branch-Protection, Code-Review, Fuzzing and Best-Practices recorded as AR-10 to AR-12; Maintained and SAST coverage rise on their own as the repository ages and pull requests are scanned. |
 | 2026-10 | Dependency audit of the local environment during the engineering review. | Vulnerable local pip found and documented; CI audit introduced. |

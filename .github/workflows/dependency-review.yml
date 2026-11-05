@@ -9,13 +9,19 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: dependency-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   review:
+    # The name is the required status check on main; keep it unchanged.
+    name: review
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
-      contents: read
-      pull-requests: write
+      contents: read # read the dependency manifests
+      pull-requests: write # post the summary comment when the review fails
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
