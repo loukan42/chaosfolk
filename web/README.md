@@ -84,11 +84,23 @@ cd web && ../.venv/bin/python -m pytest
 
 ### 2. Vercel project
 
-1. Import the repository in Vercel and set **Root Directory** to `web`.
-2. In the project's **Storage** tab, add **Upstash Redis** (free plan) and a **Blob** store with
-   private access, both connected to the project. They add `KV_REST_API_URL`, `KV_REST_API_TOKEN`
-   and `BLOB_STORE_ID`.
-3. Add these environment variables:
+The current deployment is the `chaosfolk-web` project of the `chaosfolk` team, at
+https://chaosfolk-web.vercel.app. It was set up from `web/` with the Vercel CLI:
+
+```bash
+vercel login
+vercel link --yes --project chaosfolk-web --scope chaosfolk
+vercel blob create-store chaosfolk-reports --access private --yes
+vercel integration add upstash/upstash-kv --name chaosfolk-queue
+```
+
+The Upstash step asks once to accept its terms in the browser. The Blob store and Redis database
+add `BLOB_READ_WRITE_TOKEN`, `KV_REST_API_URL` and `KV_REST_API_TOKEN` to the project. The
+project is not connected to GitHub, so deploy from `web/` with `vercel deploy --prod`. To deploy
+on every push instead, add a GitHub login connection to the Vercel account, connect the
+repository and set **Root Directory** to `web`.
+
+Environment variables (`vercel env add NAME production`, or the project settings):
 
    | Variable | Value |
    | --- | --- |
@@ -96,7 +108,7 @@ cd web && ../.venv/bin/python -m pytest
    | `CHAOSFOLK_WEB_MODEL` | `openrouter/<vendor>/<model>:free` |
    | `CHAOSFOLK_WEB_SNAPSHOT` | from step 3 |
    | `CHAOSFOLK_WEB_ALLOWED_ORIGINS` | `https://loukan42.github.io` |
-   | `CRON_SECRET` | a long random string |
+   | `CRON_SECRET` | optional: a long random string; Vercel then authenticates the daily cron |
    | `CHAOSFOLK_WEB_TURNSTILE_SECRET` | optional |
 
    Optional: `CHAOSFOLK_WEB_DAILY_QUOTA` (3), `CHAOSFOLK_WEB_PER_IP_DAILY` (1),
@@ -120,11 +132,10 @@ project and redeploy. Run it again after updating Chaosfolk or the files in `san
 
 ### 4. Landing page on GitHub Pages
 
-1. In the repository settings, open **Pages** and choose **GitHub Actions** as the source.
-2. Edit `site/config.js`: `apiBase` is the Vercel production address, for example
-   `https://chaosfolk-web.vercel.app`, and `turnstileSiteKey` the Turnstile site key. While `apiBase`
-   is empty the form stays closed and the page points to the installation instructions.
-3. Merge to `main`. The workflow publishes `site/` to `https://loukan42.github.io/chaosfolk/`.
+Pages is enabled with **GitHub Actions** as the source. `site/config.js` points `apiBase` to
+`https://chaosfolk-web.vercel.app`; set `turnstileSiteKey` to enable Turnstile. An empty `apiBase`
+closes the form and points visitors to the installation instructions. Each push to `main` that
+touches `site/` publishes it to `https://loukan42.github.io/chaosfolk/`.
 
 ### 5. First audits
 

@@ -325,6 +325,7 @@ def test_cors_rejects_other_origins(client):
 
 
 def test_cron_needs_its_secret(settings, parts):
+    assert TestClient(create_app(settings, resolver=PUBLIC, parts=parts)).get("/api/cron").status_code == 200
     app = create_app(replace(settings, cron_secret="s3cret"), resolver=PUBLIC, parts=parts)
     client = TestClient(app)
     assert client.get("/api/cron").status_code == 401

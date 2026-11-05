@@ -36,8 +36,12 @@ def load_env_file(path):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--ref", default="main", help="Chaosfolk git branch or tag to install (default: main)")
-    parser.add_argument("--opencode", default="latest", help="opencode-ai npm version (pin it once a run is checked)")
+    # 1.19.5 is the version installed in the first snapshot (2026-11-05).
+    parser.add_argument("--opencode", default="1.19.5", help="opencode-ai npm version (default: 1.19.5)")
     args = parser.parse_args(argv)
+    # Installer progress bars stream non-ASCII characters; a Windows console would crash on them.
+    for stream in (sys.stdout, sys.stderr):
+        stream.reconfigure(encoding="utf-8", errors="replace")
     load_env_file(HERE.parent / ".env.local")
 
     from vercel.sandbox import sync as sandbox

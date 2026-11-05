@@ -131,8 +131,10 @@ def create_app(settings=None, resolver=None, parts=None):
 
     @app.get("/api/cron")
     def cron(request: Request):
+        # A tick only does what any status poll does, so a secret is optional. When CRON_SECRET is set,
+        # Vercel sends it and other callers are refused.
         expected = f"Bearer {settings.cron_secret}"
-        if not settings.cron_secret or not hmac.compare_digest(request.headers.get("authorization", ""), expected):
+        if settings.cron_secret and not hmac.compare_digest(request.headers.get("authorization", ""), expected):
             raise HTTPException(401, "Unauthorized.")
         advance()
         return {"ok": True}
