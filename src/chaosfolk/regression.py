@@ -10,7 +10,7 @@ import sys
 import time
 from types import SimpleNamespace
 from urllib.parse import unquote_plus, urlsplit
-from xml.etree import ElementTree as ET
+from xml.etree import ElementTree as ET  # nosec B405 # only writes JUnit XML, never parses input
 
 
 EXPORT_ACTIONS = {

@@ -9,9 +9,11 @@ ISO/IEC 27001:2022 control mapping are in [docs/security.md](docs/security.md).
 
 ## Reporting a vulnerability
 
-Use GitHub private vulnerability reporting: open the repository's **Security**
-tab and choose **Report a vulnerability**. Reports stay private until a fix is
-available. Do not open a public issue for a security problem and do not attach
+Use GitHub private vulnerability reporting: open
+[Report a vulnerability](https://github.com/loukan42/chaosfolk/security/advisories/new)
+(the repository's **Security** tab, then **Report a vulnerability**). Reports
+stay private until a fix is available. Published advisories are listed at
+<https://github.com/loukan42/chaosfolk/security/advisories>. Do not open a public issue for a security problem and do not attach
 session folders, screenshots or tokens from a real environment.
 
 Include the Chaosfolk version (`chaosfolk --version`), the operating system, a
@@ -94,5 +96,6 @@ gitleaks, zizmor, dependency review and OpenSSF Scorecard. GitHub Actions are
 pinned to commit SHAs and run with read-only tokens. Dependabot keeps the
 actions current and opens Python security updates; the lock file is refreshed
 with uv at each release. Installers pin the release version and verify an
-archive checksum when you provide one. Details, roles and the control mapping:
+archive checksum when you provide one; they run the uv installer only after its
+SHA-256 matches the pinned value. Details, roles and the control mapping:
 [docs/security.md](docs/security.md).

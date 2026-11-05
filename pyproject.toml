@@ -49,5 +49,6 @@ select = ["E9", "F"]
 # Static security scan of the package (python -m bandit -c pyproject.toml -r src). Tests are synthetic fixtures.
 exclude_dirs = ["tests", ".venv", "build", "dist"]
 # B608: SQL text is assembled only from constant table names and "?" placeholders checked in evidence.py and
-# reporting.py; every value is bound as a parameter. Remaining accepted risks carry an inline "nosec" with a reason.
-skips = ["B608"]
+# reporting.py; every value is bound as a parameter. B404 only flags "import subprocess"; every call is still
+# checked by B603/B607 and carries an inline "nosec" with its reason, like every other accepted finding.
+skips = ["B404", "B608"]

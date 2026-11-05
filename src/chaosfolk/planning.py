@@ -28,7 +28,7 @@ GIT_SAFE = ("-c", "core.fsmonitor=false", "-c", "core.hooksPath=", "-c", "diff.e
 
 def git(repo, *args):
     # A cloned repository configures nothing that runs here: no filesystem monitor, hooks or external diff driver.
-    result = subprocess.run(["git", *GIT_SAFE, "-C", str(repo), *args], capture_output=True, timeout=30)
+    result = subprocess.run(["git", *GIT_SAFE, "-C", str(repo), *args], capture_output=True, timeout=30)  # nosec B603 B607 # fixed git argument list, no shell; GIT_SAFE disables repository-configured commands
     if result.returncode:
         detail = result.stderr.decode("utf-8", errors="replace").strip().splitlines()
         raise ValueError((detail[0][:200] if detail else "") or "Git command failed")

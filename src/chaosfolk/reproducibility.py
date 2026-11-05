@@ -113,7 +113,7 @@ def git_identity(repo):
     if not repo:
         return None
     def git(*args):
-        return subprocess.run(["git", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=", "-C", str(repo), *args],
+        return subprocess.run(["git", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=", "-C", str(repo), *args],  # nosec B603 B607 # fixed git argument list, no shell; repository-configured commands disabled
                               capture_output=True, text=True,
                               timeout=5, check=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout.strip()
     try:

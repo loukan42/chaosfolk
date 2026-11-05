@@ -273,3 +273,81 @@ def test_install_scripts_pin_the_released_version():
     assert f"else {{ '{__version__}' }}" in powershell
     assert "refs/heads/main" not in shell and "refs/heads/main" not in powershell
     assert "CHAOSFOLK_SHA256" in shell and "CHAOSFOLK_SHA256" in powershell
+
+
+ROOT = Path(__file__).resolve().parents[1]
+FAKE_CURL = """#!/bin/sh
+# Test double for curl: writes a fake uv installer to the -o target and logs the URL.
+out=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -o) out="$2"; shift 2 ;;
+    -*) shift ;;
+    *) echo "$1" >> "$CURL_LOG"; shift ;;
+  esac
+done
+printf '#!/bin/sh\\necho ran > "%s"\\n' "$MARKER" > "$out"
+"""
+
+
+def run_installer_without_uv(tmp_path, **env):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "curl").write_text(FAKE_CURL, encoding="utf-8")
+    (bin_dir / "curl").chmod(0o755)
+    environment = {"PATH": f"{bin_dir}:/usr/bin:/bin", "HOME": str(tmp_path / "home"),
+                   "CURL_LOG": str(tmp_path / "curl.log"), "MARKER": str(tmp_path / "ran"),
+                   "CHAOSFOLK_NO_MODIFY_PATH": "1", **env}
+    result = subprocess.run(["sh", str(ROOT / "install.sh"), "--skip-browser", "--home", str(tmp_path / "skills")],
+                            env=environment, capture_output=True, text=True, timeout=60)
+    return result, (tmp_path / "ran").exists()
+
+
+@pytest.mark.skipif(os.name == "nt" or shutil.which("sh") is None, reason="POSIX shell installer")
+def test_shell_installer_runs_the_uv_installer_only_when_its_checksum_matches(tmp_path):
+    if shutil.which("uv", path="/usr/bin:/bin"):
+        pytest.skip("uv is installed system-wide, so the installer never downloads it")
+    result, ran = run_installer_without_uv(tmp_path / "default")
+    assert result.returncode != 0 and not ran
+    assert "uv installer checksum mismatch" in result.stderr
+    assert (tmp_path / "default" / "curl.log").read_text().split() == [
+        "https://github.com/astral-sh/uv/releases/download/0.13.6/uv-installer.sh"]
+
+    result, ran = run_installer_without_uv(tmp_path / "other", CHAOSFOLK_UV_VERSION="9.9.9")
+    assert result.returncode != 0 and not ran
+    assert "needs CHAOSFOLK_UV_SHA256" in result.stderr
+    assert not (tmp_path / "other" / "curl.log").exists()
+
+    import hashlib
+    marker = tmp_path / "match" / "ran"
+    fake = f'#!/bin/sh\necho ran > "{marker}"\n'.encode()
+    result, ran = run_installer_without_uv(tmp_path / "match", CHAOSFOLK_UV_SHA256=hashlib.sha256(fake).hexdigest())
+    assert ran, result.stderr
+
+
+def test_installers_pin_the_uv_installer_checksum_and_never_pipe_it_into_a_shell():
+    import re
+    shell = (ROOT / "install.sh").read_text(encoding="utf-8")
+    powershell = (ROOT / "install.ps1").read_text(encoding="utf-8")
+    assert re.search(r'^DEFAULT_UV_SHA256="[0-9a-f]{64}"$', shell, re.M)
+    assert re.search(r"^\$defaultUvSha256 = '[0-9a-f]{64}'$", powershell, re.M)
+    # The usage comments at the top show how a person runs the installer itself; only code lines count.
+    code = lambda text: "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))  # noqa: E731
+    assert not re.search(r"curl[^\n]*\|\s*(UV_NO_MODIFY_PATH=1\s+)?sh\b", code(shell))
+    assert not re.search(r"Invoke-RestMethod[^\n]*\|\s*Invoke-Expression", code(powershell))
+    assert "CHAOSFOLK_UV_SHA256" in shell and "CHAOSFOLK_UV_SHA256" in powershell
+
+
+def test_workflows_never_run_an_unpinned_pip_install():
+    for workflow in (ROOT / ".github" / "workflows").glob("*.yml"):
+        for number, line in enumerate(workflow.read_text(encoding="utf-8").splitlines(), 1):
+            if "pip install" in line:
+                assert "--require-hashes" in line or "--no-deps" in line, f"{workflow.name}:{number}: {line.strip()}"
+
+
+def test_every_bandit_exception_names_its_test_and_gives_a_reason():
+    import re
+    for source in (ROOT / "src" / "chaosfolk").glob("*.py"):
+        for number, line in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
+            if "nosec" in line:
+                assert re.search(r"# nosec (B\d{3} )+# \S", line), f"{source.name}:{number}"

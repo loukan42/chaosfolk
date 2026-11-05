@@ -36,6 +36,9 @@ adopter Chaosfolk sur des preuves plutôt que sur la confiance.
   installent une version publiée par défaut, vérifient l'empreinte de l'archive
   quand `CHAOSFOLK_SHA256` est défini, peuvent refuser de télécharger uv
   (`CHAOSFOLK_REQUIRE_UV=1`) et acceptent un miroir interne (`CHAOSFOLK_SOURCE`).
+  Quand uv manque, ils téléchargent son installateur, comparent son empreinte
+  SHA-256 à la valeur épinglée dans le script et ne l'exécutent qu'ensuite ; une
+  autre version d'uv demande `CHAOSFOLK_UV_VERSION` avec `CHAOSFOLK_UV_SHA256`.
   L'empreinte de l'archive 0.8.0 figure dans le README.
 - **Un processus documenté.** [SECURITY.md](../../SECURITY.md) donne le canal de
   signalement, les délais de réponse et les versions maintenues.
@@ -50,7 +53,10 @@ La CI installe des dépendances verrouillées par empreinte, épingle chaque act
 GitHub sur un commit et ajoute CodeQL, bandit, pip-audit avec un SBOM CycloneDX,
 gitleaks, zizmor, la revue des dépendances et OpenSSF Scorecard. Dependabot,
 CODEOWNERS et les hooks pre-commit sont configurés. `chaosfolk install-browser`
-n'accepte plus que `--with-deps`, `--force` et `--dry-run`.
+n'accepte plus que `--with-deps`, `--force` et `--dry-run`. Aucune étape de la CI
+ne lance de `pip install` non épinglé, Dependabot attend sept jours avant de
+proposer une nouvelle version d'action, et chaque alerte bandit, faible gravité
+comprise, est corrigée ou porte un `# nosec` avec sa raison.
 
 ## Limites
 

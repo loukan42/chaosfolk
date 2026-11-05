@@ -81,7 +81,7 @@ def tirer_horde(escouade, nombre, objectifs, graine, application, metiers=None, 
         if invalid:
             raise ValueError(f"Unknown draw fault(s): {', '.join(sorted(invalid))}. app-stop is a global fault; schedule it separately.")
         fault_options = [item for item in available_faults if item["type"] in selected]
-    rng = random.Random(graine)
+    rng = random.Random(graine)  # nosec B311 # seeded, reproducible persona draw; not used for secrets
     profils = list(cat["profils"])
     rng.shuffle(profils)
     metiers = metiers or cat["metiers"]

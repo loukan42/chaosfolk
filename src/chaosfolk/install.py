@@ -127,7 +127,7 @@ def ensure_browser():
     if found:
         return f"ready ({found})"
     print("Downloading Chromium for Chaosfolk, about 150 MB...", flush=True)
-    code = subprocess.call([sys.executable, "-m", "playwright", "install", "chromium"])
+    code = subprocess.call([sys.executable, "-m", "playwright", "install", "chromium"])  # nosec B603 # fixed Playwright command under the current interpreter, no shell
     found = browser_ready() if code == 0 else None
     if found:
         return f"ready ({found})"

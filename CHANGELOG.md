@@ -26,6 +26,11 @@ Each entry explains what the change helps you do and gives an example.
   `CHAOSFOLK_SHA256` is set and refuse to download uv when `CHAOSFOLK_REQUIRE_UV`
   is set. Document the process in [SECURITY.md](SECURITY.md) and
   [docs/security.md](docs/security.md), with the ISO/IEC 27001:2022 control mapping.
+- The installers no longer pipe the uv installer into a shell: they download it,
+  check its SHA-256 against the value pinned in the script and only then run it,
+  so a tampered download stops the installation before anything is installed.
+  Another uv version needs `CHAOSFOLK_UV_VERSION` together with
+  `CHAOSFOLK_UV_SHA256` ([#24](https://github.com/loukan42/chaosfolk/issues/24)).
 
 ### Changed
 
@@ -36,6 +41,12 @@ Each entry explains what the change helps you do and gives an example.
   off: the uv lock carries transitive constraints Dependabot cannot see);
   CODEOWNERS and pre-commit hooks are configured. `chaosfolk install-browser`
   accepts only `--with-deps`, `--force` and `--dry-run`.
+- The code scanning alerts left on `main` are closed: CI no longer runs an unpinned
+  `pip install` (pip is in the hash lock), Dependabot waits seven days before
+  proposing a new action release, every bandit finding of any severity is fixed
+  or carries a `# nosec` with its reason, CodeQL skips the deliberately defective
+  `tests/qa_app` fixture, and the Scorecard items that depend on the team are
+  recorded in the accepted-risk register of [docs/security.md](docs/security.md).
 
 ### Fixed
 
