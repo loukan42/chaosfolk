@@ -56,6 +56,7 @@ class Settings:
     # The sandbox firewall adds the key to requests for openrouter.ai, so the agent never sees it.
     broker_key: bool = field(default_factory=lambda: _bool("CHAOSFOLK_WEB_BROKER_KEY", True))
     vcpus: int = field(default_factory=lambda: _int("CHAOSFOLK_WEB_VCPUS", 2, 1))
+    sandbox_region: str = field(default_factory=lambda: _env("CHAOSFOLK_WEB_SANDBOX_REGION", default="iad1"))
 
     @property
     def audit_seconds(self):

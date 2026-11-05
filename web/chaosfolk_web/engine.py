@@ -56,6 +56,13 @@ def start_next(settings, store, backend, moment=None):
         store.finish(audit["id"], "failed", "The audit could not start. Try again tomorrow.", moment)
 
 
+def log_diagnosis(backend, audit):
+    diagnose = getattr(backend, "diagnose", None)
+    text = diagnose(audit["handle"]) if diagnose else ""
+    if text:
+        log.warning("audit %s failed; sandbox logs:\n%s", audit["id"], text)
+
+
 def advance(settings, store, reports, backend, moment=None):
     moment = moment or now()
     audit = store.running()
@@ -76,9 +83,11 @@ def advance(settings, store, reports, backend, moment=None):
             reports.save(audit["id"], backend.collect(audit["handle"]))
             store.finish(audit["id"], "done", "", moment)
         else:
+            log_diagnosis(backend, audit)
             store.finish(audit["id"], "failed", error or "The audit failed.", moment)
         backend.stop(audit["handle"])
     except (BackendError, NoReport) as failure:
+        log_diagnosis(backend, audit)
         backend.stop(audit["handle"])
         store.finish(audit["id"], "failed", str(failure), moment)
     except Exception:

@@ -15,9 +15,9 @@ from . import pack
 SANDBOX_ROOT = "/opt/chaosfolk"
 SANDBOX_ZIP = f"{SANDBOX_ROOT}/work/report.zip"
 # The sandbox firewall refuses these destinations even though every public domain is allowed.
+# It accepts IPv4 ranges only; IPv6 literals such as ::1 are refused by the firewall API.
 PRIVATE_RANGES = ("0.0.0.0/8", "10.0.0.0/8", "100.64.0.0/10", "127.0.0.0/8", "169.254.0.0/16", "172.16.0.0/12",
-                  "192.0.0.0/24", "192.168.0.0/16", "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4",
-                  "::1/128", "fc00::/7", "fe80::/10")
+                  "192.0.0.0/24", "192.168.0.0/16", "198.18.0.0/15", "224.0.0.0/4", "240.0.0.0/4")
 
 
 class BackendError(Exception):
@@ -84,6 +84,8 @@ class SandboxBackend:
             # Hobby sessions stop after 45 minutes; the engine limit is far below.
             execution_time_limit=min(settings.audit_seconds + 900, 2700),
             persistent=False,
+            # A snapshot restores in the region where it was saved, not necessarily the function's.
+            region=settings.sandbox_region,
             network_policy=self.policy(settings),
             tags={"app": "chaosfolk-web"},
         )
@@ -124,6 +126,23 @@ class SandboxBackend:
             return self._box(handle).fs.read_bytes(SANDBOX_ZIP)
         except missing:
             raise BackendError("The audit ended without a report.") from None
+
+    def diagnose(self, handle, limit=4000):
+        """The end of the sandbox logs, for the server logs only: they can quote page content."""
+        try:
+            box = self._box(handle)
+            if str(getattr(box.status, "value", box.status) or "") != "running":
+                return ""
+            parts = []
+            for name in ("check.log", "agent.log", "report.log"):
+                try:
+                    text = box.fs.read_text(f"{SANDBOX_ROOT}/work/{name}", errors="replace")
+                except Exception:
+                    continue
+                parts.append(f"--- {name}\n{text[-limit:]}")
+            return "\n".join(parts)
+        except Exception:
+            return ""
 
     def stop(self, handle):
         try:
