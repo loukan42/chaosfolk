@@ -1,3 +1,4 @@
-# Server side of the hosted audits (API and worker). Chaosfolk itself runs inside the runner image.
+# Server side of the hosted audits. Chaosfolk itself runs inside the audit sandbox.
 fastapi>=0.115,<1
-uvicorn>=0.30,<1
+# Vercel Sandbox and Blob SDKs.
+vercel>=0.12,<0.13

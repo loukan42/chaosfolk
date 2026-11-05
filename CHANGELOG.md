@@ -12,13 +12,14 @@ Each entry explains what the change helps you do and gives an example.
 
 - Run a Quick audit from a web page, without installing anything
   ([#34](https://github.com/loukan42/chaosfolk/issues/34)). The landing page in
-  `site/` is published on GitHub Pages; the server in `web/` queues audits, applies
-  a daily quota and one audit per visitor per day, and runs each audit in a
-  disposable container with OpenCode on an OpenRouter model. Example: paste
-  `https://staging.example.com`, wait for the report link, open the report.
-  Private and local addresses are refused. The finished report can be opened,
-  downloaded as a .zip that works offline and includes the recorded journeys for
-  `chaosfolk replay`, or shared by link. See [web/README.md](web/README.md).
+  `site/` is published on GitHub Pages; the API in `web/` runs on Vercel's free
+  plan, applies a daily quota and one audit per visitor per day, and runs each
+  audit in a Vercel Sandbox with OpenCode on an OpenRouter model. The model key
+  never enters the sandbox. Example: paste `https://staging.example.com`, wait
+  for the report link, open the report. Private and local addresses are refused.
+  The finished report can be opened, downloaded as a .zip that works offline and
+  includes the recorded journeys for `chaosfolk replay`, or shared by link. See
+  [web/README.md](web/README.md).
 
 ### Security
 

@@ -4,7 +4,7 @@ The visitor has already agreed to these settings and asked for immediate executi
 questions: nobody can answer them. When information is missing, make the most conservative choice
 and write it in the report.
 
-- The audit session already exists in /work/run, at depth quick, and is started. Do not create
+- The audit session already exists in {RUN}, at depth quick, and is started. Do not create
   another one, do not open the dashboard and do not change its limits.
 - Project name: {PROJECT}. Report language: {LANG}.
 - Target: only {URL} and pages on the same site. Never follow a link to another site.
@@ -16,4 +16,4 @@ and write it in the report.
 - If the time or action limit is reached, stop and write a partial report.
 
 Finish with `chaosfolk stop --keep-app` if the engine is running, then
-`chaosfolk report --folder /work/run --lang {LANG}`. The report must exist at /work/run/rapport.html.
+`chaosfolk report --folder {RUN} --lang {LANG}`. The report must exist at {RUN}/rapport.html.

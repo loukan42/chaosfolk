@@ -34,4 +34,4 @@ jobs:
         working-directory: web
         run: python -m pytest -q
       - name: Check shell scripts
-        run: sh -n web/runner/run-audit.sh && sh -n web/deploy/egress-firewall.sh
+        run: sh -n web/sandbox/run-audit.sh && sh -n web/sandbox/setup.sh

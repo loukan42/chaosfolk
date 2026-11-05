@@ -1,0 +1,5 @@
+tests/
+sandbox/
+dev.py
+pytest.ini
+**/__pycache__

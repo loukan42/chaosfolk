@@ -1,62 +1,70 @@
 # Hosted Quick audits
 
 Visitors paste a URL on the landing page and get a Chaosfolk Quick audit report, with no
-installation. A daily quota bounds model usage. People who need more install Chaosfolk or fork
-the repository.
+installation. Everything runs on free plans: GitHub Pages for the page, Vercel Hobby for the API,
+the audits and the reports, and an OpenRouter free model. People who need more install Chaosfolk
+or fork the repository.
 
 ```
-GitHub Pages (site/)  --HTTPS-->  Caddy  -->  API (FastAPI, SQLite)
-                                               |
-                                            worker  --docker run-->  runner container
-                                                                     (Chaosfolk, Chromium, OpenCode
-                                                                      on an OpenRouter model)
+GitHub Pages (site/)  --HTTPS-->  Vercel Function (FastAPI, web/index.py)
+                                    |  queue and daily quota: Upstash Redis (free)
+                                    |  reports: Vercel Blob, private store (free)
+                                    '--> Vercel Sandbox microVM, restored from a prepared snapshot:
+                                         Chaosfolk + Chromium + OpenCode on an OpenRouter model
 ```
 
-- `site/` is the static landing page, deployed by `.github/workflows/pages.yml`.
-- `web/chaosfolk_web/` holds the API (`app.py`), the queue ledger (`store.py`), URL checks
-  (`urls.py`), Turnstile (`turnstile.py`) and the worker (`worker.py`, `runner.py`).
-- `web/runner/` builds the disposable audit container. The engine limits (Quick depth, time and
-  actions) are set before the agent starts, so they hold whatever the model does.
-- `web/deploy/` has the systemd units, the Caddyfile and the egress firewall script.
+There is no background worker. The function advances the queue when a visitor submits or polls an
+audit (the landing page polls every few seconds), and a daily cron job cleans up expired reports.
+One audit runs at a time.
 
 ## What protects the service
 
 | Risk | Measure |
 | --- | --- |
-| Model cost | Global daily quota, one audit per IP per day, one audit at a time, credit limit on the OpenRouter key |
-| Robots | Cloudflare Turnstile on the form |
-| A URL that reaches the server's network | http(s) on ports 80/443 only; local names refused; every resolved address must be public, checked at submission and again before the run; the audit network blocks private ranges, metadata and the host |
-| A hostile page | One container per audit, no capabilities, memory/CPU/process limits, removed after the run; the agent may run only `chaosfolk` and a few read commands and cannot fetch URLs itself |
-| Private data in reports | Only the report and its `assets/`, `captures/`, `reproductions/`, `scenarios/` are published; browser state, the audit database and logs stay on the server; reports are deleted after 7 days and marked `noindex` |
-| Testing someone else's site | Consent checkbox, salted IP hash kept with each audit, small daily quota. Ownership is not verified. |
+| Model and compute use | Global daily quota (3 by default), one audit per IP per day, one audit at a time. On Hobby, Vercel pauses Sandbox and Blob when the monthly allowance is used instead of charging. |
+| Robots | Cloudflare Turnstile on the form (optional) |
+| A URL that reaches internal networks | http(s) on ports 80/443 only; local names refused; every resolved address must be public, checked at submission and again before the run; the sandbox firewall denies private, link-local and metadata ranges |
+| The OpenRouter key | Never enters the sandbox: the sandbox firewall adds it to requests for `openrouter.ai` only |
+| A hostile page or a confused agent | Each audit gets its own microVM, destroyed afterwards; the engine limits (Quick depth, time, actions) are set before the agent starts; the agent may run only `chaosfolk` and a few read commands and cannot fetch URLs itself |
+| Private data in reports | The archive holds only the report, its `assets/`, `captures/`, `reproductions/` and `scenarios/`; browser state, the audit database and agent logs stay in the sandbox and disappear with it. Reports are deleted after 7 days and marked `noindex`. |
+| Testing someone else's site | Consent checkbox, salted IP hash, small daily quota. Ownership is not verified. |
 
 The report link is the only key to a report: anyone who has it can open it until it expires.
+
+## Free plan budget
+
+| Service | Free allowance (Hobby) | One Quick audit uses |
+| --- | --- | --- |
+| Vercel Sandbox | 5 h active CPU, 420 GB-h memory, 45 min per session | to be measured; CPU waiting for the model is not counted |
+| Vercel Blob | 1 GB storage, 2,000 uploads, 10 GB transfer per month | one upload (the .zip) |
+| Upstash Redis | free database | a few dozen commands |
+| OpenRouter `:free` models | 20 requests/min; 50/day, or 1,000/day after buying 10 credits once | one request per agent step |
+
+The OpenRouter daily limit is the first one you will hit. Measure a few audits before raising
+`CHAOSFOLK_WEB_DAILY_QUOTA`.
 
 ## Download, share and replay
 
 When an audit finishes, the page offers **Open the report**, **Download (.zip)**, **Copy the link**
-and, on devices that support it, **Share**. The worker packs the published files into
-`report.zip` once, served at `/api/audits/<id>/report.zip`. Extracted, the folder opens offline
-(`rapport.html`) and keeps the session replay screens. Its `scenarios/` folder holds the recorded
-journeys: with Chaosfolk installed, `chaosfolk replay scenarios/NAME.json --times 3` replays one
-from that folder, which the engine uses as the session folder. The archive includes a README with
-these steps. Both the link and the archive are deleted after `CHAOSFOLK_WEB_REPORT_DAYS`.
+and, on devices that support it, **Share**. The sandbox packs the report into one `.zip`
+(`chaosfolk_web/pack.py`), stored as a single private blob. Report pages are served from that
+archive by the function. Extracted, the folder opens offline (`rapport.html`) and keeps the session
+replay screens. With Chaosfolk installed, `chaosfolk replay scenarios/NAME.json --times 3` replays a
+recorded journey from that folder. The archive includes a README with these steps.
 
 ## Try it locally
 
-No model, Docker or Turnstile needed: the `demo` runner ignores the URL and builds the bundled
-demo report, which exercises the whole queue.
+No account is needed: local mode uses SQLite, files and the offline Chaosfolk demo, which ignores
+the URL and always produces the demo report.
 
 ```bash
 python -m venv .venv
-.venv/bin/pip install -e . -r web/requirements.txt
+.venv/bin/pip install -e . -r web/requirements.txt uvicorn
 .venv/bin/python -m playwright install chromium
 .venv/bin/python web/dev.py
 ```
 
-Open http://127.0.0.1:8080/. Data goes to `.horde/web-dev/`.
-
-Tests:
+Open http://127.0.0.1:8080/. Data goes to `.horde/web-dev/`. Tests:
 
 ```bash
 .venv/bin/pip install pytest httpx
@@ -65,72 +73,69 @@ cd web && ../.venv/bin/python -m pytest
 
 ## Deploy
 
-### 1. Landing page on GitHub Pages
+### 1. Accounts
+
+- **Vercel** (Hobby, free): sign up with GitHub.
+- **OpenRouter**: create an API key with a credit limit. Choose a free model that supports tool
+  calls, for example `nvidia/nemotron-3-ultra-550b-a55b:free`; in OpenCode it is written
+  `openrouter/nvidia/nemotron-3-ultra-550b-a55b:free`. Some free providers keep prompts, and the
+  agent sends them the visited pages.
+- **Cloudflare Turnstile** (optional): a widget for `loukan42.github.io`.
+
+### 2. Vercel project
+
+1. Import the repository in Vercel and set **Root Directory** to `web`.
+2. In the project's **Storage** tab, add **Upstash Redis** (free plan) and a **Blob** store with
+   private access, both connected to the project. They add `KV_REST_API_URL`, `KV_REST_API_TOKEN`
+   and `BLOB_STORE_ID`.
+3. Add these environment variables:
+
+   | Variable | Value |
+   | --- | --- |
+   | `OPENROUTER_API_KEY` | your OpenRouter key |
+   | `CHAOSFOLK_WEB_MODEL` | `openrouter/<vendor>/<model>:free` |
+   | `CHAOSFOLK_WEB_SNAPSHOT` | from step 3 |
+   | `CHAOSFOLK_WEB_ALLOWED_ORIGINS` | `https://loukan42.github.io` |
+   | `CRON_SECRET` | a long random string |
+   | `CHAOSFOLK_WEB_TURNSTILE_SECRET` | optional |
+
+   Optional: `CHAOSFOLK_WEB_DAILY_QUOTA` (3), `CHAOSFOLK_WEB_PER_IP_DAILY` (1),
+   `CHAOSFOLK_WEB_AUDIT_MINUTES` (10), `CHAOSFOLK_WEB_MAX_ACTIONS` (80), `CHAOSFOLK_WEB_USERS` (3),
+   `CHAOSFOLK_WEB_REPORT_DAYS` (7), `CHAOSFOLK_WEB_PUBLIC_URL` (defaults to the production domain).
+
+### 3. Audit snapshot
+
+From `web/`, with the Vercel CLI linked to the project:
+
+```bash
+vercel link
+vercel env pull
+python -m pip install "vercel>=0.12,<0.13"
+python sandbox/build_snapshot.py --ref main
+```
+
+The script installs Chaosfolk, Chromium and OpenCode in a sandbox (`sandbox/setup.sh`), saves a
+snapshot that never expires, and prints `CHAOSFOLK_WEB_SNAPSHOT=snap_...`. Add that value to the
+project and redeploy. Run it again after updating Chaosfolk or the files in `sandbox/`.
+
+### 4. Landing page on GitHub Pages
 
 1. In the repository settings, open **Pages** and choose **GitHub Actions** as the source.
-2. Edit `site/config.js`: `apiBase` is the server address (for example `https://audit.example.com`),
-   `turnstileSiteKey` the Turnstile site key. While `apiBase` is empty the form stays closed and
-   the page points to the installation instructions.
+2. Edit `site/config.js`: `apiBase` is the Vercel production address, for example
+   `https://chaosfolk-web.vercel.app`, and `turnstileSiteKey` the Turnstile site key. While `apiBase`
+   is empty the form stays closed and the page points to the installation instructions.
 3. Merge to `main`. The workflow publishes `site/` to `https://loukan42.github.io/chaosfolk/`.
 
-### 2. Accounts
+### 5. First audits
 
-- **OpenRouter**: create an API key, set a credit limit on it, and choose a model that supports
-  tool calls. Free models have low daily request limits and some providers keep prompts; the page
-  sends them the visited pages. Check OpenRouter's current limits and the provider's data policy.
-- **Cloudflare Turnstile**: create a widget for `loukan42.github.io`. The site key goes in
-  `site/config.js`, the secret in the server environment.
-
-### 3. Server
-
-A small Linux VPS with Docker (Debian or Ubuntu), 2 vCPU and 4 GB of memory for one audit at a
-time. Point a DNS name such as `audit.example.com` to it.
-
-```bash
-sudo apt install -y docker.io caddy python3-venv git
-sudo git clone https://github.com/loukan42/chaosfolk.git /opt/chaosfolk
-cd /opt/chaosfolk
-sudo docker build -f web/runner/Dockerfile -t chaosfolk-runner .
-
-# uid 10001 matches the audit user inside the runner image (AUDIT_UID build argument).
-sudo useradd --system --uid 10001 --home /var/lib/chaosfolk-web --create-home chaosfolk-web
-sudo python3 -m venv web/.venv
-sudo web/.venv/bin/pip install -r web/requirements.txt
-
-sudo install -m 0600 web/deploy/env.example /etc/chaosfolk-web.env
-sudo nano /etc/chaosfolk-web.env          # key, model, public URL, Turnstile secret
-
-sudo chmod 0755 web/deploy/egress-firewall.sh
-sudo cp web/deploy/*.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now chaosfolk-egress chaosfolk-web-api chaosfolk-web-worker
-
-sudo cp web/deploy/Caddyfile /etc/caddy/Caddyfile   # replace audit.example.com
-sudo systemctl reload caddy
-```
-
-Open only ports 22, 80 and 443 on the server firewall. The API listens on 127.0.0.1.
-
-Check that a container cannot reach private addresses:
-
-```bash
-sudo docker run --rm --network chaosfolk-audits --entrypoint python3 chaosfolk-runner \
-  -c "import urllib.request; urllib.request.urlopen('http://169.254.169.254', timeout=3)"
-```
-
-The command must fail with a connection error.
-
-### 4. Set the quota
-
-The right `CHAOSFOLK_WEB_DAILY_QUOTA` is the model budget divided by what one audit uses, which is
-not known yet. Run two or three audits on your own sites with a quota of 5, read the requests and
-cost in the OpenRouter activity page, then adjust the value and restart the API. The counter resets
-at midnight UTC.
+Run two or three audits on your own sites. Check in OpenRouter's activity page how many requests
+one audit used, and in Vercel's usage page the Sandbox CPU. Then set `CHAOSFOLK_WEB_DAILY_QUOTA`.
 
 ## Operate
 
-- Logs: `journalctl -u chaosfolk-web-worker -f`. Each audit keeps `runner.log`, `work/agent.log` and
-  `work/check.log` in `/var/lib/chaosfolk-web/jobs/<id>/` until it expires.
-- Abuse report: hash the IP with the salt in the `meta` table to find its audits.
-- Update: `git pull`, rebuild the runner image, restart both services. A restart marks a running
-  audit as failed.
+- Logs: the function's Runtime Logs in Vercel. Agent logs stay inside the sandbox and are lost with
+  it; to debug a run, create a sandbox from the snapshot with the Vercel CLI and run
+  `/opt/chaosfolk/run-audit.sh` by hand.
+- Abuse report: hash the IP with the `cf:salt` value to find its audits.
+- An audit stuck without a sandbox is failed after 3 minutes; a running one after its time limit
+  plus 15 minutes.
