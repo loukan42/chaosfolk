@@ -1,0 +1,19 @@
+# /etc/caddy/Caddyfile. Caddy obtains the HTTPS certificate on its own.
+audit.example.com {
+	encode zstd gzip
+
+	# One request body is a URL; refuse anything large.
+	request_body {
+		max_size 16KB
+	}
+
+	reverse_proxy 127.0.0.1:8000 {
+		# Overwritten on every request, so a visitor cannot choose the IP used for the daily limit.
+		header_up X-Real-IP {remote_host}
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+}

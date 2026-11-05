@@ -1,0 +1,25 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "autoupdate": false,
+  "share": "disabled",
+  "provider": {
+    "openrouter": {
+      "options": {
+        "apiKey": "{env:OPENROUTER_API_KEY}"
+      }
+    }
+  },
+  "permission": {
+    "bash": {
+      "*": "deny",
+      "chaosfolk *": "allow",
+      "python3 -m chaosfolk *": "allow",
+      "ls *": "allow",
+      "cat *": "allow",
+      "mkdir *": "allow"
+    },
+    "edit": "allow",
+    "webfetch": "deny",
+    "skill": "allow"
+  }
+}

@@ -1,0 +1,3 @@
+# Server side of the hosted audits (API and worker). Chaosfolk itself runs inside the runner image.
+fastapi>=0.115,<1
+uvicorn>=0.30,<1

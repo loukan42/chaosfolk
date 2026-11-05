@@ -8,6 +8,16 @@ Each entry explains what the change helps you do and gives an example.
 
 ## [Unreleased]
 
+### Added
+
+- Run a Quick audit from a web page, without installing anything
+  ([#34](https://github.com/loukan42/chaosfolk/issues/34)). The landing page in
+  `site/` is published on GitHub Pages; the server in `web/` queues audits, applies
+  a daily quota and one audit per visitor per day, and runs each audit in a
+  disposable container with OpenCode on an OpenRouter model. Example: paste
+  `https://staging.example.com`, wait for the report link, open the report.
+  Private and local addresses are refused. See [web/README.md](web/README.md).
+
 ### Security
 
 - Harden the engine and the repository for use inside an organization after the

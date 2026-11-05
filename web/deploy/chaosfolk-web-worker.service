@@ -1,0 +1,21 @@
+[Unit]
+Description=Chaosfolk hosted audits: queue worker
+After=docker.service chaosfolk-egress.service
+Requires=docker.service chaosfolk-egress.service
+
+[Service]
+User=chaosfolk-web
+Group=chaosfolk-web
+# The docker group can start containers; keep this user dedicated to the worker.
+SupplementaryGroups=docker
+EnvironmentFile=/etc/chaosfolk-web.env
+WorkingDirectory=/opt/chaosfolk/web
+ExecStart=/opt/chaosfolk/web/.venv/bin/python -m chaosfolk_web.worker
+Restart=always
+RestartSec=5
+NoNewPrivileges=yes
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

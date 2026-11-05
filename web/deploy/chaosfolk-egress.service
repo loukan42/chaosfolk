@@ -1,0 +1,12 @@
+[Unit]
+Description=Chaosfolk hosted audits: audit network and egress rules
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/opt/chaosfolk/web/deploy/egress-firewall.sh
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,11 @@
+.git
+.venv
+.claude
+.horde
+.chaosfolk
+**/__pycache__
+**/*.pyc
+build
+dist
+web-data
+assets/*.gif

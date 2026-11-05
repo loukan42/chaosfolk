@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chaosfolk: audit your web app with simulated users</title>
+  <meta name="description" content="Paste your site's address. Simulated users explore it in a real browser and you get a report with evidence and a fix prompt for your coding agent.">
+  <meta property="og:title" content="Chaosfolk">
+  <meta property="og:description" content="Simulated users break your web app in a real browser. You get the bugs, the proof and a fix prompt.">
+  <meta property="og:image" content="logo.webp">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" href="favicon.png">
+  <link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="./" aria-label="Chaosfolk home"><img src="logo.webp" alt="Chaosfolk. AI users. Real browser evidence." width="1080" height="361"></a>
+    <nav>
+      <a href="#how">How it works</a>
+      <a href="#more">Run it yourself</a>
+      <a href="https://github.com/loukan42/chaosfolk">GitHub</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="pitch">
+        <p class="eyebrow">Free Quick audit</p>
+        <h1>Simulated users break your web app in a real browser.</h1>
+        <p class="lead">Paste your site's address. Chaosfolk sends a few simulated users with different habits,
+          runs its highest-priority checks and gives you a report with the evidence and a fix prompt for your coding agent.</p>
+      </div>
+
+      <div class="card" id="panel">
+        <form id="audit-form" novalidate>
+          <div class="quota" id="quota" aria-live="polite">
+            <span class="quota-count" id="quota-count">-</span>
+            <span class="quota-label" id="quota-label">free audits left today</span>
+          </div>
+
+          <label class="field-label" for="url">Your site's address</label>
+          <input id="url" name="url" type="url" inputmode="url" autocomplete="url" spellcheck="false"
+                 placeholder="https://staging.example.com" required maxlength="2000">
+
+          <fieldset class="lang">
+            <legend>Report language</legend>
+            <label><input type="radio" name="lang" value="en" checked> English</label>
+            <label><input type="radio" name="lang" value="fr"> Français</label>
+          </fieldset>
+
+          <label class="check">
+            <input type="checkbox" id="authorized" required>
+            <span>I own this site or I am authorized to test it. Simulated users will click, type and fill in forms with synthetic data.</span>
+          </label>
+
+          <div id="turnstile" class="turnstile"></div>
+
+          <button type="submit" id="submit">Start the audit</button>
+          <p class="form-error" id="form-error" role="alert" hidden></p>
+          <p class="fine">One audit per visitor per day, with a time limit.
+            The report stays online for 7 days for anyone who has its link.</p>
+        </form>
+
+        <div class="status" id="status" hidden aria-live="polite">
+          <p class="eyebrow" id="status-url"></p>
+          <h2 id="status-title">Waiting in line</h2>
+          <p id="status-detail"></p>
+          <div class="progress" id="progress"><span></span></div>
+          <a class="button" id="report-link" href="#" target="_blank" rel="noopener" hidden>Open the report</a>
+          <p class="fine" id="status-note">Keep this page open, or bookmark it: the address brings you back to this audit.</p>
+          <button type="button" class="ghost" id="new-audit" hidden>Audit another site</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="how" id="how">
+      <h2>What the Quick audit does</h2>
+      <ol class="steps">
+        <li>
+          <h3>Simulated users explore</h3>
+          <p>Each one has a goal and a behavior profile: in a hurry, keyboard only, on mobile, distracted,
+            unfamiliar with jargon. They drive their own Chromium browser and choose their next action from the page.</p>
+        </li>
+        <li>
+          <h3>Priority checks run</h3>
+          <p>The Quick scan selects the highest-priority tests: names in any script, email and phone formats,
+            double submits, interrupted forms, keyboard access and layout at several screen sizes.</p>
+        </li>
+        <li>
+          <h3>You get the evidence</h3>
+          <p>A report with findings by severity, screenshots, the expected behavior and a prompt you can paste
+            into your coding agent to fix what you selected.</p>
+        </li>
+      </ol>
+      <figure class="shot">
+        <img src="report-demo.webp" alt="A Chaosfolk report: a score, one blocking finding and the synchronized session replay." width="1440" height="1392" loading="lazy">
+        <figcaption>A report generated by the Chaosfolk demo.</figcaption>
+      </figure>
+    </section>
+
+    <section class="limits">
+      <h2>What the hosted version does not do</h2>
+      <ul>
+        <li>It tests public pages only. It cannot sign in, and local or private addresses are refused.</li>
+        <li>It injects no faults: no offline mode, failed requests or damaged storage.</li>
+        <li>It runs the Quick depth with a few users. Standard and Deep need your own installation.</li>
+        <li>An AI model can be wrong. A finding counts as reproduced only after Chaosfolk replays it and sees it fail again.</li>
+      </ul>
+    </section>
+
+    <section class="more" id="more">
+      <h2>Run it yourself, without limits</h2>
+      <p>Install the engine and the skill for your coding agent (Claude Code, Codex, Cursor, Copilot, Gemini CLI, OpenCode, Windsurf).
+        You get every depth, fault injection, signed-in journeys and replays on your own machine.</p>
+      <div class="code">
+        <p class="code-label">macOS and Linux</p>
+        <pre><code>curl -LsSf https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.sh | sh</code></pre>
+        <p class="code-label">Windows (PowerShell)</p>
+        <pre><code>powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/loukan42/chaosfolk/main/install.ps1 | iex"</code></pre>
+      </div>
+      <p>Then ask your agent: <q>Audit my app with Chaosfolk.</q> Or <a href="https://github.com/loukan42/chaosfolk/fork">fork the repository</a> and host this page yourself.</p>
+    </section>
+  </main>
+
+  <footer>
+    <p>Chaosfolk is open source under the <a href="https://github.com/loukan42/chaosfolk/blob/main/LICENSE">MIT license</a>.
+      Test only sites you own or are authorized to test. <a href="https://github.com/loukan42/chaosfolk/blob/main/SECURITY.md">Security</a></p>
+  </footer>
+</body>
+</html>
