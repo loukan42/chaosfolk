@@ -50,6 +50,14 @@ Each entry explains what the change helps you do and gives an example.
 
 ### Fixed
 
+- Simulated users can upload through a button that hides its real file input,
+  such as a Mantine `FileButton` ([#37](https://github.com/loukan42/chaosfolk/issues/37)).
+  `chaosfolk h01 upload r14 uploads/contract.pdf` on an "Import" button now
+  clicks it and fills the file picker, instead of failing with
+  `Node is not an HTMLInputElement`.
+- `chaosfolk check` reports a missing or out-of-range `psutil` and prints the
+  command that installs it, so `launch` no longer fails later with
+  `No module named 'psutil'` ([#37](https://github.com/loukan42/chaosfolk/issues/37)).
 - Use English labels in the README's product-audit GIF and still image. The
   recording script applies the translations on each run and verifies the saved
   test selection and limits. Release notes:

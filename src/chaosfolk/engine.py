@@ -275,6 +275,8 @@ CALME_MAX_MS = 1500
 TOUCHES_FOIS_MAX = 20    # key --times N : N au plus
 REJEUX_SIMULTANES = 12   # essais de rejeu ouverts en même temps (tous scénarios confondus)
 PLAYWRIGHT_MIN = (1, 63)
+PSUTIL_MIN, PSUTIL_MAX = (6,), (8,)  # même borne que pyproject.toml
+PSUTIL_SPEC = ">=6,<8"
 PYTHON_MIN = (3, 12)
 LIGNES_ECRAN = 170
 LIGNES_ECRAN_COMPLET = 300
@@ -307,7 +309,7 @@ AIDE_HUMAIN = f"""Commandes (toujours : chaosfolk <toi> <commande> ...) :
   tab <n> | tab close               changer d'onglet, fermer l'onglet courant
   wait <secondes>                   ne rien faire (max {ATTENTE_UNITAIRE})
   accept ["texte"] | dismiss        répondre à une boîte du navigateur
-  upload <ref> <chemin>             joindre un fichier (du dossier de la horde)
+  upload <ref> <chemin>             joindre un fichier (champ de fichier ou bouton qui ouvre le sélecteur)
   think                             seulement penser ou parler (avec --thought / --say)
   flag "<ce qui ne va pas>" [--severity blocking|annoying|minor]
   giveup "<pourquoi>"               tu laisses tomber ta mission
@@ -1412,7 +1414,26 @@ class Monde:
 
     async def geste_upload(self, args, loc):
         fichier = fichier_televersable(args["chemin"], self.dossier or ".")
-        await loc.set_input_files(str(fichier), timeout=self.delai_geste)
+        champ = await loc.evaluate(
+            "e => (e instanceof HTMLInputElement && e.type === 'file')"
+            " || (e instanceof HTMLLabelElement && e.control instanceof HTMLInputElement"
+            " && e.control.type === 'file')",
+            timeout=self.delai_geste)
+        if champ:
+            await loc.set_input_files(str(fichier), timeout=self.delai_geste)
+            return
+        # Bouton qui cache son vrai champ (FileButton de Mantine, zone de dépôt…) : comme une personne,
+        # on clique dessus et on choisit le fichier dans le sélecteur qu'il ouvre.
+        try:
+            async with loc.page.expect_file_chooser(timeout=self.delai_geste) as attente:
+                await loc.click(timeout=self.delai_geste)
+            selecteur = await attente.value
+        except Exception as e:
+            if type(e).__name__ != "TimeoutError":
+                raise
+            raise ValueError("upload : la cible n'est pas un champ de fichier et le clic n'a ouvert "
+                             "aucun sélecteur de fichier") from None
+        await selecteur.set_files(str(fichier), timeout=self.delai_geste)
 
 
 # --------------------------------------------------------------------------
@@ -3667,6 +3688,17 @@ def commande_verifier(opts):
         installer.append(f'python -m pip install --upgrade "playwright>={minimum}"')
     else:
         point("Playwright", True, version_pw)
+    try:
+        from importlib.metadata import version
+        version_ps = version("psutil")
+    except Exception:
+        version_ps = None
+    # launch et stop-app suivent les processus de l'application avec psutil
+    if version_ps is None or not PSUTIL_MIN <= version_tuple(version_ps) < PSUTIL_MAX:
+        point("psutil", False, (f"{version_ps} installé" if version_ps else "absent") + f", {PSUTIL_SPEC} demandé")
+        installer.append(f'python -m pip install --upgrade "psutil{PSUTIL_SPEC}"')
+    else:
+        point("psutil", True, version_ps)
     canal = v = None
     if version_pw is not None:
         with suppress(Exception):
