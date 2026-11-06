@@ -21,7 +21,7 @@ One audit runs at a time.
 
 | Risk | Measure |
 | --- | --- |
-| Model and compute use | Global daily quota (3 by default), one audit per IP per day, one audit at a time. On Hobby, Vercel pauses Sandbox and Blob when the monthly allowance is used instead of charging. |
+| Model and compute use | Global daily quota (1 by default), a cap on model requests per audit, one audit per IP per day, one audit at a time. On Hobby, Vercel pauses Sandbox and Blob when the monthly allowance is used instead of charging. |
 | Robots | Cloudflare Turnstile on the form (optional) |
 | A URL that reaches internal networks | http(s) on ports 80/443 only; local names refused; every resolved address must be public, checked at submission and again before the run; the sandbox firewall denies private, link-local and metadata ranges |
 | The OpenRouter key | Never enters the sandbox: the sandbox firewall adds it to requests for `openrouter.ai` only |
@@ -38,10 +38,15 @@ The report link is the only key to a report: anyone who has it can open it until
 | Vercel Sandbox | 5 h active CPU, 420 GB-h memory, 45 min per session | to be measured; CPU waiting for the model is not counted |
 | Vercel Blob | 1 GB storage, 2,000 uploads, 10 GB transfer per month | one upload (the .zip) |
 | Upstash Redis | free database | a few dozen commands |
-| OpenRouter `:free` models | 20 requests/min; 50/day, or 1,000/day after buying 10 credits once | one request per agent step |
+| OpenRouter `:free` models | 20 requests/min; 50/day, or 1,000/day after buying 10 credits once | one request per agent step, capped by `CHAOSFOLK_WEB_AGENT_STEPS` (40) |
 
-The OpenRouter daily limit is the first one you will hit. Measure a few audits before raising
-`CHAOSFOLK_WEB_DAILY_QUOTA`.
+The OpenRouter daily limit is the first one you will hit. The first live audit (2026-11-05, three
+users, no step cap) made about 60 requests in two minutes, 2.65 million prompt tokens, $0.00, and
+then waited on the daily limit until the sandbox stopped. The defaults therefore fit one small audit
+a day in the free 50 requests: `CHAOSFOLK_WEB_DAILY_QUOTA=1`, `CHAOSFOLK_WEB_USERS=1`,
+`CHAOSFOLK_WEB_AGENT_STEPS=40`, no subagents. With 10 credits bought once on OpenRouter (free models
+stay at $0), raise the steps to about 150, the users to 3 and the daily quota to what 1,000
+requests allow.
 
 ## Download, share and replay
 
@@ -111,8 +116,8 @@ Environment variables (`vercel env add NAME production`, or the project settings
    | `CRON_SECRET` | optional: a long random string; Vercel then authenticates the daily cron |
    | `CHAOSFOLK_WEB_TURNSTILE_SECRET` | optional |
 
-   Optional: `CHAOSFOLK_WEB_DAILY_QUOTA` (3), `CHAOSFOLK_WEB_PER_IP_DAILY` (1),
-   `CHAOSFOLK_WEB_AUDIT_MINUTES` (10), `CHAOSFOLK_WEB_MAX_ACTIONS` (80), `CHAOSFOLK_WEB_USERS` (3),
+   Optional: `CHAOSFOLK_WEB_DAILY_QUOTA` (1), `CHAOSFOLK_WEB_PER_IP_DAILY` (1),
+   `CHAOSFOLK_WEB_AUDIT_MINUTES` (10), `CHAOSFOLK_WEB_MAX_ACTIONS` (80), `CHAOSFOLK_WEB_USERS` (1), `CHAOSFOLK_WEB_AGENT_STEPS` (40),
    `CHAOSFOLK_WEB_REPORT_DAYS` (7), `CHAOSFOLK_WEB_PUBLIC_URL` (defaults to the production domain).
 
 ### 3. Audit snapshot
