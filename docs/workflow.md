@@ -155,7 +155,9 @@ chaosfolk h01 done "I could not save the project."
 `r7` and `r12` are examples. Read the current screen and use its actual references.
 Commands return a nonzero exit status when the engine rejects the action. Do not
 retry the same failure more than once. Authorized fixture uploads must be inside
-`.horde/run/uploads/`.
+`.horde/run/uploads/`. `upload` accepts either the file input or the visible
+button that opens the file picker (for example a Mantine `FileButton`): the engine
+clicks the button and fills the picker.
 
 After a user has finished with `done` or `giveup`, the coordinator can release
 that user's browser while other users continue:
