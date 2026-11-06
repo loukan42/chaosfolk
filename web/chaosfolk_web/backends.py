@@ -81,8 +81,9 @@ class SandboxBackend:
         box = sdk.create_sandbox(
             source=sdk.SnapshotSource(snapshot_id=settings.snapshot_id),
             resources=sdk.SandboxResources(vcpus=settings.vcpus),
-            # Hobby sessions stop after 45 minutes; the engine limit is far below.
-            execution_time_limit=min(settings.audit_seconds + 900, 2700),
+            # Hobby's maximum. The engine gives up earlier (audit time + 15 min), while the sandbox can
+            # still be read for diagnosis.
+            execution_time_limit=2700,
             persistent=False,
             # A snapshot restores in the region where it was saved, not necessarily the function's.
             region=settings.sandbox_region,
@@ -93,6 +94,7 @@ class SandboxBackend:
             "PATH": f"{SANDBOX_ROOT}/venv/bin:{SANDBOX_ROOT}/npm/bin:/usr/local/bin:/usr/bin:/bin",
             "PLAYWRIGHT_BROWSERS_PATH": f"{SANDBOX_ROOT}/browsers",
             "CHAOSFOLK_MODEL": settings.model,
+            "CHAOSFOLK_AGENT_STEPS": str(settings.agent_steps),
             # With brokering, the firewall replaces this placeholder on requests to openrouter.ai.
             "OPENROUTER_API_KEY": "brokered-by-sandbox-firewall" if settings.broker_key else settings.openrouter_key,
         }

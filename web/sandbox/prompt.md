@@ -8,7 +8,11 @@ and write it in the report.
   another one, do not open the dashboard and do not change its limits.
 - Project name: {PROJECT}. Report language: {LANG}.
 - Target: only {URL} and pages on the same site. Never follow a link to another site.
-- At most {USERS} simulated users, one at a time if subagents are unavailable.
+- At most {USERS} simulated users. Do not delegate to subagents: play each user yourself, one
+  after another, with the browser commands from the skill.
+- You have about {STEPS} tool calls in total, and each one costs a model request. There is no
+  source code to inspect; keep explanations short. Keep the last 5 calls to stop the engine and
+  write the report.
 - Synthetic data only. Do not create real accounts, buy anything, send messages or emails,
   submit contact or payment forms, or delete anything.
 - No fault injection and no chaos policies.

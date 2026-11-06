@@ -33,7 +33,7 @@ def _bool(name, default=False):
 class Settings:
     mode: str = field(default_factory=lambda: _env("CHAOSFOLK_WEB_MODE", default="vercel" if os.environ.get("VERCEL") else "local"))
     data_dir: Path = field(default_factory=lambda: Path(_env("CHAOSFOLK_WEB_DATA", default="web-data")).resolve())
-    daily_quota: int = field(default_factory=lambda: _int("CHAOSFOLK_WEB_DAILY_QUOTA", 3))
+    daily_quota: int = field(default_factory=lambda: _int("CHAOSFOLK_WEB_DAILY_QUOTA", 1))
     per_ip_daily: int = field(default_factory=lambda: _int("CHAOSFOLK_WEB_PER_IP_DAILY", 1, 1))
     allowed_origins: tuple = field(default_factory=lambda: tuple(
         o.strip() for o in _env("CHAOSFOLK_WEB_ALLOWED_ORIGINS", default="https://loukan42.github.io").split(",") if o.strip()))
@@ -45,7 +45,10 @@ class Settings:
     cron_secret: str = field(default_factory=lambda: _env("CRON_SECRET"))
     audit_minutes: int = field(default_factory=lambda: _int("CHAOSFOLK_WEB_AUDIT_MINUTES", 10, 1))
     max_actions: int = field(default_factory=lambda: _int("CHAOSFOLK_WEB_MAX_ACTIONS", 80, 1))
-    users: int = field(default_factory=lambda: _int("CHAOSFOLK_WEB_USERS", 3, 1))
+    users: int = field(default_factory=lambda: _int("CHAOSFOLK_WEB_USERS", 1, 1))
+    # One model request per agent step. Free OpenRouter models allow 50 requests a day without
+    # purchased credits (1,000 after buying 10 credits once).
+    agent_steps: int = field(default_factory=lambda: _int("CHAOSFOLK_WEB_AGENT_STEPS", 40, 5))
     report_days: int = field(default_factory=lambda: _int("CHAOSFOLK_WEB_REPORT_DAYS", 7, 1))
     # Vercel mode
     redis_url: str = field(default_factory=lambda: _env("KV_REST_API_URL", "UPSTASH_REDIS_REST_URL"))

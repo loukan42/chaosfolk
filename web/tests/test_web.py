@@ -427,8 +427,9 @@ def test_sandbox_backend_brokers_the_key_and_blocks_private_ranges(settings):
              "created_at": "2026-11-05T10:00:00+00:00"}
     handle = json.loads(backends.SandboxBackend(sdk).start(config, audit))
     assert handle == {"sandbox": "sbx-1", "command": "cmd-1"}
-    assert created["persistent"] is False and created["execution_time_limit"] <= 2700
+    assert created["persistent"] is False and created["execution_time_limit"] == 2700
     assert created["env"]["OPENROUTER_API_KEY"] != "sk-secret"
+    assert created["env"]["CHAOSFOLK_AGENT_STEPS"] == str(config.agent_steps)
     assert "sk-secret" not in json.dumps(created["args"]) and created["args"][0] == audit["url"]
     policy = repr(created["network_policy"])
     assert "sk-secret" in policy and "openrouter.ai" in policy and "169.254.0.0/16" in policy
@@ -455,8 +456,9 @@ def test_sandbox_files_are_consistent():
     script = (folder / "run-audit.sh").read_text()
     assert backends.SANDBOX_ROOT in script and "report.zip" in script
     prompt = (folder / "prompt.md").read_text()
-    keys = {k for k in ("URL", "LANG", "USERS", "PROJECT", "RUN") if "{" + k + "}" in prompt}
-    assert keys == {"URL", "LANG", "USERS", "PROJECT", "RUN"}
+    keys = {k for k in ("URL", "LANG", "USERS", "PROJECT", "RUN", "STEPS") if "{" + k + "}" in prompt}
+    assert keys == {"URL", "LANG", "USERS", "PROJECT", "RUN", "STEPS"}
+    assert '"steps"' in script and '"task"' in script
     config = json.loads((folder / "opencode.json").read_text())
     assert config["permission"]["webfetch"] == "deny" and config["permission"]["bash"]["*"] == "deny"
     assert fnmatch.fnmatch("chaosfolk report --folder x", next(p for p in config["permission"]["bash"] if p.startswith("chaosfolk")))

@@ -58,10 +58,11 @@ def public_files(run_dir):
 
 def build(run_dir, zip_path, folder, url):
     zip_path = Path(zip_path)
+    files = list(public_files(run_dir))  # raises NoReport before anything is written
     partial = zip_path.with_name(zip_path.name + ".part")
     with zipfile.ZipFile(partial, "w", zipfile.ZIP_DEFLATED) as bundle:
         bundle.writestr(f"{folder}/README.txt", README.format(url=url))
-        for path, name in public_files(run_dir):
+        for path, name in files:
             bundle.write(path, f"{folder}/{name}")
     partial.replace(zip_path)
     return zip_path

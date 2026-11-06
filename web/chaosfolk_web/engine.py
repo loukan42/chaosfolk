@@ -75,6 +75,7 @@ def advance(settings, store, reports, backend, moment=None):
         state, error = backend.poll(audit["handle"])
         if state == "running":
             if seconds > settings.audit_seconds + COLLECT_MARGIN:
+                log_diagnosis(backend, audit)
                 backend.stop(audit["handle"])
                 store.finish(audit["id"], "failed", "The audit took too long and was stopped.", moment)
             return
