@@ -5,6 +5,7 @@ from copy import deepcopy
 from fnmatch import fnmatchcase
 import hashlib
 import json
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -26,9 +27,16 @@ def write_json(path, value):
 GIT_SAFE = ("-c", "core.fsmonitor=false", "-c", "core.hooksPath=", "-c", "diff.external=")
 
 
+def git_environment():
+    """No transport and no lazy fetch. A folder received with its .git directory can declare itself a partial
+    clone whose missing objects come from a command (ext::, remote.<name>.uploadpack, core.sshCommand)."""
+    return dict(os.environ, GIT_NO_LAZY_FETCH="1", GIT_ALLOW_PROTOCOL=":")
+
+
 def git(repo, *args):
     # A cloned repository configures nothing that runs here: no filesystem monitor, hooks or external diff driver.
-    result = subprocess.run(["git", *GIT_SAFE, "-C", str(repo), *args], capture_output=True, timeout=30)  # nosec B603 B607 # fixed git argument list, no shell; GIT_SAFE disables repository-configured commands
+    result = subprocess.run(["git", *GIT_SAFE, "-C", str(repo), *args], capture_output=True, timeout=30,  # nosec B603 B607 # fixed git argument list, no shell; GIT_SAFE disables repository-configured commands
+                            env=git_environment())
     if result.returncode:
         detail = result.stderr.decode("utf-8", errors="replace").strip().splitlines()
         raise ValueError((detail[0][:200] if detail else "") or "Git command failed")

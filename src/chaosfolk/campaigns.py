@@ -363,7 +363,9 @@ def fingerprint(finding, events=(), *, actions=None):
 
 def git_revision(folder):
     try:
-        result = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=folder, capture_output=True, text=True, timeout=5)  # nosec B603 B607 # fixed read-only git command, no shell
+        from .planning import git_environment
+        result = subprocess.run(["git", "-c", "core.fsmonitor=false", "rev-parse", "--short", "HEAD"], cwd=folder,  # nosec B603 B607 # fixed read-only git command, no shell; repository-configured commands disabled
+                                capture_output=True, text=True, timeout=5, env=git_environment())
         return result.stdout.strip() or None
     except (OSError, subprocess.SubprocessError):
         return None

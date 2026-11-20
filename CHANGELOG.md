@@ -8,8 +8,40 @@ Each entry explains what the change helps you do and gives an example.
 
 ## [Unreleased]
 
+### Added
+
+- Cover the business journey before the random users. [docs/journey.md](docs/journey.md) maps
+  the steps and modes of a multi-step journey and plays a matrix with directed testers: straight
+  journeys, switching mode after and in the middle of a step, finishing in one mode and validating
+  in the other. It then compares the two views, inventories pre-filled fields and reviews one
+  screenshot per step. The benchmark gains `mode-switch-step-skip`, a seeded app whose "Save and
+  continue" skips a step after a mode switch.
+- A user's file can set `attente_max`, the cumulative seconds of `wait` it may spend (60 by default,
+  from 1 to 1800), for a slow assistant driven by a model. `draw` now keeps hand-written users
+  (scouts, directed testers) when it replaces the drawn ones.
+- A finding can carry a `type` (`ui`, `ux`, `technique`, `accessibilite`, `contenu`, `performance`),
+  shown as a tag beside its severity in the report. It does not change the score.
+  Release notes: [English](docs/release-notes/user-isolation.en.md) and
+  [French](docs/release-notes/user-isolation.fr.md).
+
 ### Security
 
+- Simulated users act through `python -m chaosfolk.user` (also installed as `chaosfolk-user`), which
+  refuses every leader command, and each action carries a key of that user alone, written into the
+  sheet by `sheets` and printed by `humans`. A page that tricks a user can no longer run
+  `serve --app-command`, act in another user's browser or end its session.
+- `goto` and `tab new` stay on the origin of the tested app, a user keeps at most 20 downloads,
+  `save-state` refuses a path under `uploads/`, `faults` (the fault plan) is a leader command and the
+  shared chaos registry no longer holds the users' token.
+- Reports no longer include the `--app-command` text and read an already-summarised proof only from
+  inside the session folder; report assets are not written through a link; a scenario start must be
+  an HTTP(S) address.
+- git runs without transport or lazy fetch, so a received `.git` that declares itself a partial clone
+  cannot run a command; reproducibility hooks no longer inherit the leader token; `chaos schedule add`
+  always registers the job disabled and prints the command to read; `install-browser` and the install
+  hints use `python -P -m`, so the tested project cannot shadow Playwright or pip.
+- Sheets ask for texts between straight single quotes: between double quotes the shell expanded
+  `"$(...)"` in a promo code and ran it.
 - Harden the engine and the repository for use inside an organization after the
   October 2026 security review ([#24](https://github.com/loukan42/chaosfolk/issues/24)).
   Audit evidence names and viewports are validated server-side, download names
@@ -34,6 +66,14 @@ Each entry explains what the change helps you do and gives an example.
 
 ### Changed
 
+- The command in a user's sheet is now `python -P -m chaosfolk.user --key KEY h01 look` instead of
+  `chaosfolk h01 look`. Run `sheets` again after upgrading; `humans` prints each user's command.
+  The coordinator, with the leader token set, can still run `chaosfolk e0 look`. A user's `goto`
+  to another origin is now refused.
+- `chaosfolk check` compiles the engine once, so a host that sets `PYTHONDONTWRITEBYTECODE` does
+  not recompile it at every action.
+- Sheets tell a user to report a value chosen for it without being asked and to switch between two
+  ways of doing the same thing (assistant and form) in the middle of a journey.
 - CI installs hash-locked requirements (`requirements-dev.txt`), pins every
   GitHub Action to a commit SHA and adds CodeQL, bandit, pip-audit with an SBOM,
   gitleaks, zizmor, dependency review and OpenSSF Scorecard workflows. Dependabot

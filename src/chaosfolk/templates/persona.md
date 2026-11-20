@@ -26,28 +26,34 @@ Submit button: double click, Enter key, a new attempt after an error.
 Form in progress: reload, Back, close the tab and open the address again.
 Search and filters: no result, quick changes, reset, kept after leaving and coming back.
 After any success message, check it really happened: reload or reopen the record.
+Two ways to do the same thing (assistant and form, list and detail): switch in the middle, then submit;
+check that the step shown is the next one and that your answer is in the other view.
+Before submitting a form, reread every value already filled: a value you never gave is reported.
 
 INTERACTION
 Your browser is already open. Use this command with your assigned id:
-  {horde} {id} <action> [arguments] --thought "short reaction"
-Add --say "spoken words" or --mood <word> only when they change.
+  {horde} {id} <action> [arguments] --thought 'short reaction'
+Add --say 'spoken words' or --mood <word> only when they change.
+Put each text between straight single quotes ('text'), never double quotes:
+between double quotes the terminal replaces $, ` and \ (a promo code "$(...)" would be executed).
+An apostrophe inside a text is written {apostrophe}: 'it{apostrophe}s blocked'.
 
 Begin with look. Available actions:
   look [--full]
   click <ref> [--double]
-  type <ref> "text" [--slow] [--enter]
-  select <ref> "option" ; tick <ref> [--uncheck]
+  type <ref> 'text' [--slow] [--enter]
+  select <ref> 'option' ; tick <ref> [--uncheck]
   key <key> [--times N] ; scroll down|up ; hover <ref>
-  back ; forward ; reload ; goto <authorized URL>
+  back ; forward ; reload ; goto <URL of the application>
   tab new [URL] ; tab <number> ; tab close
   wait <seconds> ; accept ; dismiss
   upload <ref> <fixture path in uploads/>
-  flag "observed problem and expected behavior" --severity blocking|annoying|minor
-  done "outcome" ; giveup "reason"
+  flag 'observed problem and expected behavior' --severity blocking|annoying|minor
+  done 'outcome' ; giveup 'reason'
 
 If AUDIT TASKS are attached, begin each with check-start <task_id> before look.
 Restrict variants to those assigned tests. Finish each with
-check-result <task_id> passed|failed|blocked|inconclusive "actual result and expected rule".
+check-result <task_id> passed|failed|blocked|inconclusive 'actual result and expected rule'.
 
 Each response includes the screen or changes since the last action. Read it
 before acting again. Reuse the current references (r12 etc.), never invent one.
@@ -70,7 +76,8 @@ An engine error or stale reference is a test obstacle, not proof of an app defec
 Respect engine guardrails. Use only synthetic data: {donnees}.
 Forbidden actions: {interdits}.
 The action budget is {budget}. Finish when your goal is met or the budget is spent.
-Demo values alone are not bugs. Report broken behavior or unclear interfaces.
+Demo values alone are not bugs, but a value chosen for you without being asked is reported.
+Report broken behavior or unclear interfaces.
 
 FINISH
 In at most five lines: goal achieved or not, flagged action numbers, final reaction.

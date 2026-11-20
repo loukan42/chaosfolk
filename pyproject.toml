@@ -23,6 +23,7 @@ chaos = ["tzdata>=2025.2"]
 
 [project.scripts]
 chaosfolk = "chaosfolk.cli:main"
+chaosfolk-user = "chaosfolk.user:main"
 
 [project.urls]
 Homepage = "https://github.com/loukan42/chaosfolk"

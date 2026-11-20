@@ -129,7 +129,7 @@ def main(argv=None):
                 {"reviewed": True, "sha256": hashlib.sha256(args.baseline.read_bytes()).hexdigest()}), encoding="utf-8")
         return 0
     except ImportError:
-        print('Install the visual extra: python -m pip install "chaosfolk[visual]" (or ".[visual]" from source).')
+        print('Install the visual extra: python -P -m pip install "chaosfolk[visual]" (or ".[visual]" from source).')
         return 2
     except (OSError, ValueError, RuntimeError) as error:
         print(f"visual: {error}")

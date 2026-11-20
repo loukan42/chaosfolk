@@ -4,4 +4,5 @@ include docs/agents.md docs/benchmark.md docs/campaigns.md docs/checks.md docs/f
 include docs/integrations.md docs/planning.md docs/regression.md
 include docs/chaos.md
 include docs/audit-runs.md
+include docs/journey.md
 include docs/replay.md docs/scoring.md docs/workflow.md

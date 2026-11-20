@@ -64,6 +64,23 @@
         "faults": [],
         "expect": [{"type": "text-visible", "text": "Call the plumber", "exact": true}]
       }
+    },
+    {
+      "id": "mode-switch-step-skip",
+      "title": "After switching from the assistant to the form, Save and continue skips a step",
+      "category": "navigation",
+      "condition": null,
+      "keywords": ["skipped step", "skips a step", "mode switch", "Form mode", "Save and continue", "étape sautée", "saute une étape", "changement de mode", "mode Formulaire", "Enregistrer et continuer"],
+      "scenario": {
+        "steps": [
+          {"n": 1, "action": "click", "target": {"role": "button", "name": "As soon as possible"}, "args": {}},
+          {"n": 2, "action": "click", "target": {"role": "button", "name": "Switch to Form mode"}, "args": {}},
+          {"n": 3, "action": "click", "target": {"role": "button", "name": "Save and continue"}, "args": {}}
+        ],
+        "faults": [],
+        "expect": [{"type": "js", "description": "The form shows step 2, Contract data, the step that follows the one it showed",
+                    "expression": "document.querySelector('#form-step').dataset.step === '2'"}]
+      }
     }
   ]
 }

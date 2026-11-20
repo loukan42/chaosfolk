@@ -376,7 +376,8 @@ def test_posix_sheet_command_quotes_paths(tmp_path, monkeypatch):
     monkeypatch.setattr(engine.sys, "executable", str(executable))
     monkeypatch.setattr(engine, "FICHIER_ACTIF", tmp_path / "State's directory" / "active.json")
     words = shlex.split(engine.sheet_command("posix"))
-    assert words == [executable.as_posix(), "-m", "chaosfolk", "--state-dir", (tmp_path / "State's directory").as_posix()]
+    assert words == [executable.as_posix(), "-P", "-m", "chaosfolk.user", "--state-dir",
+                     (tmp_path / "State's directory").as_posix()]
 
 
 def test_install_browser_uses_the_engine_interpreter(monkeypatch):
@@ -386,7 +387,8 @@ def test_install_browser_uses_the_engine_interpreter(monkeypatch):
     calls = []
     monkeypatch.setattr(subprocess, "call", lambda command: calls.append(command) or 0)
     assert cli.main(["install-browser", "--with-deps"]) == 0
-    assert calls == [[sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"]]
+    # -P: the project under test must not be able to shadow playwright with a module of its own
+    assert calls == [[sys.executable, "-P", "-m", "playwright", "install", "chromium", "--with-deps"]]
 
 
 def test_sheet_command_leaves_out_the_default_state_directory(tmp_path, monkeypatch):
@@ -395,8 +397,8 @@ def test_sheet_command_leaves_out_the_default_state_directory(tmp_path, monkeypa
     monkeypatch.setattr(engine.sys, "executable", str(executable))
     monkeypatch.setattr(engine, "FICHIER_ACTIF", Path.home() / ".chaosfolk" / "active.json")
     monkeypatch.delenv("CHAOSFOLK_HOME", raising=False)
-    assert shlex.split(engine.sheet_command("posix")) == [executable.as_posix(), "-m", "chaosfolk"]
-    assert engine.sheet_command("powershell") == f"& '{executable.as_posix()}' -m chaosfolk"
+    assert shlex.split(engine.sheet_command("posix")) == [executable.as_posix(), "-P", "-m", "chaosfolk.user"]
+    assert engine.sheet_command("powershell") == f"& '{executable.as_posix()}' -P -m chaosfolk.user"
     # an inherited CHAOSFOLK_HOME could point elsewhere: keep the explicit directory then
     monkeypatch.setenv("CHAOSFOLK_HOME", str(Path.home() / ".chaosfolk"))
     assert "--state-dir" in engine.sheet_command("posix")

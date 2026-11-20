@@ -615,6 +615,8 @@ and Firefox and WebKit are covered in [regression tests and CI](docs/regression.
 Other commands:
 
 - `chaosfolk planning changes` picks the journeys a pull request touches ([planning](docs/planning.md)).
+- A journey with several steps or modes (assistant and form, list and detail) is covered first, step by step
+  and mode by mode, by directed testers, before the random users ([journey guide](docs/journey.md)).
 - `chaosfolk privacy` makes a copy of a report you can share.
 - `chaosfolk benchmark run` checks the harness on apps with known defects ([benchmark](docs/benchmark.md)).
 - Optional adapters cover a Mailpit test mailbox, downloaded files, axe-core,
@@ -658,6 +660,6 @@ sharing. See [SECURITY.md](SECURITY.md).
 
 ---
 
-[Workflow and coverage](docs/workflow.md) · [QA checks](docs/checks.md) · [Campaigns and sessions](docs/campaigns.md) ·
+[Workflow and coverage](docs/workflow.md) · [Business journey](docs/journey.md) · [QA checks](docs/checks.md) · [Campaigns and sessions](docs/campaigns.md) ·
 [Fault injection](docs/faults.md) · [Chaos policies](docs/chaos.md) · [Replay format](docs/replay.md) · [Regressions and CI](docs/regression.md) ·
 [Planning](docs/planning.md) · [Integrations](docs/integrations.md) · [Benchmark](docs/benchmark.md) · [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [MIT license](LICENSE)

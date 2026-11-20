@@ -15,6 +15,7 @@ with the coordinator. Load only the guide needed for the current task.
 | --- | --- |
 | New product audit | [docs/audit-runs.md](docs/audit-runs.md), then [docs/workflow.md](docs/workflow.md) for browser setup |
 | Free exploration without an audit ledger | [docs/workflow.md](docs/workflow.md) |
+| Journey with several steps or modes (assistant and form, list and detail) | [docs/journey.md](docs/journey.md), before the random users and the audit queue |
 | Reproduce a candidate or verify a fix | [docs/replay.md](docs/replay.md); use [docs/campaigns.md](docs/campaigns.md) to select recorded findings |
 | Existing report | Open it; use `report` if regeneration is needed. Do not explore again. |
 | Test a change or pull request | [docs/planning.md](docs/planning.md); show proposed journeys and reasons, keeping the whole-app option |
@@ -89,6 +90,17 @@ assertions. Use scout `e0` for reconnaissance, `network` to assess API faults,
 and `fields`/`audit` by relevant page and selected theme. Follow the exploration
 guide for draws, seeded goals, authentication and browser release.
 
+Cover the business journey before the random users and the audit queue: map its steps
+and modes, then have directed testers play the matrix of [docs/journey.md](docs/journey.md).
+The random draw and the generic check catalog take the time that remains; an audit that
+never played the matrix has not tested the product. During the matrix, do not reproduce a
+finding by hand; afterwards, three trials and a control at most.
+
+Users act only through `python -m chaosfolk.user --key KEY ...`, the command written in
+their sheet. It refuses every leader command, and the engine refuses an action whose key
+is not the key of the user it targets. `humans` prints the command of each user, so the
+coordinator can play the scout; `goto` and `tab new` stay on the tested app's origin.
+
 Delegate one fictional user per subagent, at most three active at once. Give
 each only its generated sheet and the instruction to play that user, follow its
 browser commands and return the outcome and flagged action numbers. Users must
@@ -110,6 +122,10 @@ a supplied requirement, documented or visible promise, previously working behavi
 or an applicable standard with its exceptions checked. Fixture values, injected
 errors and validation rejections alone do not establish a defect. Keep claims
 within what the assertions prove; label product choices and suggestions separately.
+A surprising behavior with no supported expectation does not disappear: it becomes a
+`product-decision` finding to decide, with the question in `suite`, without a cap. A value
+the app picks for the user without asking (a preselected option, a pre-filled field) is a
+behavior, not fixture data.
 
 Stop exploration with `stop --keep-app`, then use `analyze` and targeted `trace`
 calls. Follow the replay guide for assertions, controls, persistence and clean
@@ -128,7 +144,9 @@ Pushes and recurring jobs require authorization for those actions.
 Use the report contract in [docs/replay.md](docs/replay.md) and coverage schema in
 [docs/workflow.md](docs/workflow.md). Write English narrative and French equivalents
 under `translations.fr`, matching findings by id; preserve counts, proof paths and
-recorded reactions. Every unresolved finding needs a concrete next step.
+recorded reactions. Every unresolved finding needs a concrete next step. Give each finding
+a `type` (`ui`, `ux`, `technique`, `accessibilite`, `contenu` or `performance`): the report
+shows it beside the severity, and it does not change the score.
 Generate `report --lang en|fr`, inspect screenshots, timeline and proof counts,
 and return its local link with tested scope, unfinished work and limitations.
 The score is a provisional heuristic; do not claim total coverage or guaranteed

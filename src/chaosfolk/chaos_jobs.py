@@ -54,8 +54,9 @@ def validate_job(raw, base):
     cwd = (base / raw.get("cwd", ".")).resolve()
     if not cwd.is_dir():
         raise ValueError("Job cwd must be an existing directory")
+    # Registered disabled whatever the file says: running its command takes a separate, explicit `enable`.
     return {"id": uuid.uuid4().hex, "name": name, "argv": raw["argv"], "cwd": str(cwd), "interval": raw.get("interval", 86400),
-            "timeout": raw.get("timeout", 60), "max_runs": raw["max_runs"], "enabled": raw.get("enabled", False),
+            "timeout": raw.get("timeout", 60), "max_runs": raw["max_runs"], "enabled": False,
             "window": raw.get("window"), "environment": raw["environment"], "max_log_bytes": log_limit}
 
 
@@ -149,7 +150,8 @@ def main(argv=None):
                 db.execute("INSERT INTO jobs VALUES (?,?,?,0,0,NULL)", (job["name"], json.dumps(job), time.time()))
             except sqlite3.IntegrityError:
                 raise ValueError("Job already exists; remove it explicitly before replacing it") from None
-            print(f"Registered {job['name']}; enabled={job['enabled']}. No OS schedule installed.")
+            print(f"Registered {job['name']}, disabled. Command: {json.dumps(job['argv'], ensure_ascii=False)} in {job['cwd']}. "
+                  f"Read it, then enable it with: chaos schedule enable {job['name']}. No OS schedule installed.")
         elif args.cmd == "list":
             rows = db.execute("SELECT config,next,runs,running_until,last_code FROM jobs ORDER BY name").fetchall()
             print(json.dumps([{**json.loads(config), "next": due, "runs": runs, "running_until": running, "last_code": code}

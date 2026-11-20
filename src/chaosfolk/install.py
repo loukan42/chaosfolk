@@ -13,7 +13,8 @@ SKILL_NAME = "chaosfolk"
 USER_AGENT = "chaosfolk-user"
 # The skill's files, relative to the repository root; setup.py bundles them in the wheel as chaosfolk/skill/.
 SKILL_FILES = ["SKILL.md", "LICENSE", "docs/audit-runs.md", "docs/agents.md", "docs/benchmark.md", "docs/campaigns.md", "docs/checks.md",
-               "docs/faults.md", "docs/chaos.md", "docs/integrations.md", "docs/planning.md", "docs/regression.md",
+               "docs/faults.md", "docs/chaos.md", "docs/integrations.md", "docs/journey.md", "docs/planning.md",
+               "docs/regression.md",
                "docs/replay.md", "docs/scoring.md", "docs/workflow.md"]
 
 # Agent id: (name, folder whose presence means the agent is installed, global skill folder), relative to home.
@@ -127,7 +128,7 @@ def ensure_browser():
     if found:
         return f"ready ({found})"
     print("Downloading Chromium for Chaosfolk, about 150 MB...", flush=True)
-    code = subprocess.call([sys.executable, "-m", "playwright", "install", "chromium"])  # nosec B603 # fixed Playwright command under the current interpreter, no shell
+    code = subprocess.call([sys.executable, "-P", "-m", "playwright", "install", "chromium"])  # nosec B603 # fixed Playwright command under the current interpreter, no shell
     found = browser_ready() if code == 0 else None
     if found:
         return f"ready ({found})"

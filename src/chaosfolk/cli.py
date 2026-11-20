@@ -4,6 +4,13 @@ import sys
 
 from . import __version__
 
+EXTENSIONS = {"regression": "regression", "planning": "planning", "integrations": "integrations",
+              "mcp": "mcp_server", "visual": "visual", "privacy": "privacy", "usage": "usage",
+              "benchmark": "benchmark", "chaos": "chaos", "audit-run": "audit_session"}
+# Other commands answered here, before the engine. With EXTENSIONS they are the commands a simulated user
+# can never run: user.py refuses them, and a test checks that this list stays complete.
+DIRECT_COMMANDS = {"demo", "plan", "probe", "themes", "checks", "setup", "install-browser", "campaign", "map"}
+
 
 def main(argv=None):
     args = list(sys.argv[1:] if argv is None else argv)
@@ -13,9 +20,7 @@ def main(argv=None):
             return 2
         os.environ["CHAOSFOLK_HOME"] = os.path.abspath(args[1])
         args = args[2:]
-    extensions = {"regression": "regression", "planning": "planning", "integrations": "integrations",
-                  "mcp": "mcp_server", "visual": "visual", "privacy": "privacy", "usage": "usage",
-                  "benchmark": "benchmark", "chaos": "chaos", "audit-run": "audit_session"}
+    extensions = EXTENSIONS
     if args and args[0] in extensions:
         import importlib
         try:
@@ -55,7 +60,8 @@ def main(argv=None):
             print(f"chaosfolk install-browser accepts only {', '.join(sorted(allowed))}", file=sys.stderr)
             return 2
         import subprocess
-        return subprocess.call([sys.executable, "-m", "playwright", "install", "chromium", *args[1:]])  # nosec B603 # fixed Playwright command; extra flags are an allowlist checked above
+        # -P: without it, "-m" looks for playwright in the current folder first, that is in the tested project.
+        return subprocess.call([sys.executable, "-P", "-m", "playwright", "install", "chromium", *args[1:]])  # nosec B603 # fixed Playwright command; extra flags are an allowlist checked above
     from . import engine
     from pathlib import Path
     engine.FICHIER_ACTIF = Path(os.environ.get("CHAOSFOLK_HOME", str(Path.home() / ".chaosfolk"))) / "active.json"
