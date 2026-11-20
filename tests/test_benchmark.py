@@ -45,7 +45,8 @@ def test_score_separates_matches_duplicates_and_unreviewed(tmp_path):
         {"id": "F3", "titre": "Logo is blurry"},
     ])
     result = benchmark.score(folder, benchmark.load_cases())
-    assert result["found"] == 1 and result["missed"] == ["double-submit-duplicate", "offline-false-success", "reload-loses-data"]
+    assert result["found"] == 1 and result["missed"] == ["double-submit-duplicate", "mode-switch-step-skip",
+                                                         "offline-false-success", "reload-loses-data"]
     assert [r["status"] for r in result["rows"]] == ["true-positive", "duplicate", "unreviewed"]
     # Precision stays unknown while a finding is unreviewed.
     assert result["precision"] is None

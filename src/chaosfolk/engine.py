@@ -82,7 +82,8 @@ COMMANDES_CHEF = {
 # commandes qui exigent le jeton du chef (un humain n'en a pas besoin et ne doit pas pouvoir les lancer).
 # Le client ne l'envoie que si la variable d'environnement CHAOSFOLK_LEADER_TOKEN le porte : un humain qui lirait
 # serveur.json n'obtient rien en lançant la commande sans elle
-COMMANDES_RESERVEES = {"stop", "fault", "fault-end", "inspect", "save-state", "humans", "audit", "chaos-control", "release"}
+COMMANDES_RESERVEES = {"stop", "fault", "faults", "fault-end", "inspect", "save-state", "humans", "audit", "chaos-control",
+                       "release"}
 COMMANDES_LOURDES = {"check", "launch", "start", "serve", "stop-app", "analyze", "trace", "extract", "replay", "report",
                      "vary", "compare"}
 # "draw" ne charge que tirage.py ; "drawn-faults" et "sheets" n'ont besoin que du client
@@ -247,7 +248,8 @@ REPETITIONS_MAX = 2      # au 3e geste identique sans effet, le geste est refus�
 MARGE_BUDGET = 5         # gestes tolérés au-delà du budget, puis refus
 ALERTE_BUDGET = 5        # alerte quand il reste ce nombre de gestes
 ECRAN_FIGE = 3           # gestes de suite sans changement avant l'alerte
-ATTENTE_MAX = 60         # secondes d'attente cumulées par humain
+ATTENTE_MAX = 60         # secondes d'attente cumulées par humain, sauf "attente_max" dans sa fiche
+ATTENTE_MAX_PLAFOND = 1800  # plus haute valeur permise pour "attente_max" (assistant piloté par un modèle)
 ATTENTE_UNITAIRE = 10    # une attente ne dépasse pas cette durée, en secondes
 RESEAU_KO_MAX = 3        # échecs réseau d'affilée avant une pause imposée
 PAUSE_RESEAU = 20        # secondes pendant lesquelles la navigation est refusée
@@ -286,6 +288,7 @@ LIGNES_JOURNAL = 60      # lignes d'écran gardées dans le journal
 LIGNES_REPLI_MIN = 4     # nombre de lignes identiques qui valent un repli
 LIMITE_LIGNE = 16 * 1024 * 1024  # taille maximale d'une requête du client
 REFS_MEMOIRE_MAX = 3000
+TELECHARGEMENTS_MAX = 20  # fichiers téléchargés gardés par humain
 
 PANNES_RESEAU = {"server-down", "http-error", "lost-response", "slow"}
 PANNES_DUREE = PANNES_RESEAU | {"offline", "storage-full"}
@@ -294,12 +297,13 @@ PANNES_GLOBALES = {"app-stop"}
 PANNES = PANNES_DUREE | PANNES_INSTANT | PANNES_GLOBALES
 PARAMS_PANNE = ("motif", "methode", "statut", "delai", "fois", "cle", "avance", "taille")
 
-AIDE_HUMAIN = f"""Commandes (toujours : chaosfolk <toi> <commande> ...) :
+AIDE_HUMAIN = f"""Commandes (toujours avec la commande de ta fiche : <commande> <toi> <action> ...).
+Textes entre apostrophes droites ('texte'), jamais entre guillemets doubles :
   look [--full]                     regarder l'écran (texte), --full pour une page longue
-  goto <adresse>                    taper une adresse (/offers ou http://...)
+  goto <adresse>                    taper une adresse de l'application (/offers ou http://...)
   click <ref> [--double] [--times N] [--right]    <ref> : le code [rN] ou le libellé exact
-  type <ref> "<texte>" [--slow] [--append] [--enter]
-  select <ref> "<option>"           dans une liste déroulante
+  type <ref> '<texte>' [--slow] [--append] [--enter]
+  select <ref> '<option>'           dans une liste déroulante
   tick <ref> [--uncheck]
   key <Touche> [--times N]          Enter, Escape, Tab, Shift+Tab, Control+a, ArrowDown... (N au plus {TOUCHES_FOIS_MAX})
   hover <ref>
@@ -308,13 +312,13 @@ AIDE_HUMAIN = f"""Commandes (toujours : chaosfolk <toi> <commande> ...) :
   tab new [adresse]                 ouvre un onglet (sans adresse : la même page)
   tab <n> | tab close               changer d'onglet, fermer l'onglet courant
   wait <secondes>                   ne rien faire (max {ATTENTE_UNITAIRE})
-  accept ["texte"] | dismiss        répondre à une boîte du navigateur
+  accept ['texte'] | dismiss        répondre à une boîte du navigateur
   upload <ref> <chemin>             joindre un fichier (champ de fichier ou bouton qui ouvre le sélecteur)
   think                             seulement penser ou parler (avec --thought / --say)
-  flag "<ce qui ne va pas>" [--severity blocking|annoying|minor]
-  giveup "<pourquoi>"               tu laisses tomber ta mission
-  done "<ton bilan>"                tu as fini
-À chaque commande : --thought "la réaction de ton personnage" ; --say "ce que tu dis" et --mood <mot> quand ils changent
+  flag '<ce qui ne va pas>' [--severity blocking|annoying|minor]
+  giveup '<pourquoi>'               tu laisses tomber ta mission
+  done '<ton bilan>'                tu as fini
+À chaque commande : --thought 'la réaction de ton personnage' ; --say 'ce que tu dis' et --mood <mot> quand ils changent
 """
 
 MESSAGE_RESERVEE = ("commande réservée au chef d'orchestre : préfixer par CHAOSFOLK_LEADER_TOKEN=<jeton> (affiché par launch).")
@@ -490,11 +494,19 @@ def sous_dossier(chemin, base, quoi):
     return complet
 
 
-def adresse_http(url, base):
-    """Adresse absolue (relative à `base`) ; seuls http et https sont permis."""
+def adresse_http(url, base, meme_origine=False):
+    """Adresse absolue (relative à `base`) ; seuls http et https sont permis.
+    meme_origine : l'adresse doit rester sur l'origine de `base` (gestes goto et tab d'un humain).
+    Un écran piégé ne peut pas ainsi faire taper à un humain une adresse externe qui emporterait
+    des données vues ; les redirections de l'application elle-même (connexion) restent possibles."""
     complete = urljoin(base, str(url))
-    if urlparse(complete).scheme not in ("http", "https"):
+    cible = urlparse(complete)
+    if cible.scheme not in ("http", "https"):
         raise ValueError(f"adresse refusée : seuls http et https sont permis ({url})")
+    if meme_origine:
+        depart = urlparse(base)
+        if (cible.scheme, cible.netloc) != (depart.scheme, depart.netloc):
+            raise ValueError(f"adresse refusée : hors de l'application testée ({cible.scheme}://{cible.netloc})")
     return complete
 
 
@@ -548,6 +560,28 @@ def traduire_erreur(erreur):
     if "Target page, context or browser has been closed" in s:
         return "l'onglet est fermé"
     return premiere_ligne(erreur, 200)
+
+
+def cle_humain(cle_seance, hid):
+    """Clé propre à un humain, dérivée de la clé de séance : écrite dans sa seule fiche.
+    Sans elle, un humain ne peut ni agir dans le navigateur d'un autre, ni le terminer."""
+    return hmac.new(cle_seance.encode("utf-8"), str(hid).encode("utf-8"), hashlib.sha256).hexdigest()[:32]
+
+
+def lire_attente_max(valeur):
+    """Attente cumulée permise à un humain, en secondes : ATTENTE_MAX sans valeur dans sa fiche.
+    Un assistant piloté par un modèle répond en plusieurs secondes : 60 s ne suffisent pas à un parcours."""
+    if valeur is None:
+        return ATTENTE_MAX
+    if isinstance(valeur, bool):
+        raise ValueError(f"attente_max illisible ({valeur!r})")
+    try:
+        secondes = float(valeur)
+    except (TypeError, ValueError):
+        raise ValueError(f"attente_max illisible ({valeur!r})") from None
+    if not 1 <= secondes <= ATTENTE_MAX_PLAFOND:
+        raise ValueError(f"attente_max hors bornes ({secondes:g} s ; de 1 à {ATTENTE_MAX_PLAFOND} s)")
+    return secondes
 
 
 def jeton_egal(candidat, attendu):
@@ -629,7 +663,7 @@ async def lancer_navigateur(pw, visible=False, canal=None):
         try:
             return await getattr(pw, canal).launch(headless=not visible), canal
         except Exception as error:
-            raise RuntimeError(f"{canal} could not start. Install it with python -m playwright install {canal}: {error}") from error
+            raise RuntimeError(f"{canal} could not start. Install it with python -P -m playwright install {canal}: {error}") from error
     derniere = None
     for essai in ([canal] if canal else CANAUX):
         try:
@@ -786,6 +820,7 @@ class Monde:
         self.ko_reseau = 0
         self.bloque_jusqua = 0.0
         self.attente = 0.0
+        self.attente_max = ATTENTE_MAX
         self.refus = 0
         # réponses aux humains
         self.derniere_sortie_complete = False
@@ -927,6 +962,13 @@ class Monde:
 
     async def _telechargement(self, telechargement):
         nom = telechargement.suggested_filename
+        self.nb_telechargements = getattr(self, "nb_telechargements", 0) + 1
+        if self.nb_telechargements > TELECHARGEMENTS_MAX:
+            # Une page qui déclenche des téléchargements en boucle ne remplit pas le disque de la séance.
+            with suppress(Exception):
+                await telechargement.cancel()
+            self.journal({"type": "telechargement", "h": self.id, "fichier": nom, "refuse": "limite atteinte"})
+            return
         with suppress(Exception):
             if self.dossier:
                 destination = Path(self.dossier) / "telechargements" / f"{self.id}-{nom_de_fichier_sur(nom)}"
@@ -1274,7 +1316,7 @@ class Monde:
         return retour or "ok"
 
     async def geste_goto(self, args, loc):
-        url = adresse_http(args["url"], self.url_app)
+        url = adresse_http(args["url"], self.url_app, meme_origine=True)
         if self.page is None:
             await self.nouvelle_page(url)
             return
@@ -1397,7 +1439,10 @@ class Monde:
     async def geste_tab(self, args, loc):
         quoi = alias(str(args.get("quoi") or "new"), ALIAS_ONGLET)
         if quoi == "new":
-            url = adresse_http(args.get("url") or (self.page.url if self.page else self.url_app), self.url_app)
+            if args.get("url"):  # adresse tapée par l'humain : seulement dans l'application
+                url = adresse_http(args["url"], self.url_app, meme_origine=True)
+            else:  # même page que l'onglet courant
+                url = adresse_http(self.page.url if self.page else self.url_app, self.url_app)
             await self.nouvelle_page(url)
         elif quoi == "close":
             if self.page:
@@ -1501,6 +1546,7 @@ class Horde:
         self.taches = set()
         self.jeton = secrets.token_hex(32)
         self.jeton_chef = secrets.token_hex(32)
+        self.cle_seance = secrets.token_hex(32)
         self.arret = asyncio.Event()
         self.garder_app = False
         # application lancée par la horde
@@ -1524,7 +1570,7 @@ class Horde:
         self.journal_f = open(self.dossier / "journal.jsonl", "a", encoding="utf-8")
         from .chaos import Controller, policy_path
         source = policy_path(getattr(opts, "chaos_policy", None), getattr(opts, "project", None))
-        self.chaos = Controller(self.dossier, self.jeton, source, getattr(opts, "dry_run", False)) if source or getattr(opts, "dry_run", False) else None
+        self.chaos = Controller(self.dossier, secrets.token_hex(16), source, getattr(opts, "dry_run", False)) if source or getattr(opts, "dry_run", False) else None
         if self.chaos:
             self.chaos.snapshot(self.pannes)
 
@@ -1633,6 +1679,7 @@ class Horde:
             info = {"port": port, "jeton": self.jeton, "dossier": str(self.dossier), "url": self.url,
                     "pid": os.getpid(), "navigateur": self.canal, "debut": datetime.now().isoformat(timespec="seconds")}
             ecrire_json(self.dossier / "serveur.json", {**info, "jeton_chef": self.jeton_chef,
+                                                        "cle_seance": self.cle_seance,
                                                         "app_pid": self.app.pid if self.app_vivante() else None,
                                                         "app_identity": self.app_identity if self.app_vivante() else None})
             ecrire_json(FICHIER_ACTIF, info)
@@ -1732,11 +1779,22 @@ class Horde:
         jeton = req.get("jeton")
         if req.get("cmd") in COMMANDES_RESERVEES:
             return jeton_egal(jeton, self.jeton_chef)
-        return jeton_egal(jeton, self.jeton) or jeton_egal(jeton, self.jeton_chef)
+        if jeton_egal(jeton, self.jeton_chef):
+            return True
+        if not jeton_egal(jeton, self.jeton):
+            return False
+        # un geste porte aussi la clé de l'humain qui le fait
+        cles = getattr(self, "cle_seance", None)
+        if req.get("cmd") == "action" and cles:
+            return jeton_egal(req.get("cle"), cle_humain(cles, req.get("h")))
+        return True
 
     def refus_jeton(self, req):
         if req.get("cmd") in COMMANDES_RESERVEES:
             return MESSAGE_RESERVEE
+        if req.get("cmd") == "action":
+            return ("clé de l'humain absente ou fausse : utiliser exactement la commande de sa fiche "
+                    "(--key, affichée par sheets et par humans)")
         return "jeton invalide"
 
     async def traiter(self, req):
@@ -1765,7 +1823,7 @@ class Horde:
             if action == "status":
                 return {"ok": True, "texte": json.dumps({"policy": None, "enabled": True, "dry_run": False})}
             from .chaos import Controller
-            self.chaos = Controller(self.dossier, self.jeton)
+            self.chaos = Controller(self.dossier, secrets.token_hex(16))
         if action in ("pause", "resume"):
             self.chaos.paused = action == "pause"
         elif action in ("enable", "disable"):
@@ -1815,6 +1873,8 @@ class Horde:
     async def sauver_etat(self, req):
         m = self.humains[req["h"]]
         fichier = sous_dossier(req["fichier"], self.dossier, "fichier")
+        if fichier.resolve().is_relative_to((Path(self.dossier) / "uploads").resolve()):
+            return {"ok": False, "texte": "save-state refusé dans uploads/ : un état de connexion ne doit pas pouvoir être téléversé"}
         fichier.parent.mkdir(parents=True, exist_ok=True)
         verrou = self.verrous[req["h"]]
         try:
@@ -1963,6 +2023,7 @@ class Horde:
                     budget, duree = (int(budget) if budget else None), (int(duree) if duree else None)
                 except (TypeError, ValueError):
                     raise ValueError(f"budget ou durée illisible ({fiche.get('budget')!r}, {fiche.get('duree')!r})") from None
+                attente_max = lire_attente_max(fiche.get("attente_max"))
                 depart = adresse_http(fiche.get("depart") or self.url, self.url)
                 m = await nouveau_monde(self.navigateur, hid, fiche, self.url, base, journal=self.journal,
                                         captures=self.dossier / "captures", dossier=self.dossier)
@@ -1977,7 +2038,7 @@ class Horde:
             m.globales = self.globales_actives
             m.n = self.n_repris.get(hid, 0)
             m.humeur = fiche.get("humeur") or ""
-            m.budget, m.duree = budget, duree
+            m.budget, m.duree, m.attente_max = budget, duree, attente_max
             self.humains[hid], self.fiches[hid], self.verrous[hid] = m, fiche, asyncio.Lock()
             crees.append(hid)
             arrivees.append((m, depart, fiche))
@@ -2053,7 +2114,7 @@ class Horde:
                 and m.repetitions >= REPETITIONS_MAX and cle_geste(verbe, args) == m.dernier_cle):
             return (f"tu as déjà fait exactement ce geste {m.repetitions} fois sans résultat. Un défaut se signale une fois, "
                     "il ne se retente pas : signale-le si ce n'est pas fait, puis passe à autre chose ou termine.")
-        if verbe == "wait" and m.attente >= ATTENTE_MAX:
+        if verbe == "wait" and m.attente >= m.attente_max:
             return f"tu as déjà attendu {int(m.attente)} s en tout. Continue autrement ou termine."
         return None
 
@@ -2070,7 +2131,7 @@ class Horde:
             demandee = float(args.get("secondes") or 3)
         except ValueError:
             raise ValueError(f"durée illisible : {args.get('secondes')}") from None
-        secondes = max(0.5, min(demandee, ATTENTE_UNITAIRE, ATTENTE_MAX - m.attente))
+        secondes = max(0.5, min(demandee, ATTENTE_UNITAIRE, m.attente_max - m.attente))
         m.attente += secondes
         return dict(args, secondes=secondes)
 
@@ -2590,8 +2651,11 @@ def envoyer(req, delai=180):
     sinon elle part avec le jeton des humains et la horde la refuse."""
     info = info_serveur()
     req["jeton"] = info.get("jeton")
+    if os.environ.get("CHAOSFOLK_USER_KEY"):  # clé de l'humain, passée par user.py --key
+        req["cle"] = os.environ["CHAOSFOLK_USER_KEY"]
     chef = os.environ.get("CHAOSFOLK_LEADER_TOKEN", "").strip()
-    if req["cmd"] in COMMANDES_RESERVEES and chef and info.get("dossier"):
+    # le chef peut aussi jouer n'importe quel humain (éclaireur) sans sa clé
+    if (req["cmd"] in COMMANDES_RESERVEES or req["cmd"] == "action") and chef and info.get("dossier"):
         with suppress(ValueError):
             if lire_json(Path(info["dossier"]) / "serveur.json", {}).get("jeton_chef") == chef:
                 req["jeton"] = chef
@@ -3511,7 +3575,11 @@ def infos_constats(dossier, constats, evts, personas):
         scenario = None
         for preuve in (constat.get("preuves") or {}).values():
             chemin = preuve.get("source") if isinstance(preuve, dict) else None
-            resultat = lire_json(Path(dossier) / chemin, {}) if chemin else {}
+            try:
+                fichier = sous_dossier(chemin, dossier, "preuve") if chemin and isinstance(chemin, str) else None
+            except ValueError:
+                fichier = None  # preuve déclarée hors du dossier de la séance : jamais lue
+            resultat = lire_json(fichier, {}) if fichier else {}
             if resultat.get("scenario"):
                 scenario = Path(resultat["scenario"])
                 if not scenario.is_absolute():
@@ -3557,6 +3625,8 @@ def _rapport(dossier, langue, journal):
                               "verdict": "introuvable", "captures": [], "raisons": []}
                 constat["preuves"][cle] = resume
     config = lire_json(dossier / "config.json", {})
+    # la commande de démarrage peut porter un secret (variable, jeton) et le rapport se partage : elle n'y entre pas
+    config.pop("app_commande", None)
     tirage = lire_json(dossier / "tirage.json", {})
     if tirage:
         config.update({"graine": tirage.get("graine"), "escouade": tirage.get("escouade")})
@@ -3667,6 +3737,10 @@ def commande_verifier(opts):
     """Une ligne OK ou MANQUE par point, puis la commande qui installe ce qui manque. Code 1 s'il manque
     quelque chose d'utile au moteur (l'agent horde-humain n'est pas bloquant)."""
     manques, installer = 0, []
+    # Sous PYTHONDONTWRITEBYTECODE (posé par certains outils d'agent), Python recompile tout le moteur à chaque
+    # geste. Le compiler ici, une fois par séance ; un dossier en lecture seule est ignoré sans bruit.
+    import compileall
+    compileall.compile_dir(str(ICI), quiet=2)
 
     def point(nom, ok, detail=""):
         nonlocal manques
@@ -3685,7 +3759,8 @@ def commande_verifier(opts):
         version_pw = None
     if version_pw is None or version_tuple(version_pw) < PLAYWRIGHT_MIN:
         point("Playwright", False, (f"{version_pw} installé" if version_pw else "absent") + f", {minimum} ou plus demandé")
-        installer.append(f'python -m pip install --upgrade "playwright>={minimum}"')
+        # -P : sans lui, "-m" cherche d'abord le module dans le dossier courant, donc dans le projet testé
+        installer.append(f'python -P -m pip install --upgrade "playwright>={minimum}"')
     else:
         point("Playwright", True, version_pw)
     try:
@@ -3696,7 +3771,7 @@ def commande_verifier(opts):
     # launch et stop-app suivent les processus de l'application avec psutil
     if version_ps is None or not PSUTIL_MIN <= version_tuple(version_ps) < PSUTIL_MAX:
         point("psutil", False, (f"{version_ps} installé" if version_ps else "absent") + f", {PSUTIL_SPEC} demandé")
-        installer.append(f'python -m pip install --upgrade "psutil{PSUTIL_SPEC}"')
+        installer.append(f'python -P -m pip install --upgrade "psutil{PSUTIL_SPEC}"')
     else:
         point("psutil", True, version_ps)
     canal = v = None
@@ -3830,7 +3905,8 @@ def sheet_command(shell):
         from shlex import quote
     else:
         raise ValueError("Shell must be powershell or posix")
-    command = f"{quote(executable)} -m chaosfolk" + ("" if implicit else f" --state-dir {quote(state.as_posix())}")
+    # -P : sans lui, "-m" charge d'abord un module du dossier courant, donc du projet testé
+    command = f"{quote(executable)} -P -m chaosfolk.user" + ("" if implicit else f" --state-dir {quote(state.as_posix())}")
     return "& " + command if shell == "powershell" else command
 
 
@@ -3852,19 +3928,25 @@ def commande_fiches(opts):
     # Windows PowerShell 5.1 n'a pas && : if ($?) arrête aussi la suite après un code de sortie non nul
     commun = {"application": application.get("nom") or "the application", "horde": sheet_command(shell),
               "enchainer": "A; if ($?) { B }" if shell == "powershell" else "A && B",
+              # Une apostrophe dans un texte entre apostrophes : '' en PowerShell, '\'' en bash
+              "apostrophe": "''" if shell == "powershell" else "'\\''",
               "donnees": opts.donnees, "interdits": opts.interdits}
     (dossier / "fiches").mkdir(exist_ok=True)
 
     def liste(v):
         return " ; ".join(str(x) for x in v) if isinstance(v, list) else str(v or "")
 
+    cles = cles_de_seance(dossier)
+    if not cles:
+        print("attention : horde non lancée ou sans clé des humains (launch d'abord) : fiches sans --key")
     for h in personas["humains"]:
         if not isinstance(h, dict) or not h.get("id"):
             print("attention : une fiche sans id est ignorée")
             continue
         validate_id(h["id"])
         appareil = alias(h.get("appareil") or "desktop", ALIAS_APPAREILS)
-        valeurs = dict(commun, id=h["id"], nom=h.get("nom"), age=h.get("age"), metier=h.get("metier"),
+        horde_h = commun["horde"] + (f" --key {cle_humain(cles, h['id'])}" if cles else "")
+        valeurs = dict(commun, horde=horde_h, id=h["id"], nom=h.get("nom"), age=h.get("age"), metier=h.get("metier"),
                        intention=h.get("intention"), histoire=h.get("histoire"), aisance=h.get("aisance"),
                        patience=h.get("patience"), habitudes=liste(h.get("habitudes")), manies=liste(h.get("manies")),
                        appareil=APPAREILS_FICHE.get(appareil, appareil), contexte=h.get("contexte") or "",
@@ -3970,8 +4052,24 @@ def ligne_trace(e, dossier):
     return " ; ".join(parties)
 
 
+def cles_de_seance(dossier):
+    """Clé de séance des humains, lue dans serveur.json (fichier du chef). None si la horde n'en a pas."""
+    with suppress(ValueError, OSError, TypeError):
+        return lire_json(Path(dossier) / "serveur.json", {}).get("cle_seance")
+    return None
+
+
 def commande_humains(opts):
-    return relayer({"cmd": "humans", "fichier": str(Path(opts.fichier).resolve())}, delai=600)
+    code = relayer({"cmd": "humans", "fichier": str(Path(opts.fichier).resolve())}, delai=600)
+    # le chef joue l'éclaireur lui-même : il lui faut sa clé (les autres l'ont dans leur fiche)
+    info = lire_json(FICHIER_ACTIF, {})
+    cles = cles_de_seance(info.get("dossier") or "")
+    if code == 0 and cles:
+        for h in lire_json(Path(opts.fichier), {}).get("humains", []):
+            if isinstance(h, dict) and h.get("id"):
+                print(f"Commande de {h['id']} : {sheet_command('powershell' if os.name == 'nt' else 'posix')} "
+                      f"--key {cle_humain(cles, h['id'])} {h['id']} <action>")
+    return code
 
 
 def commande_panne(opts):
@@ -4047,10 +4145,18 @@ def commande_tirer(opts):
         # Keep prior users available to extraction and reporting across waves.
         previous = lire_json(Path(opts.dossier) / "personas.json", {}).get("humains", [])
         personas["humains"] = previous + kept
+        current_users = kept
+    else:
+        # Un nouveau tirage remplace l'ancien, mais garde les humains écrits à la main (éclaireurs, testeurs du
+        # parcours, sans profil_id) : leurs gestes doivent rester extractibles et visibles dans le rapport.
+        current_users = list(personas["humains"])
+        drawn = {h["id"] for h in current_users}
+        previous = lire_json(Path(opts.dossier) / "personas.json", {}).get("humains", [])
+        personas["humains"] = [h for h in previous if isinstance(h, dict) and "profil_id" not in h
+                               and h.get("id") not in drawn] + current_users
     dossier = Path(opts.dossier)
     ecrire_json(dossier / "personas.json", personas)
     ecrire_json(dossier / "tirage.json", plan)
-    current_users = kept if session else personas["humains"]
     print(f"Seed {graine}, squad {opts.escouade}, {len(current_users)} users, budget {opts.budget}: {(dossier / 'personas.json').as_posix()}")
     for h in current_users:
         print(f"  {h['id']} {h['nom']:<22} {h['profil']:<20} {h['appareil']:<10} {h['condition']}")

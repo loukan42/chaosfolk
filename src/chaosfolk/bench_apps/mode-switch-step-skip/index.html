@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Health quote · Chaosfolk benchmark</title>
+<style>body{font:16px/1.5 system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px}button,select{font:inherit;padding:8px;margin:4px 4px 4px 0}ol{padding-left:20px}[aria-current]{font-weight:700}</style>
+<h1>Health quote</h1>
+<ol id="steps"></ol>
+<p><button id="mode">Switch to Form mode</button></p>
+<section id="assistant" aria-label="Assistant"></section>
+<section id="form" aria-label="Form" hidden>
+  <h2 id="form-step" data-step="1"></h2>
+  <label for="field" id="label"></label> <select id="field"></select>
+  <p><button id="back">Back</button> <button id="next">Save and continue</button></p>
+</section>
+<script>
+// Seeded defect: the assistant and the form share one file, but "Save and continue" starts from the
+// assistant's step instead of the form's. After an answer given to the assistant, the form skips a step.
+// ?fixed=1 moves one step on from the form's own step.
+const fixed = new URLSearchParams(location.search).has('fixed');
+const steps = [
+  {name: 'Contract start date', question: 'When should the contract start?', field: 'Start date', choices: ['As soon as possible', 'First of next month']},
+  {name: 'Contract data', question: 'How many people need cover?', field: 'People covered', choices: ['One person', 'Two people']},
+  {name: 'Range choice', question: 'Which range do you prefer?', field: 'Range', choices: ['Essential range', 'Comfort range']},
+  {name: 'Summary'}
+];
+const answers = {};
+let assistantStep = 1, formStep = 1, formMode = false;
+const $ = s => document.querySelector(s);
+
+function show() {
+  const current = formMode ? formStep : assistantStep;
+  $('#steps').replaceChildren(...steps.map((s, i) => {
+    const li = document.createElement('li');
+    li.textContent = s.name;
+    if (i + 1 === current) li.setAttribute('aria-current', 'step');
+    return li;
+  }));
+  $('#mode').textContent = formMode ? 'Switch to Assistant mode' : 'Switch to Form mode';
+  $('#assistant').hidden = formMode;
+  $('#form').hidden = !formMode;
+  const a = steps[assistantStep - 1];
+  $('#assistant').replaceChildren();
+  const p = document.createElement('p');
+  p.textContent = a.question || 'Step done. Your summary is ready.';
+  $('#assistant').append(p);
+  for (const value of a.choices || []) {
+    const b = document.createElement('button');
+    b.textContent = value;
+    b.addEventListener('click', () => { answers[assistantStep] = value; assistantStep += 1; show(); });
+    $('#assistant').append(b);
+  }
+  const f = steps[formStep - 1];
+  $('#form-step').dataset.step = String(formStep);
+  $('#form-step').textContent = `Step ${formStep} · ${f.name}`;
+  $('#label').textContent = f.field || '';
+  $('#field').hidden = !f.choices;
+  $('#field').replaceChildren(...[''].concat(f.choices || []).map(v => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v || 'Choose';
+    return o;
+  }));
+  $('#field').value = answers[formStep] || '';
+  $('#next').hidden = !f.choices;
+}
+
+$('#mode').addEventListener('click', () => { formMode = !formMode; show(); });
+$('#back').addEventListener('click', () => { formStep = Math.max(1, formStep - 1); show(); });
+$('#next').addEventListener('click', () => {
+  if (!$('#field').value) return;
+  answers[formStep] = $('#field').value;
+  formStep = fixed ? formStep + 1 : Math.max(formStep, assistantStep) + 1;
+  assistantStep = Math.max(assistantStep, formStep);
+  show();
+});
+show();
+</script></html>

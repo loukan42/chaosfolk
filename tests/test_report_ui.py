@@ -284,3 +284,26 @@ def test_untrusted_content_and_pending_score(report_page):
     assert page.locator('img[src^="http"]').count() == 0
     for path in ("../private.png", "%2e%2e/private.png", "https://example.com/a.png", "%2f%2fexample.com/a.png"):
         assert not page.evaluate("path=>localImage(path)", path)
+
+
+def test_findings_show_their_type_beside_the_severity(report_page):
+    page, payload, create = report_page
+    findings = payload["constats"]["constats"]
+    findings[0]["type"] = "accessibilite"
+    findings[1]["type"] = '<img src=x onerror="window.pwned=true">'
+    page.goto(create(payload).as_uri())
+    tags = page.locator(".finding-toggle .type-tag")
+    assert tags.count() == 2
+    assert tags.nth(0).inner_text() == "Accessibilité"
+    # the type is free text written by the coordinator: shown as text, never as markup
+    assert tags.nth(1).inner_text() == '<img src=x onerror="window.pwned=true">'
+    assert page.locator(".finding-toggle img").count() == 0 and not page.evaluate("Boolean(window.pwned)")
+    page.get_by_role("button", name="EN", exact=True).click()
+    assert page.locator(".finding-toggle .type-tag").nth(0).inner_text() == "Accessibility"
+    # the tag sits between the severity and the finding id, and a finding without a type has none
+    order = page.locator(".finding-toggle").first.evaluate("el => [...el.children].map(c => c.className.split(' ')[0])")
+    assert order[:3] == ["severity", "pill", "finding-id"]
+    for finding in findings:
+        finding.pop("type", None)
+    page.goto(create(payload).as_uri())
+    assert page.locator(".finding-toggle .type-tag").count() == 0

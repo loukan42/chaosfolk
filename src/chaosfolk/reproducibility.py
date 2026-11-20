@@ -59,9 +59,10 @@ async def _hook(hook, directory, read_result=False):
     # No shell interpolation. Redirect to a temporary file to bound memory even
     # when a configured command is noisy. Never include command output in errors.
     import tempfile
+    from .chaos import hook_environment
     with tempfile.TemporaryFile() as output:
         proc = await asyncio.create_subprocess_exec(
-            *hook["command"], cwd=directory, stdout=output, stderr=subprocess.DEVNULL,
+            *hook["command"], cwd=directory, stdout=output, stderr=subprocess.DEVNULL, env=hook_environment(),
             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0), start_new_session=os.name != "nt")
         try:
             await asyncio.wait_for(proc.wait(), hook.get("timeout", 30))
@@ -112,9 +113,11 @@ async def prepare(environment):
 def git_identity(repo):
     if not repo:
         return None
+    from .planning import git_environment
+
     def git(*args):
         return subprocess.run(["git", "-c", "core.fsmonitor=false", "-c", "core.hooksPath=", "-C", str(repo), *args],  # nosec B603 B607 # fixed git argument list, no shell; repository-configured commands disabled
-                              capture_output=True, text=True,
+                              capture_output=True, text=True, env=git_environment(),
                               timeout=5, check=True, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout.strip()
     try:
         return {"commit": git("rev-parse", "HEAD"), "dirty": bool(git("status", "--porcelain"))}

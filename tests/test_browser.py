@@ -37,7 +37,23 @@ def fixture_url():
         thread.join(timeout=5)
 
 
+def user_key(human, env):
+    """The key a sheet carries for this user: derived from the running session's key, like `sheets` does."""
+    home = Path((env or os.environ).get("CHAOSFOLK_HOME") or Path.home() / ".chaosfolk")
+    try:
+        info = json.loads((home / "active.json").read_text(encoding="utf-8"))
+        session = json.loads((Path(info["dossier"]) / "serveur.json").read_text(encoding="utf-8"))
+        return engine.cle_humain(session["cle_seance"], human)
+    except (OSError, ValueError, KeyError):
+        return None
+
+
 def cli(*args, env=None, timeout=90):
+    # A user's action carries that user's key; the tests play the users the way their sheets do.
+    if args and re.fullmatch(r"[eht]\d+", str(args[0])) and not (env or {}).get("CHAOSFOLK_USER_KEY"):
+        key = user_key(str(args[0]), env)
+        if key:
+            env = dict(env or os.environ, CHAOSFOLK_USER_KEY=key)
     return subprocess.run([sys.executable, "-m", "chaosfolk", *map(str, args)],
                           env=env, capture_output=True, text=True, encoding="utf-8", timeout=timeout,
                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))

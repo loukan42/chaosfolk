@@ -301,6 +301,11 @@ also displayed). Proof keys `apres` and `demontee` capture the fixed and removed
 series. Confirmation requires both resolved trial evidence and a supported
 expectation, regardless of the free-form `statut` label.
 
+Give each finding a `type` to say where the defect lives: `ui`, `ux`, `technique`,
+`accessibilite`, `contenu` or `performance` (English names such as `technical` are read
+too). The report shows it as a tag beside the severity. It is optional and does not change
+the score.
+
 Set `qualification` to `defect`, `product-decision`, `suggestion` or `unverified`.
 For a defect, `expected_basis` must identify the source of the expectation: a
 supplied requirement, documented or visible promise, previously working behavior,

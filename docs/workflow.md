@@ -50,9 +50,17 @@ To let the engine manage a development server, add
 Only use a startup command you trust. The engine stops only apps it starts.
 
 For reconnaissance, create a `scout.json` file containing
-`{"humains":[{"id":"e0","nom":"Scout"}]}`, then run `chaosfolk humans scout.json`,
-`chaosfolk e0 look` and `chaosfolk network`. A scout has no default action cap;
-the coordinator should keep this pass short and end it with `e0 done "..."`.
+`{"humains":[{"id":"e0","nom":"Scout"}]}`, then run `chaosfolk humans scout.json`.
+Every user acts through `python -m chaosfolk.user --key KEY <id> <action>`. The key
+belongs to that user alone: `humans` prints it for the scout, `sheets` writes it into
+each sheet, and the engine refuses an action whose key is not the target user's. With
+the leader token set, the coordinator can also play any user with a plain command such
+as `chaosfolk e0 look`. Play the scout that way, then run `chaosfolk network`.
+A scout has no default action cap;
+the coordinator should keep this pass short and end it with `e0 done '...'`. Put texts
+between straight single quotes: a double-quoted `"$(...)"` would be run by the shell.
+Follow the main path to the end in every mode and write `parcours.json`, then play the
+matrix before drawing the crowd: see [journey.md](journey.md).
 
 On each key page the scout reaches (forms, sign-in, password reset, lists), run
 `chaosfolk fields e0 --save .horde/run/fields.json` to classify its fields, list
@@ -104,6 +112,11 @@ diversity; a user receives goals in seeded order and may attempt several use cas
 Honor requested themes with `--themes`, without claiming that selection proves
 coverage. Record goals left unfinished when the action budget ends.
 
+A user's entry in `personas.json` can set `attente_max`, the cumulative seconds of `wait`
+it may spend (60 by default, from 1 to 1800): raise it for an assistant driven by a model
+that answers slowly. `draw` replaces the users it drew and keeps hand-written ones (scouts,
+directed testers).
+
 The output includes each sheet path in `fiches/`. Delegate one sheet per subagent,
 with at most three active users. Use `--shell posix` for Bash or `--shell powershell`
 for PowerShell. Each user runs its generated command, sees current element
@@ -142,14 +155,15 @@ passive review and use dedicated tools for deeper assessment. Report the actual
 browser and viewport for compatibility; mobile emulation is not a physical device.
 Basic accessibility signals do not establish WCAG conformance.
 
-Useful manual browser commands:
+Useful manual browser commands, with the leader token set (a user's sheet carries the same
+commands behind `python -m chaosfolk.user --key KEY`):
 
 ```bash
 chaosfolk h01 look
-chaosfolk h01 type r7 "Weekend project"
+chaosfolk h01 type r7 'Weekend project'
 chaosfolk h01 click r12
-chaosfolk h01 flag "Saving cleared the draft without confirming success" --severity blocking
-chaosfolk h01 done "I could not save the project."
+chaosfolk h01 flag 'Saving cleared the draft without confirming success' --severity blocking
+chaosfolk h01 done 'I could not save the project.'
 ```
 
 `r7` and `r12` are examples. Read the current screen and use its actual references.

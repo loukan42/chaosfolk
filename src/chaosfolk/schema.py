@@ -4,7 +4,7 @@ Aliases are explicit and scoped. User text and arbitrary JavaScript are never
 rewritten. Existing saved traces remain readable.
 """
 from copy import deepcopy
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 
 def aliases(data, mapping):
@@ -35,6 +35,10 @@ def normalize_scenario(scenario):
     if not isinstance(sessions, dict) or any(not isinstance(v, dict) for v in sessions.values()):
         raise ValueError("Scenario sessions must map a name to its settings")
     result["sessions"] = {name: aliases(v, {"state": "etat", "device": "appareil", "start": "depart"}) for name, v in sessions.items()}
+    # Same rule as a user's sheet: the replay browser opens neither a local file nor another scheme.
+    for start in (result.get("depart"), *(v.get("depart") for v in result["sessions"].values())):
+        if start and (not isinstance(start, str) or urlsplit(urljoin(url, start)).scheme not in ("http", "https")):
+            raise ValueError("A scenario start must be an HTTP(S) address")
     steps = result.get("etapes")
     if not isinstance(steps, list):
         raise ValueError("Scenario steps must be a list")

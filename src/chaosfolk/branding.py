@@ -8,7 +8,11 @@ def report_branding(folder):
     source = Path(__file__).parent
     destination = Path(folder) / "assets"
     destination.mkdir(exist_ok=True)
+    if destination.is_symlink() or not destination.is_dir():
+        raise ValueError(f"{destination} must be a real folder, not a link")
     for name in ("mascot.png", "companions.png", "logo.png", "evidence.js", "playback.js", "room.js"):
+        # A link left in place of a file would make the copy overwrite its target: remove it first.
+        (destination / name).unlink(missing_ok=True)
         shutil.copyfile(source / "templates" / name, destination / name)
     profiles = json.loads((source / "profiles.json").read_text(encoding="utf-8"))["profils"]
     french = [

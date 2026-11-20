@@ -23,6 +23,12 @@ Each audit also limits open user browsers to six by default. Set `max_browsers`
 between 1 and 64 in `limits`, or change it in the dashboard. This bounds simultaneous
 browser contexts; it does not estimate RAM or count Chromium's internal processes.
 
+The catalog covers what can be checked on any product: field formats, error pages, keyboard,
+accessibility. It does not know the business journey. The journey matrix of
+[journey.md](journey.md) runs before the queue, on the same budget, with directed testers who
+have no audit task. Allow about 10 minutes per batch of three testers, more with an assistant
+driven by a model: for a journey of five steps or more, choose Deep or raise the time limit.
+
 The complete checklist has 178 entries: 116 configurable test definitions (including
 the 69 QA checks), plus 62 exploration methods, profiles, assertion methods and
 execution controls. Methods are tools for the audit; their availability is not
@@ -110,6 +116,7 @@ k6 or Appium stay visible. Login throttling additionally requires the capability
 
 ## Execute the queue
 
+Start only after the journey matrix and the reading of the directed testers' reports.
 One task identifies one test on one relevant page, or one product-wide scenario.
 Unassigned work remains queued. Claims are transactional, so concurrent workers
 cannot receive the same task. Do not start one model agent per check.

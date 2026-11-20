@@ -13,6 +13,11 @@ chaosfolk benchmark list
 | `offline-false-success` | A failed request still reports success. |
 | `double-submit-duplicate` | A double click adds the same item twice. |
 | `reload-loses-data` | Saved tasks disappear after a reload. |
+| `mode-switch-step-skip` | After an answer given to the assistant, switching to the form then "Save and continue" skips a step. |
+
+`mode-switch-step-skip` reproduces a defect that a human tester found and that a crowd without the
+journey matrix missed ([journey.md](journey.md)). It matters most for the second question below:
+an exploration that follows the journey guide must find it.
 
 ## Does the harness reproduce known defects?
 

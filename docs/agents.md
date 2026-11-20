@@ -90,9 +90,19 @@ other systems; override it to match the actual shell.
 ## Credentials and concurrent sessions
 
 `launch` prints a leader token. Set `CHAOSFOLK_LEADER_TOKEN` in the coordinator's
-environment for `humans`, `fault`, `fault-end`, `inspect`, `save-state` and `stop`.
+environment for `humans`, `fault`, `faults`, `fault-end`, `inspect`, `save-state` and `stop`.
 Do not give that token to simulated users. This protocol separation is not an OS
 sandbox: agents sharing a user account can access the same files.
+
+Simulated users never run `chaosfolk`. Their sheets call `python -m chaosfolk.user` (also
+installed as `chaosfolk-user`), which accepts only user actions and refuses every leader
+command. You can approve that one command for a whole session without approving
+`serve --app-command`, `replay` or an integration that starts a program. Each sheet also
+carries `--key`, a key of that user alone, derived from a session key the leader writes
+to `serveur.json`. The engine refuses an action whose key does not match the user it
+targets, so a user cannot act in another user's browser or end its session. `goto` and
+`tab new` stay on the origin given to `launch --url`; an app that needs another origin
+(an external sign-in) reaches it through its own links and redirects.
 
 For independent concurrent engine sessions, choose a different state directory:
 
